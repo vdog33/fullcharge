@@ -121,21 +121,29 @@ import { bucketOf, bundleCount, groupForBundles, layout, planDownload } from '..
 test('bundles: stable grouping + download plan', () => {
   const files = Array.from({ length: 1700 }, (_, i) => ({ file: `img/${i.toString(16).padStart(6, '0')}/200/p1.webp`, bytes: 200_000 }));
   const total = files.reduce((a, f) => a + f.bytes, 0); // 340 MB
-  assert.equal(bundleCount(total), 8);
+  assert.equal(bundleCount(total), 10);
   const groups = groupForBundles(files);
   assert.equal(groups.reduce((a, g) => a + g.length, 0), 1700);              // nothing lost
-  assert.ok(groups.every((g) => g.reduce((a, f) => a + f.bytes, 0) < 100_000_000)); // under the 100 MB bucket limit
+  assert.ok(groups.every((g) => g.reduce((a, f) => a + f.bytes, 0) <= 44_000_000)); // under Supabase's 50 MB upload cap
   assert.equal(bucketOf(files[42].file, 8), bucketOf(files[42].file, 8));    // stable
   const ents = layout(groups[0]);
   assert.equal(ents[1].offset, ents[0].length);                              // back to back
   const bundles = groups.map((g, i) => ({ file: `bundles/b${i}.bin`, bytes: g.reduce((a, f) => a + f.bytes, 0), sha256: '', entries: layout(g) }));
   // first install: everything missing -> all bundles, no single files
   const p1 = planDownload(files, () => false, bundles);
-  assert.equal(p1.bundles.length, 8); assert.equal(p1.files.length, 0);
+  assert.equal(p1.bundles.length, groups.length); assert.equal(p1.files.length, 0);
   // small update: 3 files missing -> single files, no bundles
   const missing = new Set([files[1].file, files[500].file, files[900].file]);
   const p2 = planDownload(files, (f) => !missing.has(f), bundles);
   assert.equal(p2.bundles.length, 0); assert.equal(p2.files.length, 3);
   // no bundles published (older server) -> single files
   assert.equal(planDownload(files, () => false, undefined).files.length, 1700);
+});
+
+test('bundles never exceed the 50 MB upload cap, even with lumpy sizes', () => {
+  let seed = 7; const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+  const files = Array.from({ length: 900 }, (_, i) => ({ file: `pdfs/${i}.pdf`, bytes: Math.round(200_000 + rnd() ** 3 * 30_000_000) }));
+  const groups = groupForBundles(files);
+  assert.equal(groups.reduce((a, g) => a + g.length, 0), 900);
+  assert.ok(groups.every((g) => g.reduce((a, f) => a + f.bytes, 0) <= 44_000_000 || g.length === 1));
 });

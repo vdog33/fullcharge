@@ -71,13 +71,18 @@ function buildBundles(key, files) {
 }
 const setFiles = (pred, pick) => {
   const u = new Map();
-  for (const g of items.filter(pred)) for (const f of pick(g)) if (!u.has(f.file)) u.set(f.file, { file: f.file, bytes: f.bytes, local: localFile.get(f.file) });
-  return [...u.values()].map((f) => ({ ...f, bytes: statSync(f.local).size }));
+  for (const g of items.filter(pred)) for (const f of pick(g)) if (f.file && !u.has(f.file)) u.set(f.file, { file: f.file, bytes: f.bytes, local: localFile.get(f.file) });
+  const ok = [...u.values()].filter((f) => f.local && existsSync(f.local));
+  const missing = u.size - ok.length;
+  if (missing) console.log(`  ⚠ ${missing} file(s) not found on this PC — left out of bundles (phones fetch them one by one).`);
+  return ok.map((f) => ({ ...f, bytes: statSync(f.local).size }));
 };
+// A sheet listed as BOTH an ERG and a rescue sheet becomes page images, so either pack may hold images.
+const pickFiles = (dpi) => (g) => (g.images ? g.images[dpi].pages : [{ file: g.file, bytes: g.bytes }]);
 const bundles = {
-  'rescue_sheet:200': buildBundles('rescue_sheet:200', setFiles((g) => g.docType === 'rescue_sheet', (g) => (g.images ? g.images['200'].pages : [{ file: g.file, bytes: g.bytes }]))),
-  'rescue_sheet:300': buildBundles('rescue_sheet:300', setFiles((g) => g.docType === 'rescue_sheet', (g) => (g.images ? g.images['300'].pages : [{ file: g.file, bytes: g.bytes }]))),
-  erg: buildBundles('erg', setFiles((g) => g.docType !== 'rescue_sheet', (g) => [{ file: g.file, bytes: g.bytes }])),
+  'rescue_sheet:200': buildBundles('rescue_sheet:200', setFiles((g) => g.docType === 'rescue_sheet', pickFiles('200'))),
+  'rescue_sheet:300': buildBundles('rescue_sheet:300', setFiles((g) => g.docType === 'rescue_sheet', pickFiles('300'))),
+  erg: buildBundles('erg', setFiles((g) => g.docType !== 'rescue_sheet', pickFiles('200'))), // iPad fetches its few 300-dpi pages singly
 };
 
 const sum = (a) => a.reduce((x, y) => x + y, 0);

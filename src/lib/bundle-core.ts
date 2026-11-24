@@ -5,7 +5,9 @@
 export type BundleEntry = { file: string; offset: number; length: number };
 export type Bundle = { file: string; bytes: number; sha256: string; entries: BundleEntry[] };
 
-export const BUNDLE_TARGET = 48_000_000;
+export const BUNDLE_TARGET = 36_000_000;
+/** Supabase caps each upload at 50 MB on this project, so no bundle may pass this. */
+export const BUNDLE_MAX = 44_000_000;
 
 /** Stable 32-bit FNV-1a hash — the same file always lands in the same bundle, so an update
  *  only changes the bundles whose contents changed (unchanged bundles keep their name and aren't refetched). */
@@ -22,7 +24,17 @@ export function groupForBundles<T extends { file: string; bytes: number }>(files
   const n = bundleCount(files.reduce((a, f) => a + f.bytes, 0));
   const buckets: T[][] = Array.from({ length: n }, () => []);
   for (const f of files) buckets[bucketOf(f.file, n)].push(f);
-  return buckets.filter((b) => b.length).map((b) => b.sort((x, y) => (x.file < y.file ? -1 : 1)));
+  // Any bucket that came out too big is split in path order, so no bundle exceeds BUNDLE_MAX.
+  const out: T[][] = [];
+  for (const b of buckets.filter((x) => x.length).map((x) => x.sort((p, q) => (p.file < q.file ? -1 : 1)))) {
+    let cur: T[] = [], size = 0;
+    for (const f of b) {
+      if (cur.length && size + f.bytes > BUNDLE_MAX) { out.push(cur); cur = []; size = 0; }
+      cur.push(f); size += f.bytes;
+    }
+    if (cur.length) out.push(cur);
+  }
+  return out;
 }
 
 /** Byte layout of one bundle (files back to back). */
