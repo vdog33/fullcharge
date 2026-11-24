@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "FULLCHARGE",
+    "slug": "fullcharge",
+    "scheme": "fullcharge",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0A0A0A",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "ios": {
+      "bundleIdentifier": "com.fullcharge.rescue",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "FULLCHARGE uses the camera to photograph a vehicle and suggest which model it is. You always confirm the match.",
+        "NSPhotoLibraryUsageDescription": "Pick a photo of a vehicle to suggest which model it is.",
+        "NSLocationWhenInUseUsageDescription": "Your location centres the isolation-zone map on the scene.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "requireFullScreen": true
+    },
+    "android": {
+      "package": "com.fullcharge.rescue",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "FULLCHARGE uses the camera to photograph a vehicle and suggest which model it is."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Your location centres the isolation-zone map on the scene."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

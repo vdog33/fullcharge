@@ -1,0 +1,834 @@
+{
+ "app": "FULLCHARGE",
+ "subtitle": "ERG · EVR · BESS EXPERT",
+ "data_version": "2026-11-22",
+ "source": "Live FULLCHARGE app embedded catalog, extracted 2026-11-21/22; last ERG PDF audit 2026-11-20",
+ "vehicles": [
+  {
+   "id": "model-y",
+   "make": "Tesla",
+   "model": "Model Y",
+   "years": "2020–present",
+   "type": "BEV",
+   "chemistry": "Varies: Panasonic / LG 2170 NMC / NCA · Tesla 4680 · CATL LFP (Std RWD). Check ERG.",
+   "chemistry_verified": "partial",
+   "pack": "Check ERG — varies by trim and year",
+   "cut_loop": "Loop under hood — double-cut. Kills HV outside pack + airbags; powered seats still work. 2nd loop: behind rear right seat (2025+). Full de-power: loop cut + LV negative cut + wait 2 min.",
+   "lv_location": "16V (2025+) · 12V (2020–24). Hold off securing LV while you need powered seats / doors — loop cut already killed the airbags.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene for the full no-cut diagram.",
+   "airbag_hv": "Loop cut disables airbags. No engine noise ≠ off — silent movement possible.",
+   "tow": "Flatbed only — all wheels up. Rear motor generates power if wheels spin.",
+   "release": "2025+ rule: 45 min clear — no fire, smoke, popping, hissing, heating — before release. Then 50 ft quarantine, TIC check, escorted tow.",
+   "id_cues": [
+    "coupe-SUV roofline short rear hatch",
+    "flush handles, no grille",
+    "fender camera housing",
+    "no rear model badge (may say DUAL MOTOR)",
+    "big touchscreen, no dash cluster"
+   ],
+   "erg_pdf_url": "https://www.tesla.com/sites/default/files/downloads/Model_Y_Emergency_Response_Guide_en.pdf?ref=teslaowners.uk",
+   "erg_pdf_label": "Tesla Model Y — Manufacturer Emergency Response Guide (PDF)",
+   "erg_verified_note": "Browser-verified 2026-11-20; tesla.com bot-blocks scripted fetches (403) — re-verify live before shipping."
+  },
+  {
+   "id": "model-3",
+   "make": "Tesla",
+   "model": "Model 3",
+   "years": "2017–present",
+   "type": "BEV",
+   "chemistry": "Check ERG — varies by build and market",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim and year",
+   "cut_loop": "Loop under hood — double-cut, remove section. Alt loop: behind right rear side window. Full de-power: loop + LV negative cut + wait 2 min.",
+   "lv_location": "LV battery under hood. Hold off securing LV while you need powered seats / doors.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "SRS backup power ~10 sec after deployment — don't touch the SRS unit in that window. Treat all HV as live after the loop cut.",
+   "tow": "Flatbed only — rear wheels never on the ground.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "low Tesla sedan — flush handles, no grille",
+    "glass roof, short deck, no rear model badge",
+    "fender camera housing",
+    "single big touchscreen, no dash cluster"
+   ],
+   "erg_pdf_url": "https://digitalassets.tesla.com/tesla-contents/image/upload/Model_3_Emergency_Response_Guide_en.pdf",
+   "erg_pdf_label": "Tesla Model 3 — Manufacturer Emergency Response Guide (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "id4",
+   "make": "Volkswagen",
+   "model": "ID.4",
+   "years": "2021–present",
+   "type": "BEV",
+   "chemistry": "SK On pouch cells. Chemistry: check ERG.",
+   "chemistry_verified": "partial",
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "NO Tesla-style loop. (1) Front cut-out: pull red tab, pull black connector apart. (2) Flagged HV fuse, cabin. (3) Cut cable at yellow label — luggage floor, rear. ID.4: fuse in dash fuse box.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Airbag deployment kills HV in ~20 sec.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "rounded mid-size SUV, full-width front light bar with lit VW badge",
+    "silver roof rails and D-pillar accent sweeping into rear",
+    "no exhaust, closed front panel, 'ID.4' badge on rear"
+   ],
+   "erg_pdf_url": "https://www.volkswagen.de/idhub/content/dam/onehub_pkw/importers/ca/2026/en/general/emergency-responder-guides/id-4/RescueSheet-Volkswagen_ID4_2025.pdf",
+   "erg_pdf_label": "Volkswagen ID.4 — Manufacturer Rescue Sheet, USA / Canada (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "q4-etron",
+   "make": "Audi",
+   "model": "Q4 e-tron",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "SK On pouch cells (shared VW MEB platform). Chemistry: check ERG.",
+   "chemistry_verified": "partial",
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "NO Tesla-style loop (MEB, as ID.4). Q4: fuse by the steering column.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Airbag deployment kills HV in ~20 sec.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "compact SUV, big closed Audi grille panel with four-ring badge",
+    "short hood, muscular rear haunches, full-width rear light bar",
+    "'Q4 e-tron' badge on rear; Sportback slopes hard at back"
+   ],
+   "erg_pdf_url": "https://www.audi.com/en/publications/more/audi-q4-e-tron-suv-2021-5d-electric-en-2218/download",
+   "erg_pdf_label": "Audi Q4 e-tron — Manufacturer Rescue Sheet (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "eqb",
+   "make": "Mercedes-Benz",
+   "model": "EQB",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Farasis pouch cells. Chemistry: check ERG.",
+   "chemistry_verified": "partial",
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "HV disconnect under hood: press release tab, pull device until it engages.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Disconnect manually only if: restraint lamp lit after crash, or heavy damage + restraints not triggered.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "boxy upright small SUV — squarest in EQ line",
+    "black closed grille panel with Mercedes star, full-width light bars front/rear",
+    "'EQB' badge on rear; roof rails, near-vertical tailgate"
+   ],
+   "erg_pdf_url": "https://rk.mb-qr.com/media/filer_public/d6/a4/d6a4646b-cb8a-4c4d-875a-8e7fd4252afe/mercedes-eq_eqb_300-4matic_suv_2021_5d_electric_en_243608v25.pdf?737477",
+   "erg_pdf_label": "Mercedes-Benz EQB — Manufacturer Rescue Card (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "bmw-i5",
+   "make": "BMW",
+   "model": "i5",
+   "years": "2024–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG",
+   "cut_loop": "Cut labelled LV cable under hood (remove cover). Alt: tailgate, right-side cover. Then disconnect 12V in luggage compartment.",
+   "lv_location": "12V in luggage compartment — disconnect after the cable cut.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "mid-size luxury sedan, large kidney grille (lit surround on many)",
+    "'i5' badge on rear; flush-ish handles, long hood, short deck",
+    "near-identical to gas 5 Series — check badge and charge port"
+   ],
+   "erg_pdf_url": "https://euroncaprescuesheets.blob.core.windows.net/rescuesheets/BMW/BMW_i5__Sedan_2023_4d_Electric_EN.pdf",
+   "erg_pdf_label": "BMW i5 — Manufacturer Rescue Sheet via Euro NCAP (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "bmw-i7",
+   "make": "BMW",
+   "model": "i7",
+   "years": "2023–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG",
+   "cut_loop": "Cut labelled LV cable under hood (remove cover). Alt: tailgate, right-side cover. Then disconnect 12V in luggage compartment.",
+   "lv_location": "12V in luggage compartment — disconnect after the cable cut.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "full-size luxury sedan — very tall, split headlights with crystal daytime lights",
+    "huge lit kidney grille, 'i7' badge on rear; long rear doors",
+    "near-identical to gas 7 Series — check badge"
+   ],
+   "erg_pdf_url": "https://api.rescue.euroncap.com/euro-rescue/rescue-documents/en/BMW_7_Series__Sedan_2022_4d_Electric_EN.pdf",
+   "erg_pdf_label": "BMW i7 — Manufacturer Rescue Sheet via Euro NCAP (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "mach-e",
+   "make": "Ford",
+   "model": "Mustang Mach-E",
+   "years": "2021–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Urgent: remove left underhood trim, cut wires at LV Service Disconnect, isolate wires. Non-urgent: HV service disconnect under hood (release CPA clip, pull up to OFF). Wait ≥5 min.",
+   "lv_location": "12V in front compartment. Cut 12V negative → disables SRS.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Airbags: driver, passenger, side, curtain, knee. 12V negative cut disables SRS.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "coupe-SUV with Mustang tri-bar tail lights and pony badges",
+    "long hood, no visible rear door handles (small fin on rear door edge)",
+    "closed grille panel with lit pony on some trims"
+   ],
+   "erg_pdf_url": "https://www.ford.com/content/dam/brand_ford/en_us/brand/firstresponder/pdf/ford/RescueSheet-Ford-Mach-E-2021-2024.pdf",
+   "erg_pdf_label": "Ford Mustang Mach-E — Manufacturer Rescue Sheet (PDF)",
+   "erg_verified_note": "Browser-verified 2026-11-20; ford.com bot-blocks scripted fetches (403) — re-verify live before shipping."
+  },
+  {
+   "id": "f150-lightning",
+   "make": "Ford",
+   "model": "F-150 Lightning",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Remove left underhood trim, cut wires at LV Service Disconnect, isolate wires. Non-urgent: full ERG procedure. Wait ≥5 min.",
+   "lv_location": "Cut 12V negative at two points 3 in (7.6 cm) apart → disables SRS.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack / frame rails. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "full-size F-150 body with full-width front light bar",
+    "charge port door on front fender, 'Lightning' badge on bed side",
+    "no exhaust; huge front trunk"
+   ],
+   "erg_pdf_url": "https://www.ford.com/acslibs/content/dam/na/ford/en_us/images/campaigns/brand/firstresponder/documents/2022-2025_F-150_Lightning_Rescue_Card_v0725.pdf",
+   "erg_pdf_label": "Ford F-150 Lightning — Manufacturer Rescue Card (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "ioniq-5",
+   "make": "Hyundai",
+   "model": "Ioniq 5",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Power OFF → disconnect 12V → remove HV safety plug (ERG). Never touch orange HV before the plug is out. Wait ≥5 min.",
+   "lv_location": "12V in front compartment — disconnect negative (part of disable).",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "SRS live up to 3 min after 12V off — wait ≥5 min before work.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "sharp angular hatchback-crossover — origami creases down doors",
+    "pixel-style square lights front/rear; 'IONIQ 5' badge on rear",
+    "looks smaller than it is — SUV-sized"
+   ],
+   "erg_pdf_url": "https://owners.hyundaiusa.com/content/dam/hyundai/us/myhyundai/manuals/erqrg/2025/ioniq-5/Emergency%20Reponse%20Guide%20IONIQ5%202025MY%2B.pdf",
+   "erg_pdf_label": "Hyundai IONIQ 5 — Manufacturer Emergency Response Guide (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit. NOTE: 'Reponse' typo is in the real URL — keep verbatim."
+  },
+  {
+   "id": "ev6",
+   "make": "Kia",
+   "model": "EV6",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Pull yellow lever on HV cut-off switch. Disconnect 12V aux battery (ERG).",
+   "lv_location": "12V aux — disconnect terminal once done with powered systems.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Flatbed or dollies — all wheels up. AWD: never tow wheels-down.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "low wide fastback crossover — long sloping rear with ducktail spoiler",
+    "full-width rear light bar wrapping into rear fenders",
+    "flush pop-out door handles, 'EV6' badge on rear"
+   ],
+   "erg_pdf_url": "https://www.kia.ca/content/dam/marketing/documents/en/first-responder-guide/ERG - 2022 EV6.pdf",
+   "erg_pdf_label": "Kia EV6 — Manufacturer Emergency Response Guide (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit. NOTE: spaces are in the real URL — keep verbatim."
+  },
+  {
+   "id": "r1t",
+   "make": "Rivian",
+   "model": "R1T",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by build",
+   "cut_loop": "Under hood: lift right air-intake cover, find loop with yellow cut tag, cut both ends. Kills HV to the rest of the vehicle.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "pickup with oval 'stadium' headlights and full-width light bar",
+    "gear tunnel door outline behind cab, flush handles",
+    "no grille or exhaust; 'RIVIAN' lettering on tailgate"
+   ],
+   "erg_pdf_url": "https://assets.rivian.com/2md5qhoeajym/qPvr9g8P9P8LsY9VwHrDI/e3f8ab3d005b938c14232ab81da10c40/r1t-erg-en-us-20240610.pdf",
+   "erg_pdf_label": "Rivian R1T — Manufacturer Emergency Response Guide (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "r1s",
+   "make": "Rivian",
+   "model": "R1S",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by build",
+   "cut_loop": "Under hood: lift right air-intake cover, find loop with yellow cut tag, cut both ends. Kills HV to the rest of the vehicle.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "full-size boxy SUV with oval 'stadium' headlights and full-width light bar",
+    "same front end as R1T but full wagon body — no bed",
+    "flush handles, no exhaust; 'RIVIAN' lettering on tailgate"
+   ],
+   "erg_pdf_url": "https://assets.ctfassets.net/2md5qhoeajym/6Xo3Pvc6tNGAhVpADI9Qyu/9f08db9ffcdca63a08f14bf4290a3ef8/r1s-erg-en-us-20250507.pdf",
+   "erg_pdf_label": "Rivian R1S — Manufacturer Emergency Response Guide (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "equinox-ev",
+   "make": "Chevrolet",
+   "model": "Equinox EV",
+   "years": "2024–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Hood release ×2, remove sight shield, double-cut loop (yellow tape), remove section. Wait ≥1 min discharge. Do NOT kill 12V first — it powers runaway alert / mitigation.",
+   "lv_location": "Keep 12V connected — powers runaway alert / mitigation. 12V negative off = airbags off, mitigation off.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "compact SUV with full-width front light bar and split headlights",
+    "flush door handles, closed grille panel with bowtie badge",
+    "'Equinox EV' badge on rear; smaller than Blazer EV"
+   ],
+   "erg_pdf_url": "https://www.gmstc.com/wp-content/uploads/2026/06/Chevrolet_Equinox-EV__SUV_2024_5d_Electric_EN_3GN-23105.pdf",
+   "erg_pdf_label": "Chevrolet Equinox EV — GM Emergency Response Guide / Rescue Sheet (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "blazer-ev",
+   "make": "Chevrolet",
+   "model": "Blazer EV",
+   "years": "2024–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Double-cut loop (yellow tape) under hood. Wait ≥1 min discharge. Do NOT kill 12V first — it powers runaway alert / mitigation.",
+   "lv_location": "Keep 12V connected — powers runaway alert / mitigation (GM rule, same as Equinox / Hummer).",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "mid-size SUV, sportier and longer than Equinox EV",
+    "full-width front light bar with lit bowtie, big sculpted fenders",
+    "'Blazer' badge on front doors / rear"
+   ],
+   "erg_pdf_url": "https://www.gmstc.com/wp-content/uploads/2023/05/Chevrolet-Blazer-EV-2024-Emergency-Response-Guide-en_US.pdf",
+   "erg_pdf_label": "Chevrolet Blazer EV — GM Emergency Response Guide (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "hummer-ev",
+   "make": "GMC",
+   "model": "Hummer EV",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — very large pack; confirm in ERG",
+   "cut_loop": "Open hood (grille touchpad / dash switch / driver-footwell cable), remove sight shield, double-cut loop (yellow tape). Wait ≥1 min. Do NOT kill 12V first — powers runaway alert / mitigation.",
+   "lv_location": "Keep 12V connected — powers runaway alert / mitigation. 12V negative off = airbags off, mitigation off.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "enormous squared-off truck (or SUV version) — nothing else is this wide",
+    "full-width front light bar with 'HUMMER' lettering in lamps",
+    "removable roof panels, huge off-road tires, no exhaust"
+   ],
+   "erg_pdf_url": "https://www.gmstc.com/wp-content/uploads/2025/03/GMC_HUMMER-EV_AWD_Pick-up_2022_4d_Electric_EN_1GT-21101.pdf",
+   "erg_pdf_label": "GMC Hummer EV — GM Rescue Sheet (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "lucid-air",
+   "make": "Lucid",
+   "model": "Air",
+   "years": "2022–present",
+   "type": "BEV",
+   "chemistry": "Check ERG",
+   "chemistry_verified": false,
+   "pack": "Check ERG — varies by trim",
+   "cut_loop": "Open hood, pull up access panel, double-cut loop, disable 12V. Treat pack + HV as live — cells hold stored energy.",
+   "lv_location": "Two LV batteries: under rear seat cushion + trunk right-side panel. Loop cut does NOT kill LV.",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Flatbed only — dollies NOT permitted (manufacturer sheet).",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "long low luxury sedan with full-width chrome-trim light bar",
+    "'LUCID' lettering across nose and rear light bar",
+    "very long wheelbase, glass canopy roof, flush handles"
+   ],
+   "erg_pdf_url": "https://api.rescue.euroncap.com/euro-rescue/rescue-documents/en/Lucid_Air__Sedan_2022_4d_Electric_EN.pdf",
+   "erg_pdf_label": "Lucid Air — Manufacturer Rescue Sheet via Euro NCAP (PDF)",
+   "erg_verified_note": "HTTP 200 + application/pdf, 2026-11-20 audit."
+  },
+  {
+   "id": "wrangler-4xe",
+   "make": "Jeep",
+   "model": "Wrangler 4xe",
+   "years": "2021–present",
+   "type": "PHEV",
+   "chemistry": "NMC",
+   "chemistry_verified": true,
+   "pack": "17.3 kWh, mounted under the rear seat",
+   "cut_loop": "FIRST: check 68C remedy on VIN — manufacturer-admitted separator defect / internal short; fires after the software fix. MAIN: unplug charger, ignition OFF, fob ≥20 ft away, hood open, cut a segment out at EACH of two responder cut tapes — kills HV + LV + restraints. ALT: remove driver-side rear seat, unscrew HV cover (HV only; restraints stay live; opens case to water). Wait 5 min — capacitors drain.",
+   "lv_location": "12V disconnect kills restraints here — real trade-off (unlike Model Y). Disconnect only when done with powered systems. Wait 5 min.",
+   "no_cut_zones": "Pack under rear seat — rear seat base + floor = no-cut. No-cut: HV cables, airbag inflators. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "12V disconnect de-powers restraints after the wait. Confirm in the ERG / EVR app on scene.",
+   "tow": "Transfer-case neutral defeats PARK. Do NOT push. Tow ≤12 ft/min. Confirm in the ERG / EVR app on scene.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "a Wrangler — boxy, removable top, external hinges — with blue accents",
+    "charge port at base of driver-side windshield cowl",
+    "'4xe' badge with blue lettering on rear; blue tow hooks on many trims"
+   ],
+   "erg_pdf_url": "https://www.Mopar.com/content/dam/mopar/images/first-responders/pdf/JL_4Xe_Rescue_Sheet_2024.pdf",
+   "erg_pdf_label": "Jeep Wrangler 4xe — Mopar / Stellantis Rescue Sheet (PDF)",
+   "erg_verified_note": "Browser-verified 2026-11-20; mopar.com bot-blocks scripted fetches (403) — re-verify live before shipping.",
+   "watch_for": "9 fires reported AFTER the software fix. 68C status unknown = treat pack as suspect: extra TIC checks, full 50 ft quarantine, written handoff."
+  },
+  {
+   "id": "bz4x",
+   "make": "Toyota",
+   "model": "bZ4X",
+   "years": "2023–present",
+   "type": "BEV",
+   "chemistry": "Lithium-ion",
+   "chemistry_verified": true,
+   "pack": "Li-ion BEV pack — check ERG for capacity",
+   "cut_loop": "No Tesla-style loop. Main: power off, key fob 16+ ft away. Alternative: pull IGP-MAIN NO.1 fuse (30 A, green). Operate locks/windows/seats BEFORE disconnecting 12V.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "Confirm in the ERG / EVR app on scene.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "Compact SUV with black fender cladding wrapping over wheel arches; closed nose with slim hammerhead lights; 'bZ4X' badge on rear"
+   ],
+   "erg_pdf_url": "https://api.rescue.euroncap.com/euro-rescue/rescue-documents/en/Toyota_bZ4X__SUV_2022_5d_Electric_EN.pdf",
+   "erg_pdf_label": "Toyota bZ4X — Manufacturer Rescue Sheet via Euro NCAP (PDF)",
+   "erg_verified_note": "Rescue sheet BZ4X10 v01, 03/2022 — HTTP 200 + application/pdf, verified live 2026-11-21."
+  },
+  {
+   "id": "prius-prime",
+   "make": "Toyota",
+   "model": "Prius Prime",
+   "years": "2023–present",
+   "type": "PHEV",
+   "chemistry": "Lithium-ion",
+   "chemistry_verified": true,
+   "pack": "Li-ion PHEV pack + 40 L gasoline tank",
+   "cut_loop": "No Tesla-style loop. Main: power off, key fob 16+ ft away. Alternative: pull IGP-MAIN fuse (25 A, clear). Operate locks/windows/seats BEFORE disconnecting 12V.",
+   "lv_location": "Confirm in the ERG / EVR app on scene",
+   "no_cut_zones": "HV cables (blue/orange/yellow), airbag inflators, floor pack. Confirm in the ERG / EVR app on scene.",
+   "airbag_hv": "No engine noise ≠ off — silent movement possible until fully shut down.",
+   "tow": "Confirm in the ERG / EVR app on scene before the wheels turn.",
+   "release": "Quarantine 50 ft from structures. TIC check before release: smoke, sound, rising temp. Escort the tow. Stranded energy lasts months — moving it can short + reignite.",
+   "id_cues": [
+    "Low wedge hatchback, plug door on rear fender — still has an HV pack",
+    "5-door hatchback; 'PRIUS PRIME' badge on rear"
+   ],
+   "erg_pdf_url": "https://api.rescue.euroncap.com/euro-rescue/rescue-documents/en/Toyota_Prius_PHEV_SUV_2023_5d_Hybrid_EN.pdf",
+   "erg_pdf_label": "Toyota Prius Prime / Prius PHEV — Manufacturer Rescue Sheet via Euro NCAP (PDF)",
+   "erg_verified_note": "Rescue sheet PRIUSPHV61 v01, 03/2023 — HTTP 200 + application/pdf, verified live 2026-11-21."
+  }
+ ],
+ "bess": [
+  {
+   "id": "powerwall-3",
+   "name": "Tesla Powerwall 3",
+   "chemistry": "LFP",
+   "chemistry_verified": true,
+   "kwh_usable": "13.5",
+   "coupling": "AC-coupled, solar inverter built in",
+   "disconnect": "Shutdown Switch (or Enable switch) + breakers — see card.",
+   "contact_name": "Tesla Powerwall support",
+   "contact_phone": "+1 877-961-7652",
+   "contact_note": "Verified emergency / support line.",
+   "shutdown_verified": true,
+   "shutdown_steps": [
+    "Solar AC breakers OFF.",
+    "System Shutdown Switch OFF — or, if none, Powerwall Enable switch OFF.",
+    "Powerwall AC breaker OFF (open).",
+    "Wait 30 seconds.",
+    "DC isolator OFF.",
+    "Gateway AC breaker OFF.",
+    "Lock out / tag out.",
+    "TIC re-check — cells still hold stranded energy."
+   ],
+   "recalls": null
+  },
+  {
+   "id": "powerwall-2",
+   "name": "Tesla Powerwall 2",
+   "chemistry": "NMC",
+   "chemistry_verified": true,
+   "kwh_usable": "13.5",
+   "coupling": "AC-coupled",
+   "disconnect": "Enable switch + AC breaker. Confirm in the ERG / EVR app on scene.",
+   "contact_name": "Tesla Powerwall support",
+   "contact_phone": "+1 877-961-7652",
+   "contact_note": "Verified line. RECALL (Nov 2025): ~10,500 units — 22 overheating, 6 smoke, 5 fires. Hot / smoking PW2 = recalled-unit fire until proven otherwise.",
+   "shutdown_verified": false,
+   "shutdown_steps": "GENERIC_NEC_70615",
+   "recalls": "Nov 2025: ~10,500 units — 22 overheating, 6 smoke, 5 fires."
+  },
+  {
+   "id": "enphase-5p",
+   "name": "Enphase IQ Battery 5P",
+   "chemistry": "LFP",
+   "chemistry_verified": true,
+   "kwh_usable": "5.0 per unit (often stacked)",
+   "coupling": "AC-coupled",
+   "disconnect": "System Controller rapid shutdown + AC disconnect — see card.",
+   "contact_name": "Enphase support",
+   "contact_phone": "(877) 797-4743",
+   "contact_note": "Enphase emergency chemical line: ChemTel (800) 255-3924.",
+   "shutdown_verified": true,
+   "shutdown_steps": [
+    "Rapid shutdown at the System Controller.",
+    "Open the AC disconnect for the battery circuit.",
+    "Lock out / tag out.",
+    "TIC re-check — cells hold stranded energy."
+   ],
+   "recalls": null
+  },
+  {
+   "id": "franklinwh-apower-2",
+   "name": "FranklinWH aPower 2",
+   "chemistry": "LFP",
+   "chemistry_verified": true,
+   "kwh_usable": "15 per unit",
+   "coupling": "AC-coupled, managed through the aGate controller",
+   "disconnect": "aGate breakers + aPower switch. Confirm in the ERG / EVR app on scene.",
+   "contact_name": "FranklinWH support",
+   "contact_phone": "888-851-3188",
+   "contact_note": "Verified support line.",
+   "shutdown_verified": false,
+   "shutdown_steps": "GENERIC_NEC_70615",
+   "recalls": null
+  },
+  {
+   "id": "solaredge-home-battery",
+   "name": "SolarEdge Home Battery",
+   "chemistry": "NMC",
+   "chemistry_verified": true,
+   "kwh_usable": "9.7 per unit",
+   "coupling": "DC-coupled through a SolarEdge inverter",
+   "disconnect": "Inverter switch / rapid shutdown + battery breaker. Confirm in the ERG / EVR app on scene.",
+   "contact_name": "SolarEdge support",
+   "contact_phone": "+1 510-498-3200",
+   "contact_note": "Verified support line.",
+   "shutdown_verified": false,
+   "shutdown_steps": "GENERIC_NEC_70615",
+   "recalls": null
+  },
+  {
+   "id": "lg-resu-prime",
+   "name": "LG Energy Solution RESU Prime",
+   "chemistry": "NMC",
+   "chemistry_verified": true,
+   "kwh_usable": "9.6 or 16 (RESU10H / 16H Prime)",
+   "coupling": "DC-coupled through a compatible inverter",
+   "disconnect": "Unit breaker / disconnect + inverter shutdown. Confirm in the ERG / EVR app on scene.",
+   "contact_name": "LG support",
+   "contact_phone": "+1 888-375-8044",
+   "contact_note": "Verified line. RECALLS 2020–22: RESU 10H, ~10,000–11,500 units — smoking / fires.",
+   "shutdown_verified": false,
+   "shutdown_steps": "GENERIC_NEC_70615",
+   "recalls": "2020–22: RESU 10H, ~10,000–11,500 units — smoking / fires."
+  },
+  {
+   "id": "generac-pwrcell",
+   "name": "Generac PWRcell",
+   "chemistry": "NMC",
+   "chemistry_verified": true,
+   "kwh_usable": "9–18 depending on module count",
+   "coupling": "DC-coupled through the PWRcell inverter",
+   "disconnect": "System disconnect + cabinet breakers. Confirm in the ERG / EVR app on scene.",
+   "contact_name": "Generac support",
+   "contact_phone": "1-888-436-3722",
+   "contact_note": "Verified support line.",
+   "shutdown_verified": false,
+   "shutdown_steps": "GENERIC_NEC_70615",
+   "recalls": null
+  },
+  {
+   "id": "panasonic-evervolt",
+   "name": "Panasonic EverVolt",
+   "chemistry": "NMC",
+   "chemistry_verified": true,
+   "kwh_usable": "11.4 or 17.1 depending on build",
+   "coupling": "AC- or DC-coupled depending on build",
+   "disconnect": "System disconnect + inverter shutdown. Confirm in the ERG / EVR app on scene.",
+   "contact_name": "Panasonic",
+   "contact_phone": null,
+   "contact_note": "NO verified emergency phone — do not guess one. Panasonic support page + CHEMTREC 1-800-424-9300.",
+   "shutdown_verified": false,
+   "shutdown_steps": "GENERIC_NEC_70615",
+   "recalls": null
+  }
+ ],
+ "generic_shutdown": {
+  "title": "Generic NEC 706.15 shutdown — confirm in ERG",
+  "verified": false,
+  "steps": [
+   "Labelled ESS disconnect / rapid-shutdown switch (NEC 706.15 — at system or service entrance): OFF.",
+   "Open battery / inverter AC breaker at panel.",
+   "Open any labelled DC isolator on the battery unit.",
+   "Lock out / tag out if possible.",
+   "TIC re-check.",
+   "Shutdown ≠ de-energized — cells hold stranded energy. Treat as live inside."
+  ]
+ },
+ "shared_contacts": [
+  {
+   "name": "CHEMTREC",
+   "phone": "1-800-424-9300",
+   "note": "24/7 chemical emergency"
+  },
+  {
+   "name": "ChemTel",
+   "phone": "(800) 255-3924",
+   "note": "Enphase chemical line"
+  }
+ ],
+ "bess_chemistry": {
+  "lfp_onset_f": "~518",
+  "lfp_note": "Later, less violent. Vent gas ~41% hydrogen — deflagration risk in closed spaces.",
+  "nmc_onset_f": "320–410",
+  "nmc_note": "Earlier, faster, releases its own oxygen. Both vent HF + toxics. HF IDLH 30 ppm. 4-gas does NOT read HF / HCN.",
+  "fail_points": {
+   "bms_percent": 46,
+   "inverters_percent": 43,
+   "cells_modules_percent": 11
+  }
+ },
+ "hazmat_erg_147": {
+  "guide": "147",
+  "title": "Lithium Ion and Sodium Ion Batteries",
+  "source": "DOT ERG 2024, pp. 223–224",
+  "un_numbers": [
+   "UN3480",
+   "UN3481"
+  ],
+  "hazard_class": "9",
+  "guide_147_pdf_url": "https://m.cameochemicals.noaa.gov/erg_guides/en/Guide_147.pdf",
+  "full_erg_2024_pdf_url": "https://www.phmsa.dot.gov/sites/phmsa.dot.gov/files/2024-04/ERG2024-Eng-Web-a.pdf",
+  "cameo_un3480_url": "https://cameochemicals.noaa.gov/report?key=UN3480",
+  "distances": {
+   "isolate_ft": 75,
+   "isolate_m": 25,
+   "large_spill_downwind_ft": 330,
+   "large_spill_downwind_m": 100,
+   "rail_trailer_fire_ft": 1760,
+   "rail_trailer_fire_m": 500,
+   "rail_trailer_fire_label": "1/3 mile"
+  },
+  "fire_notes": [
+   "Battery fire can reignite any time after knockdown — up to weeks later.",
+   "TIC-monitor continuously.",
+   "NO salt water — increases hydrogen + HF gas.",
+   "Reignition signs: white smoke off-gassing, arcs/sparks, flames."
+  ],
+  "honest_limit": "Planning estimate only — Guide 147 lists NO green-page distances. Minimums, not maximums. Confirm: Hazmat + live monitoring + wind. Unsure of chemistry? Use the largest zone.",
+  "vent_notes": {
+   "nmc_nca": "cathode releases its own oxygen — faster, hotter, self-sustaining. Vent gas: HF + CO + H2. Rapid cell-to-cell spread.",
+   "lfp": "slower, cooler — but vent gas ~41% hydrogen. Collects in closed spaces, lights off late. Vent gas: HF + CO."
+  }
+ },
+ "zone_map": {
+  "hot_ft": 75,
+  "hot_m": 25,
+  "quarantine_ft": 50,
+  "quarantine_m": 15.24,
+  "warm_ft": 330,
+  "warm_m": 100,
+  "cold_ft": 1760,
+  "cold_m": 500,
+  "cold_label": "1/3 mile",
+  "plume_day_ft": 330,
+  "plume_day_m": 100,
+  "plume_day_spread_deg": 32,
+  "plume_night_ft": 1000,
+  "plume_night_m": 305,
+  "plume_night_spread_deg": 16,
+  "plume_gases": [
+   "HF",
+   "CO",
+   "H2",
+   "HCN"
+  ],
+  "plume_is_planning_value": true,
+  "plume_note": "NOT ERG Table 1 — Guide 147 has no green-page distances. Night applies the ERG green-table principle (stable air at night = larger downwind distance) as a planning value for the HF plume (Guide 125).",
+  "screen_order": [
+   "Environmental Data (Day/Night, wind direction, wind speed)",
+   "Location (Use My Location, fire marker, distance/bearing)",
+   "Map (Satellite / Map / Diagram, taller)"
+  ],
+  "map_modes": [
+   "Satellite",
+   "Map",
+   "Diagram"
+  ],
+  "zoom": {
+   "app_controlled_only": true,
+   "range": [
+    14,
+    20
+   ],
+   "default": 18,
+   "formula": "mpp = 156543.03392 * cos(lat) / 2^zoom",
+   "note": "Map frame is pointer-events-none; rings recalculated per zoom and hold true ground size at any zoom."
+  },
+  "fire_marker": {
+   "movable": true,
+   "methods": [
+    "drag",
+    "tap diagram to move",
+    "25 m step buttons N/S/E/W",
+    "RESET MARKER TO ME"
+   ],
+   "wind": {
+    "picker": [
+     "N",
+     "NE",
+     "E",
+     "SE",
+     "S",
+     "SW",
+     "W",
+     "NW"
+    ],
+    "default_from": "NW",
+    "speed_mph_range": [
+     0,
+     80
+    ],
+    "strong_wind_note": "Strong wind — plume goes farther. Extend downwind."
+   }
+  }
+ },
+ "branding": {
+  "name": "FULLCHARGE",
+  "subtitle": "ERG · EVR · BESS EXPERT",
+  "icon": "bolt-in-a-shield",
+  "wordmark": "Stencil wordmark — FULL white, CHARGE red, A in CHARGE is a lightning bolt, on black",
+  "colours": {
+   "background": "#0A0A0A",
+   "surface": "#161616",
+   "surface2": "#1F1F1F",
+   "red_fire": "#E10600",
+   "text": "#F5F5F5",
+   "muted": "#9A9A9A",
+   "border": "#2E2E2E",
+   "hazmat_yellow": "#FFD60A",
+   "gold_quarantine": "#E3A008",
+   "green_you": "#4ade80",
+   "blue_cold": "#38bdf8"
+  },
+  "colour_rule": "Red = fire only; yellow = hazmat only.",
+  "branding_files": [
+   "media-generation-fullcharge-icon-shield-0-e1e26e3d-60c2-4e1c-998c-55db1ec051e1.webp",
+   "media-generation-fullcharge-wordmark-stencil-bolt-a-0-34237cb5-ceda-4396-98f4-37bab762d327.webp"
+  ]
+ },
+ "nhtsa_catalog": {
+  "portal_url": "https://www.nhtsa.gov/emergency-response-guides",
+  "scope": "v1 — ALL vehicles on the NHTSA portal (BEV, HEV, PHEV, FCEV, all makes and years)",
+  "count_at_launch_aug_2025": "over 480 results/guides (IAFF / International Fire and Safety Journal)",
+  "count_secondary_jun_2026": "nearly 700 guides (Boron Extrication — unverified/secondary)",
+  "count_note": "NHTSA page publishes no count in its text (JS-filtered); re-count live at build time and record count + date. Do NOT invent rows for unverified vehicles.",
+  "ingestion": "Discover portal data endpoint / browser fetch (plain HTML scrape does not work — JS-filtered, curl 403). Parse make/model/years/powertrain/document type/version/date/PDF URL. Store in database. Extract on-scene fields (cut loop, 12V, no-cut, tow) as images/structured data. Weekly refresh job; updates as data-pack deltas.",
+  "seed_vehicles": "The 19 vehicles in this file — verified seed data.",
+  "offline": {
+   "core_pack_mb": "200-300",
+   "core_pack_contents": "19 seed vehicles + top ~100 most common models, 8 BESS, ERG 147, zone-map data, offline diagram, on-device camera-ID model",
+   "full_catalog_full_erg_gb": "1.2-2.1",
+   "full_catalog_extracted_fields_mb": "100-200",
+   "note": "Do NOT bundle all full PDFs offline."
+  }
+ },
+ "data_packs": {
+  "model": "ForeFlight-style",
+  "core_pack": {
+   "name": "Core",
+   "size_mb": "200-300",
+   "required": true,
+   "contents": "19 seed vehicles + top ~100 most common models, 8 BESS, ERG 147, zone-map data, offline diagram, on-device camera-ID model"
+  },
+  "full_nhtsa_pack": {
+   "full_erg_gb": "1.2-2.1",
+   "extracted_fields_mb": "100-200",
+   "recommended_default": "extracted-fields version, full PDFs on demand"
+  },
+  "regional_make_packs": "Optional, by make or US region.",
+  "map_packs": "Offline map/satellite tiles by region.",
+  "updates": "Delta-only downloads; last-updated date + version per pack; warn if out of date.",
+  "not_downloaded_behaviour": "Vehicle/BESS still shows in search; tapping its ERG says which pack is needed and offers to download it — never a dead link or blank page. Never claim full offline function until core pack is downloaded.",
+  "storage": "Show total size, free space needed, delete-pack option per pack.",
+  "download_ux": "Progress, pause/resume, Wi-Fi-only by default, size shown before downloading, clear fully-downloaded state."
+ },
+ "verify_before_shipping": [
+  "Live-check all 20 manufacturer ERG PDF URLs in a real browser.",
+  "Live-check the 3 Guide 147 / ERG / CAMEO URLs.",
+  "Re-check all 8 BESS phone numbers live.",
+  "Verify the 6 generic NEC 706.15 BESS shutdown cards, or keep them marked generic.",
+  "Re-count the NHTSA portal live and record count + date.",
+  "Confirm which ESA Vince means.",
+  "Test on a real phone: GPS, satellite tiles, app-controlled zoom, movable fire marker, Day/Night plume, offline diagram fallback, data-pack download/pause/resume, camera ID confirm step."
+ ]
+}

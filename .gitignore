@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.env
+*.log
+supabase/.env.local
+tools/nhtsa/out/
+tools/nhtsa/node_modules/
+ios/
+android/
+dist/
+web-build/
+*.ipa
+.DS_Store
+Thumbs.db

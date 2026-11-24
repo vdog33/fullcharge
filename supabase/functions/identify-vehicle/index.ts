@@ -1,0 +1,128 @@
+// Camera ID: photo -> Gemini vision (general car knowledge) -> up to 5 ranked make/model/year guesses. Client ALWAYS confirms.
+// Also records the learning-loop feedback ("Was this right? Yes / No, it was ___").
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { cors, json } from '../_shared/cors.ts';
+
+const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
+const MOCK = Deno.env.get('IDENTIFY_MOCK') === 'true' || !GEMINI_KEY;
+const URL_ = Deno.env.get('SUPABASE_URL')!;
+const admin = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+// Open-world: Gemini names the vehicle from its own general knowledge. No catalog list, no per-car training.
+// The phone matches the name to the cut sheets it has stored.
+type RawGuess = { make: string; model: string; yearFrom?: number | null; yearTo?: number | null; powertrain?: string; trim?: string; confidence: number; cues: string[] };
+
+const sha256 = async (s: string) =>
+  Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+function clean(list: RawGuess[]): RawGuess[] {
+  return (list ?? [])
+    .filter((g) => g && g.make && g.model)
+    .map((g) => ({
+      make: String(g.make).slice(0, 40), model: String(g.model).slice(0, 60),
+      yearFrom: Number(g.yearFrom) || null, yearTo: Number(g.yearTo) || null,
+      powertrain: String(g.powertrain ?? 'unknown').toUpperCase(), trim: g.trim ? String(g.trim).slice(0, 40) : undefined,
+      confidence: Math.max(0, Math.min(100, Math.round(Number(g.confidence) || 0))),
+      cues: (g.cues ?? []).map(String).slice(0, 6),
+    }))
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5);
+}
+
+async function userId(req: Request): Promise<string | null> {
+  const auth = req.headers.get('Authorization');
+  if (!auth) return null;
+  const c = createClient(URL_, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+  const { data } = await c.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+async function gemini(imageBase64: string, mimeType: string) {
+  const prompt = `You help firefighters identify a vehicle at a crash or fire, so they can pull its manufacturer emergency response guide.
+Identify the vehicle in the photo from your own knowledge of vehicles: make, model (official name, e.g. "Mustang Mach-E", "Model Y", "F-150 Lightning"),
+likely model-year range, and powertrain: BEV, PHEV, HEV, FCEV, ICE or UNKNOWN. Look for EV cues: charge-port door, no exhaust, closed grille, EV badges
+("e-tron", "EQ", "Lightning", "4xe", "Prime", "Recharge", "Hybrid").
+Return up to 5 guesses, most likely first, each with confidence 0-100 and up to 6 short visible cues you used.
+Similar-looking vehicles that differ in powertrain (e.g. F-150 vs F-150 Lightning, Wrangler vs Wrangler 4xe) MUST be separate guesses.
+In "notes", say what limits certainty (damage, angle, lighting, missing badge). Never claim certainty from one photo.`;
+  const body = {
+    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, { text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          guesses: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+            make: { type: 'STRING' }, model: { type: 'STRING' }, trim: { type: 'STRING' },
+            yearFrom: { type: 'INTEGER' }, yearTo: { type: 'INTEGER' },
+            powertrain: { type: 'STRING', enum: ['BEV', 'PHEV', 'HEV', 'FCEV', 'ICE', 'UNKNOWN'] },
+            confidence: { type: 'INTEGER' }, cues: { type: 'ARRAY', items: { type: 'STRING' } },
+          }, required: ['make', 'model', 'powertrain', 'confidence', 'cues'] } },
+          notes: { type: 'STRING' },
+        },
+        required: ['guesses', 'notes'],
+      },
+    },
+  };
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = await res.json();
+  const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
+  const parsed = JSON.parse(text);
+  return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? '') };
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  try {
+    const body = await req.json();
+
+    if (body.action === 'feedback') {
+      const { attemptId, feedbackToken, confirmedId, correction } = body;
+      if (!attemptId || !feedbackToken) return json({ error: 'missing attempt' }, 400);
+      const { data: row } = await admin.from('id_attempts').select('feedback_token_hash').eq('id', attemptId).single();
+      if (!row || row.feedback_token_hash !== (await sha256(feedbackToken))) return json({ error: 'forbidden' }, 403);
+      await admin.from('id_attempts').update({
+        confirmed_id: confirmedId ?? null, correction: correction ? String(correction).slice(0, 120) : null, feedback_at: new Date().toISOString(),
+      }).eq('id', attemptId);
+      return json({ ok: true });
+    }
+
+    // identify
+    const { imageBase64, mimeType = 'image/jpeg', sharePhoto = false } = body;
+    if (!/^image\/(jpeg|png)$/.test(mimeType)) return json({ error: 'JPEG or PNG only' }, 400);
+    if (!imageBase64 || imageBase64.length > 8_000_000) return json({ error: 'image missing or too large' }, 400);
+
+    const raw = MOCK
+      ? { guesses: [
+          { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front'] },
+          { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'] },
+        ], notes: 'SERVER MOCK — no Gemini key set.' }
+      : await gemini(imageBase64, mimeType);
+    const guesses = clean(raw.guesses);
+    const top = guesses[0] ? `${guesses[0].yearFrom ?? ''} ${guesses[0].make} ${guesses[0].model}`.trim() : null;
+
+    const uid = await userId(req);
+    const token = crypto.randomUUID() + crypto.randomUUID();
+    const { data: row } = await admin.from('id_attempts').insert({
+      user_id: uid, source: 'camera', model: MOCK ? 'mock' : GEMINI_MODEL, top_match: top,
+      candidates: guesses, notes: raw.notes, feedback_token_hash: await sha256(token),
+    }).select('id').single();
+
+    if (sharePhoto && row?.id) {
+      const path = `${uid ?? 'anon'}/${row.id}.${mimeType === 'image/png' ? 'png' : 'jpg'}`;
+      const bytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
+      const up = await admin.storage.from('id-photos').upload(path, bytes, { contentType: mimeType });
+      if (!up.error) await admin.from('id_attempts').update({ photo_path: path }).eq('id', row.id);
+    }
+
+    return json({ guesses, notes: raw.notes, attemptId: row?.id, feedbackToken: token });
+  } catch (e) {
+    console.error(e);
+    return json({ error: 'identify failed' }, 500);
+  }
+});

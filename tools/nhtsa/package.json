@@ -1,0 +1,18 @@
+{
+  "name": "fullcharge-nhtsa-tools",
+  "private": true,
+  "type": "module",
+  "description": "Scrape every NHTSA ERG / rescue sheet, download the PDFs, publish them as the FULLCHARGE 'All cut sheets' pack. Runs on your PC, not in the app.",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "scrape": "node --experimental-strip-types scrape.mjs",
+    "download": "node --experimental-strip-types download.mjs",
+    "publish": "node --experimental-strip-types publish.mjs",
+    "all": "npm run scrape && npm run download && npm run compress && npm run publish",
+    "compress": "node --experimental-strip-types compress.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0",
+    "sharp": "^0.34.0"
+  }
+}
