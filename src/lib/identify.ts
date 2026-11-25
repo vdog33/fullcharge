@@ -10,9 +10,12 @@ import { guideIndex, loadPacks } from './packs';
 
 // Camera ID = Gemini's own general knowledge of cars (no per-car training).
 // It names make / model / years; the PHONE matches that name to the cut sheets stored on it.
-export type RawGuess = Guess & { confidence: number; cues: string[] };
+export type Photo = { url: string; credit: string; page: string };
+export type RawGuess = Guess & { confidence: number; cues: string[]; checks?: string[]; photo?: Photo | null };
 export type Candidate = {
   label: string; guess: Guess; confidence: number; cues: string[];
+  checks: string[];      // look at these on the car to confirm the model
+  photo: Photo | null;   // reference photo of the model (needs signal — so does camera ID)
   vehicleId?: string;  // FULLCHARGE page
   guides: Guide[];     // NHTSA cut sheets on this phone (or listed, if the pack isn't downloaded)
 };
@@ -38,19 +41,24 @@ export function toCandidates(raw: RawGuess[]): Candidate[] {
     .slice(0, 5)
     .map((g) => {
       const m = matchGuess(g, seed, guideIndex());
-      return { label: guessLabel(g), guess: g, confidence: g.confidence, cues: (g.cues ?? []).slice(0, 6), vehicleId: m.vehicleId, guides: m.guides };
+      return {
+        label: guessLabel(g), guess: g, confidence: g.confidence, cues: (g.cues ?? []).slice(0, 6),
+        checks: (g.checks ?? []).slice(0, 5), photo: g.photo ?? null, vehicleId: m.vehicleId, guides: m.guides,
+      };
     });
 }
 
-/** Where "Yes" goes: FULLCHARGE page > NHTSA cut sheet(s) > nothing on file. */
+/** After the crew accepts: straight to the rescue sheet itself. Then the cut-sheet page, then the FULLCHARGE page. */
 export function destination(c: Candidate): { href: string; id: string } | null {
+  const sheet = c.guides.find((g) => g.docType === 'rescue_sheet' && g.images) ?? c.guides.find((g) => g.docType === 'rescue_sheet');
+  if (sheet) return { href: sheet.images ? `/sheet?key=${sheet.key}` : `/erg-pdf?kind=guide&id=${sheet.key}`, id: c.vehicleId ?? `guide:${sheet.key}` };
   if (c.vehicleId) return { href: `/vehicle/${c.vehicleId}`, id: c.vehicleId };
   if (c.guides.length) return { href: `/guide?keys=${c.guides.map((g) => g.key).join(',')}&title=${encodeURIComponent(c.label)}`, id: `guide:${c.guides[0].key}` };
   return null;
 }
 
 const MOCK_RAW: RawGuess[] = [
-  { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front', 'fender camera housing'] },
+  { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front', 'fender camera housing'], checks: ['No grille — smooth nose', 'Flush door handles', 'Tall hatchback, taller than Model 3'] },
   { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'] },
   { make: 'Kia', model: 'EV6', yearFrom: 2022, yearTo: 2024, powertrain: 'BEV', confidence: 22, cues: ['sloping rear'] },
   { make: 'Tesla', model: 'Model X', yearFrom: 2016, yearTo: 2024, powertrain: 'BEV', confidence: 15, cues: ['Tesla front fascia'] },
