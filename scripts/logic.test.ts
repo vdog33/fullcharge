@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import data from '../src/data/fullcharge-data.json' with { type: 'json' };
 import { checkDigitOk, looksLikeVin, matchCatalog, modelYear, wmiMake } from '../src/lib/vin-core.ts';
-import { bearingDeg, distanceM, metresPerPixel, offsetM, plumeHeading, scaleBar, toScreen } from '../src/lib/geo.ts';
+import { angleDiff, bearingDeg, circularMean, distanceM, metresPerPixel, offsetM, plumeHeading, scaleBar, toCompass, toScreen } from '../src/lib/geo.ts';
 
 const cat = data.vehicles.map((v: { id: string; make: string }) => ({ id: v.id, make: v.make }));
 
@@ -209,4 +209,15 @@ test('BESS: company legal names fold into one brand', async () => {
   assert.equal(familyOf('aPower Syyy {240V, 10kW}', '10 kW, 15 kWh'), 'aPower S');
   assert.equal(familyOf('PWRcell x M4 EX', ''), 'PWRcell M4 EX');
   assert.equal(curatedFor('Panasonic', 'EVHB-I7-X10', ['EVHB-I7-X10']), undefined);
+});
+
+test('wind marking: compass points and averaging across north', () => {
+  assert.equal(toCompass(0), 'N');
+  assert.equal(toCompass(359), 'N');
+  assert.equal(toCompass(312), 'NW');
+  assert.equal(toCompass(-45), 'NW');
+  assert.ok(angleDiff(circularMean([350, 10]), 0) < 0.001); // not 180
+  assert.ok(Math.abs(circularMean([300, 320]) - 310) < 0.001);
+  assert.equal(angleDiff(350, 10), 20);
+  assert.equal(angleDiff(90, 270), 180);
 });

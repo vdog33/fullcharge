@@ -40,6 +40,15 @@ export type Compass = (typeof COMPASS)[number];
 export const compassDeg = (c: Compass) => COMPASS.indexOf(c) * 45;
 /** Wind FROM → plume heads opposite (FROM NW → plume SE). */
 export const plumeHeading = (from: Compass) => (compassDeg(from) + 180) % 360;
+/** Nearest of the 8 compass points for a bearing in degrees. */
+export const toCompass = (deg: number): Compass => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+/** Average of bearings that wraps correctly (350° and 10° average to 0°, not 180°). */
+export function circularMean(degs: number[]): number {
+  const x = degs.reduce((a, d) => a + Math.cos(rad(d)), 0), y = degs.reduce((a, d) => a + Math.sin(rad(d)), 0);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+/** Smallest angle between two bearings, 0–180. */
+export const angleDiff = (a: number, b: number) => Math.abs((((a - b) % 360) + 540) % 360 - 180);
 
 /** SVG path for a plume wedge, centre (cx,cy), heading deg (0 = up/north), half-angle, length px. */
 export function wedgePath(cx: number, cy: number, headingDeg: number, halfDeg: number, lenPx: number): string {
