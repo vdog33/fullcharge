@@ -81,23 +81,24 @@ export const GUIDE_147_SECTIONS: { h: string; lines: string[] }[] = [
   ] },
   { h: 'Evacuation', lines: [
     'Isolate spill / leak 25 m (75 ft), all directions',
-    'Large spill: downwind ≥100 m (330 ft), increase as needed',
+    'Spill: increase the 25 m (75 ft) distance downwind as necessary',
     'Rail / trailer fire: ISOLATE 500 m (1/3 mile), all directions — evacuate everyone incl. responders',
   ] },
   { h: 'Fire', lines: [
     'Reignition possible up to weeks later',
     'Thermal imaging — monitor continuously',
-    'Reignition signs: white smoke, arcs / sparks',
+    'Reignition signs: white smoke off-gassing, electrical arcs / sparks, visible flames',
     'CAUTION: no salt water',
   ] },
   { h: 'Vehicle fire', lines: [
+    'Battery not connected to a vehicle: use the small-fire guidance',
     "Check manufacturer's specific ERG before disabling",
     'Ignition off + disconnect 12V if safe',
     'Never cut HV / MV cabling',
     'Never touch damaged / submerged HV / MV cables or components',
     'Large amount of water to extinguish / suppress HV battery fire — small amount could release toxic gases',
     'If possible spray water directly onto battery',
-    'DO NOT pierce / cut / pry / dismantle structure to access battery',
+    'DO NOT pierce / cut / pry / dismantle structure to access battery — HV contact can cause electric shock',
   ] },
   { h: 'Small / large fire', lines: [
     'Small battery: water spray only, large amounts. No dry chemical, CO2 or Halon',

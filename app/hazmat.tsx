@@ -45,7 +45,7 @@ export default function Hazmat() {
       {/* Number first, large; rule underneath (F17). Values exactly as in the data. */}
       <View style={s.dist}>
         <Dist big={`${d.isolate_ft} ft`} small={`(${d.isolate_m} m)`} rule="Isolate — all directions" first />
-        <Dist big={`≥${d.large_spill_downwind_ft} ft`} small={`(${d.large_spill_downwind_m} m)`} rule="Large spill: downwind" />
+        <Dist big="Downwind" small="" rule="Spill: increase the 75 ft distance downwind as necessary" />
         <Dist big={d.rail_trailer_fire_label} small={`(${d.rail_trailer_fire_m} m)`} rule="Rail / trailer fire — all directions" />
       </View>
       <Notice tone="warn">{ERG147.honest_limit}</Notice>
@@ -74,7 +74,7 @@ export default function Hazmat() {
       <H2>Fire</H2>
       <Bullets items={ERG147.fire_notes} />
 
-      <H2>Vent gas</H2>
+      <H2 sub="Background — not from the ERG">Vent gas</H2>
       {showNmc && <Chem k="NMC / NCA" v={vent.nmc_nca} />}
       {showLfp && <Chem k="LFP" v={vent.lfp} />}
 
