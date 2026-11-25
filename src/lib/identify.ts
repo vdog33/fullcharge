@@ -16,6 +16,7 @@ export type Candidate = {
   label: string; guess: Guess; confidence: number; cues: string[];
   checks: string[];      // look at these on the car to confirm the model
   photo: Photo | null;   // reference photo of the model (needs signal — so does camera ID)
+  exact?: boolean;       // from a VIN decode: the car is known, so no likelihood is shown
   vehicleId?: string;  // FULLCHARGE page
   guides: Guide[];     // NHTSA cut sheets on this phone (or listed, if the pack isn't downloaded)
 };
@@ -82,6 +83,30 @@ export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean }):
   } catch {
     throw new Error(NO_SIGNAL_MSG);
   }
+}
+
+/** VIN path: the decode names the car; ask the server for a reference photo + checks (needs signal; empty without). */
+export async function describeModel(g: Guess): Promise<{ photo: Photo | null; checks: string[] }> {
+  if (USE_MOCKS || !BACKEND_READY) return { photo: null, checks: USE_MOCKS ? ['MOCK — checks come from the server'] : [] };
+  try {
+    const r = await callFunction<{ photo: Photo | null; checks: string[] }>('identify-vehicle', {
+      action: 'describe_model', make: g.make, model: g.model, year: g.yearFrom ?? null, powertrain: g.powertrain ?? '',
+    }, 8000);
+    return { photo: r.photo ?? null, checks: (r.checks ?? []).slice(0, 5) };
+  } catch { return { photo: null, checks: [] }; }
+}
+
+/** VIN decode → one exact candidate for the same pick / check / accept screen as camera ID. */
+export function vinCandidate(d: { make?: string; model?: string; year?: number | null; electrification?: string }, guides: Guide[], vehicleId?: string): Candidate | null {
+  if (!d.make || !d.model) return null;
+  const e = (d.electrification ?? '').toUpperCase();
+  const powertrain = e.startsWith('BEV') ? 'BEV' : e.startsWith('PHEV') ? 'PHEV' : e.startsWith('FCEV') ? 'FCEV' : e.includes('HEV') ? 'HEV' : e ? 'UNKNOWN' : 'ICE';
+  const guess: Guess = { make: d.make, model: d.model, yearFrom: d.year ?? null, yearTo: d.year ?? null, powertrain };
+  const v = vehicleId ? VEHICLES.find((x) => x.id === vehicleId) : undefined;
+  return {
+    label: guessLabel(guess), guess, confidence: 100, cues: [], exact: true, photo: null,
+    checks: v ? v.id_cues.slice(0, 5) : [], vehicleId, guides,
+  };
 }
 
 /** Learning loop — measures accuracy; nothing has to be "taught" for ID to work. */
