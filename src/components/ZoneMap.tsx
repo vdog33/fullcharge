@@ -41,6 +41,7 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
       <MapView
         ref={map}
         style={{ flex: 1 }}
+        accessibilityLabel="Isolation zone map, north up. Rings around the fire marker; red wedge is the plume. Legend below the map."
         mapType={mapType === 'satellite' ? 'hybrid' : 'standard'} // hybrid = satellite + street names
         initialRegion={regionFor(fire, ZONES.warm_m)}
         rotateEnabled={false}   // north stays up, so the wind picker and plume read true
@@ -64,15 +65,15 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         >
           <View style={{ alignItems: 'center' }}>
             <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.red, borderWidth: 2, borderColor: C.text }} />
-            <Text style={{ color: C.text, fontFamily: F.narrowBold, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 3, marginTop: 2 }}>FIRE</Text>
+            <Text style={{ color: C.text, fontFamily: F.narrowBold, fontSize: 15, backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 3, marginTop: 2 }}>FIRE</Text>
           </View>
         </Marker>
 
         {you && (
-          <Marker coordinate={ll(you)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+          <Marker coordinate={ll(you)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false} accessibilityLabel="Your position">
             <View style={{ alignItems: 'center' }}>
               <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.you, borderWidth: 2, borderColor: C.bg }} />
-              <Text style={{ color: C.you, fontFamily: F.narrowBold, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 3, marginTop: 2 }}>YOU</Text>
+              <Text style={{ color: C.you, fontFamily: F.narrowBold, fontSize: 15, backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 3, marginTop: 2 }}>YOU</Text>
             </View>
           </Marker>
         )}

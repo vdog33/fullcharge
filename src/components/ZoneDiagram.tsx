@@ -5,7 +5,7 @@ import { PanResponder, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, G, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { ZONES } from '../data/catalog';
 import { LatLng, offsetM, scaleBar, toScreen, wedgePath } from '../lib/geo';
-import { C, F } from '../theme';
+import { C, F, T, TAP } from '../theme';
 
 type Props = {
   fire: LatLng;
@@ -60,7 +60,9 @@ export function ZoneDiagram({ fire, you, plumeHeading, plumeHalfDeg, plumeLenM, 
   return (
     <View style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: C.surface, borderWidth: 1, borderColor: C.border }}
       onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} {...pan.panHandlers}>
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} {...pan.panHandlers}
+        accessible accessibilityRole="image"
+        accessibilityLabel={`Zone diagram, ${close ? 'close' : 'full'} view, north up. Rings around the fire marker; red wedge is the plume. Use the Move fire buttons above to move the fire.`}>
         <Svg width={w} height={height}>
           <Rect x={0} y={0} width={w} height={height} fill={C.surface} />
           <G>
@@ -73,18 +75,18 @@ export function ZoneDiagram({ fire, you, plumeHeading, plumeHalfDeg, plumeLenM, 
             {ypos && (
               <G>
                 <Circle cx={ypos.x} cy={ypos.y} r={7} fill={C.you} stroke={C.bg} strokeWidth={2} />
-                <SvgText x={ypos.x + 10} y={ypos.y + 4} fill={C.you} fontSize={12} fontWeight="bold">YOU</SvgText>
+                <SvgText x={ypos.x + 10} y={ypos.y + 4} fill={C.you} fontSize={T.floor} fontWeight="bold">YOU</SvgText>
               </G>
             )}
           </G>
-          <Rect x={12} y={height - 22} width={sb.px} height={4} fill={C.text} />
-          <SvgText x={12} y={height - 28} fill={C.text} fontSize={11}>{sb.m} m</SvgText>
-          <SvgText x={w - 12} y={height - 12} fill={C.muted} fontSize={11} textAnchor="end">N ↑ · tap to move fire</SvgText>
+          <Rect x={12} y={height - 24} width={sb.px} height={4} fill={C.text} />
+          <SvgText x={12} y={height - 32} fill={C.text} fontSize={T.floor}>{sb.m} m</SvgText>
+          <SvgText x={w - 12} y={height - 12} fill={C.muted} fontSize={T.floor} textAnchor="end">N ↑ · tap to move fire</SvgText>
         </Svg>
       </View>
-      <Pressable onPress={() => setClose(!close)}
-        style={{ position: 'absolute', right: 8, top: 8, paddingHorizontal: 10, height: 36, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.8)', borderWidth: 1, borderColor: C.border, justifyContent: 'center' }}>
-        <Text style={{ color: C.text, fontFamily: F.narrowBold }}>{close ? 'FULL VIEW' : 'CLOSE VIEW'}</Text>
+      <Pressable onPress={() => setClose(!close)} accessibilityRole="button" accessibilityLabel={close ? 'Show full view' : 'Show close view'}
+        style={{ position: 'absolute', right: 8, top: 8, paddingHorizontal: 14, minHeight: TAP.min, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.85)', borderWidth: 1, borderColor: C.control, justifyContent: 'center' }}>
+        <Text style={{ color: C.text, fontFamily: F.narrowBold, fontSize: T.floor + 1 }}>{close ? 'FULL VIEW' : 'CLOSE VIEW'}</Text>
       </Pressable>
     </View>
   );

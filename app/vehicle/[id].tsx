@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Btn, Bullets, Card, Field, H1, More, Muted, PageTabs, Screen, st } from '../../src/components/ui';
+import { Btn, Bullets, Card, Field, H1, H2, LabeledInput, More, Muted, PageTabs, Screen, Warning, st } from '../../src/components/ui';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
 import { sendFeedback } from '../../src/lib/identify';
@@ -19,15 +19,15 @@ export default function VehicleScreen() {
       <Stack.Screen options={{ title: `${v.make} ${v.model}` }} />
       <Muted>{v.make} · {v.years} · {v.type}</Muted>
       <H1>{v.model}</H1>
+      {!!v.warning && <View style={{ marginTop: S.md }}><Warning title="Data note">{v.warning}</Warning></View>}
       <PageTabs kind="vehicle" id={v.id} />
 
-      {!!v.warning && <Card style={{ borderColor: C.muted, marginBottom: S.sm }}><Text style={st.label}>Data note</Text><Text style={st.body}>{v.warning}</Text></Card>}
-      {!!v.watch_for && <Card style={{ borderColor: C.red, marginBottom: S.sm }}><Text style={[st.label, { color: C.red }]}>Watch for</Text><Text style={st.body}>{v.watch_for}</Text></Card>}
+      {!!v.watch_for && <Card style={{ borderColor: C.red, marginBottom: S.sm }}><Text style={[st.label, { color: C.redText }]}>⚠ Watch for</Text><Text style={st.body}>{v.watch_for}</Text></Card>}
 
-      <Text style={st.h2}>ID cues</Text>
+      <H2>ID cues</H2>
       <Bullets items={v.id_cues} />
 
-      <Text style={st.h2}>On scene</Text>
+      <H2>On scene</H2>
       <Field label="Immobilise" value="Chock. Park / brake. No engine noise ≠ off." />
       <Field label="Cut loop" value={v.cut_loop} />
       <Field label="12V" value={v.lv_location} />
@@ -38,7 +38,7 @@ export default function VehicleScreen() {
       <Field label="Tow" value={v.tow} />
       <Field label="Release" value={v.release} />
 
-      <More title="Details">
+      <More title="Details" count="ERG source, link check, chemistry check">
         <Field label="ERG source" value={v.erg_pdf_label} />
         <Muted>Link check: {v.erg_verified_note}</Muted>
         <Muted>Chemistry verified: {v.chemistry_verified === true ? 'yes' : v.chemistry_verified === 'partial' ? 'partly' : 'no'}</Muted>
@@ -66,7 +66,7 @@ function WasThisRight({ at, shownId }: { at: number; shownId: string }) {
   if (done) return <Card style={{ marginTop: S.lg }}><Text style={st.body}>Logged. Thanks — this trains the next ID.</Text></Card>;
   return (
     <Card style={{ marginTop: S.lg }}>
-      <Text style={st.label}>Was this right?</Text>
+      <Text style={st.label} accessibilityRole="header">Was this right?</Text>
       {!no ? (
         <View style={{ flexDirection: 'row', gap: S.sm }}>
           <View style={{ flex: 1 }}><Btn label="YES" onPress={() => submit(shownId)} /></View>
@@ -74,7 +74,7 @@ function WasThisRight({ at, shownId }: { at: number; shownId: string }) {
         </View>
       ) : (
         <View style={{ gap: S.sm }}>
-          <TextInput style={st.input} placeholder="Make + model" placeholderTextColor={C.muted} value={text} onChangeText={setText} />
+          <LabeledInput label="Make + model it actually was" value={text} onChangeText={setText} autoCorrect={false} />
           {sugg.map((s) => <Btn key={s.id} label={`${s.make} ${s.model}`} onPress={() => submit(s.id, `${s.make} ${s.model}`)} />)}
           <Btn tone="ghost" label="SAVE AS TYPED" disabled={!text.trim()} onPress={() => submit(null, text.trim())} />
         </View>

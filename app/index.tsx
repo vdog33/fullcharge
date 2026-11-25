@@ -6,7 +6,7 @@ import { BoltShield, Btn, Bullets, Card, More, Screen, Wordmark, st } from '../s
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { EV_FIRST_MOVES } from '../src/data/content';
 import { allReady, coreReady, loadPacks } from '../src/lib/packs';
-import { C, F, S } from '../src/theme';
+import { C, F, S, T } from '../src/theme';
 
 export default function Home() {
   const r = useRouter();
@@ -20,14 +20,14 @@ export default function Home() {
         <View style={{ alignItems: 'center', gap: 6, marginVertical: S.lg }}>
           <BoltShield size={64} />
           <Wordmark size={34} />
-          <Text style={{ color: C.muted, fontFamily: F.narrowBold, letterSpacing: 2 }}>ERG · EVR · BESS EXPERT</Text>
+          <Text style={{ color: C.muted, fontFamily: F.narrowBold, fontSize: T.label, letterSpacing: 2 }}>ERG · EVR · BESS EXPERT</Text>
         </View>
 
         <LastVehicleBar />
 
         {!core && (
-          <Pressable onPress={() => r.push('/settings/downloads')}>
-            <Card style={{ marginBottom: S.md, borderColor: C.muted }}>
+          <Pressable onPress={() => r.push('/settings/downloads')} accessibilityRole="button" accessibilityLabel="Offline not ready. Cut sheets not all on this phone yet, some need signal. Tap to download them.">
+            <Card style={{ marginBottom: S.md, borderColor: C.control }}>
               <Text style={st.label}>Offline not ready</Text>
               <Text style={st.body}>Cut sheets not all on this phone yet — some need signal. Tap to download them.</Text>
             </Card>
@@ -45,7 +45,7 @@ export default function Home() {
           <View style={{ flex: 1 }}><Btn tone="red" label="ZONES + MAP" onPress={() => r.push('/zones')} /></View>
         </View>
 
-        <More title="EV first moves">
+        <More title="EV first moves" count={`${EV_FIRST_MOVES.length}-step checklist`}>
           <Bullets items={EV_FIRST_MOVES} />
         </More>
 

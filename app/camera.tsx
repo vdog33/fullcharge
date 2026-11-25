@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { BoltShield, Btn, Bullets, Card, H1, Muted, Screen, st } from '../src/components/ui';
+import { BoltShield, Btn, Bullets, Card, H1, H2, Muted, Screen, st } from '../src/components/ui';
 import { Candidate, destination, IdResult, identifyPhoto, NO_SIGNAL_MSG } from '../src/lib/identify';
 import { getSettings, logIdAttempt, setSettings, updateIdAttempt } from '../src/lib/history';
 import { allReady, guideIndex } from '../src/lib/packs';
@@ -69,7 +69,7 @@ export default function CameraId() {
           <Btn label="FROM LIBRARY" onPress={() => pick(false)} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Muted>Share photo to improve ID</Muted>
-            <Switch value={share} onValueChange={(x) => { setShare(x); setSettings({ sharePhotos: x }); }} />
+            <Switch value={share} accessibilityLabel="Share photo to improve ID" onValueChange={(x) => { setShare(x); setSettings({ sharePhotos: x }); }} />
           </View>
           <Muted>Photo ID needs signal. Downloaded cut sheets don't.</Muted>
           <Btn tone="ghost" label="SEARCH MANUALLY" onPress={() => r.replace('/search')} />
@@ -79,7 +79,7 @@ export default function CameraId() {
       {phase === 'working' && (
         <View style={{ alignItems: 'center', gap: S.md }}>
           {uri && <Image source={{ uri }} style={{ width: '100%', height: 220, borderRadius: 10 }} />}
-          <ActivityIndicator color={C.text} size="large" />
+          <ActivityIndicator color={C.text} size="large" accessibilityLabel="Identifying" />
           <Muted>Identifying…</Muted>
           <Btn tone="ghost" label="SEARCH MANUALLY" onPress={() => r.replace('/search')} />
         </View>
@@ -95,7 +95,7 @@ export default function CameraId() {
             {cur.cues.length > 0 && <Bullets items={cur.cues} />}
             <OnFile c={cur} />
           </Card>
-          <Text style={st.h2}>Is this the car?</Text>
+          <H2>Is this the car?</H2>
           {dest
             ? <Btn big tone="red" label={cur.vehicleId ? 'YES — OPEN ERG PAGE' : 'YES — OPEN CUT SHEET'} onPress={yes} />
             : <Btn big label="YES — SEARCH FOR IT" onPress={manual} />}
@@ -107,7 +107,7 @@ export default function CameraId() {
 
       {phase === 'error' && (
         <View style={{ gap: S.md }}>
-          <Card><Text style={st.body}>{err || NO_SIGNAL_MSG}</Text></Card>
+          <Card><Text style={st.body} accessibilityRole="alert">{err || NO_SIGNAL_MSG}</Text></Card>
           <Btn big label="SEARCH MANUALLY" onPress={() => r.replace('/search')} />
           <Btn tone="ghost" label="TRY ANOTHER PHOTO" onPress={() => setPhase('idle')} />
         </View>
