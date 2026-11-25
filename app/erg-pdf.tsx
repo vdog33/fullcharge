@@ -10,7 +10,7 @@ import { allReady, cachedGuidePdf, cachedPdf, coreReady, getGuide, guideRemoteUr
 import { guideLabel } from '../src/lib/match-core';
 import { LC as C, LS_ as S } from '../src/components/legacy';
 
-const FALLBACK = 'Manufacturer PDF not available — in-app sheet from verified ERG data, confirm in the EVR app on scene.';
+const FALLBACK = 'Manufacturer PDF not available — in-app sheet from verified ERG data, confirm on the manufacturer rescue sheet.';
 
 type View_ = { mode: 'loading' } | { mode: 'pdf'; uri: string; local: boolean } | { mode: 'fallback'; why: 'failed' | 'no-pack' | 'none' };
 
