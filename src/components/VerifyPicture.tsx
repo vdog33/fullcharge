@@ -6,7 +6,8 @@ import { Guide } from '../lib/match-core';
 import { Picture, pictureFor, pictureForVehicle } from '../lib/packs';
 import { C, S } from '../theme';
 
-export function VerifyPicture({ guides, vehicleId, compact }: { guides?: Guide[]; vehicleId?: string; compact?: boolean }) {
+/** hero = the main thing on the page: full width, natural height, tap to zoom. */
+export function VerifyPicture({ guides, vehicleId, compact, hero }: { guides?: Guide[]; vehicleId?: string; compact?: boolean; hero?: boolean }) {
   const r = useRouter();
   const [pic, setPic] = useState<Picture | null | undefined>(undefined);
   const [w, setW] = useState(320);
@@ -21,7 +22,7 @@ export function VerifyPicture({ guides, vehicleId, compact }: { guides?: Guide[]
 
   if (pic === undefined) return <ActivityIndicator color={C.text} style={{ marginVertical: S.md }} />;
   if (!pic) return <Text style={{ color: C.muted, fontSize: 15, marginVertical: S.sm }}>No picture on file for this vehicle — check the badge.</Text>;
-  const h = Math.min(compact ? 200 : 320, (w * pic.h) / pic.w);
+  const h = hero ? (w * pic.h) / pic.w : Math.min(compact ? 200 : 320, (w * pic.h) / pic.w);
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ marginVertical: S.sm }}>
       <Pressable onPress={() => r.push(`/sheet?key=${pic.guideKey}`)} accessibilityLabel="Vehicle drawing from the rescue sheet. Tap to open the full sheet.">
@@ -30,7 +31,8 @@ export function VerifyPicture({ guides, vehicleId, compact }: { guides?: Guide[]
         </View>
       </Pressable>
       <Text style={{ color: C.muted, fontSize: 15, marginTop: 4 }}>
-        Manufacturer drawing (rescue sheet p. 1) — check the shape matches. Tap to open.{pic.local ? '' : ' Needs signal until downloaded.'}
+        {hero ? `Manufacturer rescue sheet — tap to zoom.${pic.local ? '' : ' Needs signal until downloaded.'}`
+          : `Manufacturer drawing (rescue sheet p. 1) — check the shape matches. Tap to open.${pic.local ? '' : ' Needs signal until downloaded.'}`}
       </Text>
     </View>
   );
