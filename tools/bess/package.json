@@ -7,7 +7,10 @@
     "setup": "npm install && npx playwright install chromium",
     "scrape": "node --experimental-strip-types scrape.mjs",
     "publish": "node --experimental-strip-types publish.mjs",
-    "all": "npm run scrape && npm run publish"
+    "all": "npm run scrape && npm run publish",
+    "build": "node --experimental-strip-types build.mjs"
   },
-  "dependencies": { "playwright": "^1.49.0" }
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
 }

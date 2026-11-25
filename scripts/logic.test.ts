@@ -194,3 +194,9 @@ test('BESS catalog: brands, chemistry, families, label matching', () => {
   // brand only: residential families of that brand, no Megapack
   assert.deepEqual(matchBess({ brand: 'Tesla' }, fams).map((m) => m.family.family), ['Powerwall 3']);
 });
+
+test('BESS: PWRcell 2 never borrows the original PWRcell card', async () => {
+  const { curatedFor } = await import('../src/lib/bess-core.ts');
+  assert.equal(curatedFor('Generac', 'PWRcell 2 M4', ['APKE00028']), undefined);
+  assert.equal(curatedFor('Generac', 'PWRcell M4 DCB', ['APKE00010']), 'generac-pwrcell');
+});

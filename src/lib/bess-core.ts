@@ -86,7 +86,8 @@ const CURATED: { id: string; brand: string; test: RegExp }[] = [
   { id: 'franklinwh-apower-2', brand: 'FranklinWH', test: /apower\s*2|aPower2/i },
   { id: 'solaredge-home-battery', brand: 'SolarEdge', test: /home battery|BAT-10K/i },
   { id: 'lg-resu-prime', brand: 'LG', test: /resu\s*(10h|16h)?\s*prime|RESU1[06]H\s*PRIME/i },
-  { id: 'generac-pwrcell', brand: 'Generac', test: /pwrcell/i },
+  // PWRcell 2 is a different product (own shutdown) — never borrow the original PWRcell card.
+  { id: 'generac-pwrcell', brand: 'Generac', test: /^(?!.*pwrcell\s*2\b).*pwrcell/i },
   { id: 'panasonic-evervolt', brand: 'Panasonic', test: /evervolt/i },
 ];
 export function curatedFor(brand: string, family: string, models: string[]): string | undefined {
