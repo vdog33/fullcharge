@@ -3,7 +3,9 @@
 // undefined in a real build — which silently put TestFlight build 1 in mock mode. Keep these literal.
 const RAW_MOCKS = process.env.EXPO_PUBLIC_USE_MOCKS;
 const RAW_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const RAW_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY; // publishable key (sb_publishable_…) or legacy anon key
+// Either name works: our eas.json uses ..._ANON_KEY; `eas integrations:supabase:connect` writes ..._PUBLISHABLE_KEY.
+// (Each must be read literally — Expo only inlines exact process.env.EXPO_PUBLIC_X reads.)
+const RAW_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY; // publishable key (sb_publishable_…) or legacy anon key
 const RAW_FUNCTIONS = process.env.EXPO_PUBLIC_FUNCTIONS_URL;
 
 export const USE_MOCKS = (RAW_MOCKS ?? 'true') === 'true';
