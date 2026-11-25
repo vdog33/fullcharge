@@ -82,7 +82,10 @@ export async function loadPacks() {
   // Bundles keep downloading in iOS's background downloader when the app leaves the screen.
   // Single-file downloads can't, so they pause and pick up again when the app comes back.
   AppState.addEventListener('change', (st) => {
-    if (st === 'background') for (const id of running) pause(id, { auto: true });
+    if (st === 'background') {
+      for (const id of running) pause(id, { auto: true });
+      for (const t of [...fgBundles]) t.toBackground(); // hand big files to iOS's background downloader
+    }
     if (st === 'active') { for (const id of running) restartPool.get(id)?.(); resumeInterrupted(); }
   });
   prev = await readJson<Manifest>(PREV_FILE);
@@ -250,7 +253,34 @@ export const freeSpace = () => FS.getFreeDiskStorageAsync().catch(() => NaN);
 const running = new Set<PackId>();
 const activeDl = new Map<PackId, Set<FS.DownloadResumable>>();
 const pauseFlag = new Map<PackId, 'user' | 'auto'>();
-const CONCURRENCY = 6; // parallel files — most rescue-sheet pages are ~200 KB, so round trips dominate
+// Parallel single files. Most rescue-sheet pages are ~200 KB, so round trips dominate, not bandwidth —
+// Supabase storage sits behind a CDN that serves many requests at once, so more lanes = faster.
+const CONCURRENCY = 12;
+const BUNDLE_RETRIES = 2;
+
+// Live speed: samples of bytes done per pack, last ~12 s.
+const samples = new Map<PackId, { t: number; b: number }[]>();
+function sample(id: PackId, bytes: number) {
+  const now = Date.now();
+  const list = samples.get(id) ?? [];
+  const last = list[list.length - 1];
+  if (last && now - last.t < 500) return;
+  list.push({ t: now, b: bytes });
+  while (list.length > 2 && now - list[0].t > 12_000) list.shift();
+  samples.set(id, list);
+}
+/** Bytes per second over the last few seconds, or null before there's enough to tell. */
+export function transferRate(id: PackId): number | null {
+  const list = samples.get(id);
+  if (!list || list.length < 3) return null;
+  const a = list[0], b = list[list.length - 1];
+  return b.t > a.t ? Math.max(0, ((b.b - a.b) * 1000) / (b.t - a.t)) : null;
+}
+
+/** A bundle download that runs in the foreground session while the app is on screen (full speed, starts at once)
+ *  and is handed to iOS's background session when the app leaves the screen, so it keeps going. */
+type BundleTask = { toBackground: () => void };
+const fgBundles = new Set<BundleTask>();
 type Job = { key: string; url: string; dest: string; bytes: number; check: 'pdf' | 'image' };
 
 function jobsFor(id: PackId): { jobs: Job[]; bundles: Bundle[]; version: string; m?: Manifest } {
@@ -311,34 +341,77 @@ export async function startOrResume(id: PackId) {
 
   const queue = [...jobs];
   const failed: string[] = [];
+  const retried = new Set<string>();
   const inflight = new Map<string, number>();
   let doneBytes = 0, doneFiles = 0;
   const files = getPackState(id).files; // mutated in place — no copying a 2,000-entry map per file
-  const tick = () => setQuiet(id, { bytesDone: doneBytes + [...inflight.values()].reduce((a, b) => a + b, 0), filesDone: doneFiles });
+  samples.delete(id);
+  const tick = () => {
+    const bytesDone = doneBytes + [...inflight.values()].reduce((a, b) => a + b, 0);
+    sample(id, bytesDone);
+    setQuiet(id, { bytesDone, filesDone: doneFiles });
+  };
 
-  // 1) Bundles: all handed to iOS's background downloader at once — they keep going with the app closed.
+  // 1) Bundles (~36 MB each). While the app is open they run in the normal (foreground) session: iOS gives
+  //    background-session transfers lower priority and can hold them back, which made big packs crawl.
+  //    When the app leaves the screen, each one is paused and resumed in the background session, so it keeps going.
   async function fetchBundle(b: Bundle) {
     const dest = `${packDir(id)}bundles/${b.file.split('/').pop()}`;
-    const dl = FS.createDownloadResumable(storageUrl(b.file), dest, { sessionType: FS.FileSystemSessionType.BACKGROUND },
-      (p) => { inflight.set(b.file, p.totalBytesWritten); tick(); });
+    const url = storageUrl(b.file);
+    const progress = (p: FS.DownloadProgressData) => { inflight.set(b.file, p.totalBytesWritten); tick(); };
+    const opts = (bg: boolean) => (bg ? { sessionType: FS.FileSystemSessionType.BACKGROUND } : {});
+    let bg = AppState.currentState !== 'active';
+    let dl = FS.createDownloadResumable(url, dest, opts(bg), progress);
+    let run = () => dl.downloadAsync();
+    let handoff: Promise<void> | null = null;
+    const task: BundleTask = {
+      toBackground: () => {
+        if (bg || handoff) return;
+        bg = true;
+        fgBundles.delete(task);
+        const old = dl;
+        handoff = (async () => {
+          let resume: string | undefined;
+          try { resume = (await old.pauseAsync()).resumeData; } catch { /* finished or failed meanwhile */ }
+          activeDl.get(id)?.delete(old);
+          dl = FS.createDownloadResumable(url, dest, opts(true), progress, resume);
+          activeDl.get(id)?.add(dl);
+          run = resume ? () => dl.resumeAsync() : () => dl.downloadAsync();
+        })();
+      },
+    };
+    if (USE_MOCKS) return;
     activeDl.get(id)!.add(dl);
+    if (!bg) fgBundles.add(task);
+    let tries = 0;
     try {
-      if (USE_MOCKS) return;
-      const res = await dl.downloadAsync();
+      for (;;) {
+        let res: FS.FileSystemDownloadResult | undefined;
+        let threw = false;
+        try { res = await run(); } catch { threw = true; }
+        if (handoff) { await handoff; handoff = null; continue; } // now running in the background session
+        if (pauseFlag.get(id) === 'user') { inflight.delete(b.file); return; }
+        const info = res ? await FS.getInfoAsync(dest) : null;
+        const ok = !threw && !!res && res.status === 200 && !!info?.exists && info.size === b.bytes;
+        if (ok) break;
+        // Dropped connection / bad file: start this bundle again (up to BUNDLE_RETRIES) instead of failing the pack.
+        await FS.deleteAsync(dest, { idempotent: true }).catch(() => {});
+        if (tries++ >= BUNDLE_RETRIES) { inflight.delete(b.file); failed.push(b.file); return; }
+        inflight.delete(b.file);
+        activeDl.get(id)?.delete(dl);
+        await new Promise((r) => setTimeout(r, 1500 * tries));
+        dl = FS.createDownloadResumable(url, dest, opts(bg), progress);
+        activeDl.get(id)?.add(dl);
+        run = () => dl.downloadAsync();
+      }
       inflight.delete(b.file);
-      if (!res) return; // paused by the user
-      const info = await FS.getInfoAsync(dest);
-      if (res.status !== 200 || !info.exists || info.size !== b.bytes) { failed.push(b.file); await FS.deleteAsync(dest, { idempotent: true }); return; }
       for (const e of b.entries) if (!needed || needed.has(e.file)) { files[e.file] = { uri: dest, offset: e.offset, length: e.length }; doneFiles++; }
       doneBytes += b.bytes;
       tick();
-    } catch {
-      inflight.delete(b.file);
-      if (pauseFlag.get(id) !== 'user') failed.push(b.file);
-    } finally { activeDl.get(id)?.delete(dl); }
+    } finally { fgBundles.delete(task); activeDl.get(id)?.delete(dl); }
   }
 
-  // 2) Single files (small updates): 6 at a time while the app is open.
+  // 2) Single files (small updates): CONCURRENCY at a time while the app is open.
   async function worker() {
     while (queue.length && !pauseFlag.has(id)) {
       const j = queue.shift()!;
@@ -363,6 +436,8 @@ export async function startOrResume(id: PackId) {
       } catch {
         inflight.delete(j.key);
         if (pauseFlag.has(id)) { queue.unshift(j); return; }
+        // One quiet retry at the back of the queue — a dropped request shouldn't need a manual UPDATE.
+        if (!retried.has(j.key)) { retried.add(j.key); queue.push(j); continue; }
         failed.push(j.key);
       }
     }
@@ -410,8 +485,44 @@ export async function startOrResume(id: PackId) {
   }
   set(id, {
     status: failed.length && doneFiles === 0 ? 'error' : 'done', version, updatedAt: Date.now(), bytesDone: doneBytes, filesDone: doneFiles,
-    error: failed.length ? `${failed.length} download(s) failed — tap UPDATE on Wi-Fi to retry.` : undefined,
+    error: failed.length ? `${failed.length} download(s) failed — tap Update on Wi-Fi to retry.` : undefined,
   });
+}
+
+/** Get just these sheets onto the phone now (vehicle page "Download these") — seconds, not the whole pack.
+ *  Files land in the same place the pack uses, so the pack later skips them. */
+export async function downloadGuides(gs: Guide[], onProgress?: (done: number, total: number) => void): Promise<{ failed: number }> {
+  await loadPacks();
+  const jobs: { id: NhtsaPack; file: string }[] = [];
+  for (const g of gs) {
+    const id = packForDoc(g.docType);
+    for (const f of guideFiles(g)) if (!has(id, f) && !jobs.some((j) => j.file === f)) jobs.push({ id, file: f });
+  }
+  let done = 0, failed = 0;
+  onProgress?.(0, jobs.length);
+  const q = [...jobs];
+  async function worker() {
+    while (q.length) {
+      const j = q.shift()!;
+      const dest = localPath(j.id, j.file);
+      try {
+        if (USE_MOCKS) await new Promise((r) => setTimeout(r, 120));
+        else {
+          await FS.makeDirectoryAsync(packDir(j.id), { intermediates: true }).catch(() => {});
+          const res = await FS.downloadAsync(storageUrl(j.file), dest);
+          const ct = res.headers['content-type'] ?? res.headers['Content-Type'] ?? '';
+          if (res.status !== 200 || !(j.file.endsWith('.webp') ? ct.includes('image') : ct.includes('pdf'))) throw new Error('bad file');
+        }
+        getPackState(j.id).files[j.file] = { uri: dest };
+        setQuiet(j.id, {});
+      } catch { failed++; await FS.deleteAsync(dest, { idempotent: true }).catch(() => {}); }
+      onProgress?.(++done, jobs.length);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(8, jobs.length) }, worker));
+  await save();
+  emit();
+  return { failed };
 }
 
 /** Delete bundles no file points into any more. */
