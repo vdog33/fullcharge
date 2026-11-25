@@ -81,6 +81,31 @@ export default function Zones() {
   const step = (e: number, n: number) => setFire((f) => offsetM(f, e, n));
   const distFt = you && fireReal ? distanceM(you, fire) * M_TO_FT : null;
   const brg = you && fireReal ? bearingDeg(you, fire) : null;
+  // Phone compass: which way the responder is facing. Face into the wind, tap once, and "Wind from" is set.
+  const [facing, setFacing] = useState<{ deg: number; acc: number } | null>(null);
+  const lastDeg = useRef(-999);
+  useEffect(() => {
+    let sub: { remove: () => void } | null = null;
+    let alive = true;
+    (async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted || !alive) return;
+        sub = await Location.watchHeadingAsync((h) => {
+          const deg = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
+          if (deg < 0) return;
+          // Only re-render on a real turn (≥3°) — keeps the map smooth.
+          if (Math.abs(((deg - lastDeg.current + 540) % 360) - 180) < 3) return;
+          lastDeg.current = deg;
+          setFacing({ deg, acc: h.accuracy }); // accuracy = calibration level 0–3 (3 = best)
+        });
+        if (!alive) sub?.remove();
+      } catch { /* no compass on this device */ }
+    })();
+    return () => { alive = false; sub?.remove(); };
+  }, [!!you]); // retry once location permission is granted
+  const facingDir = facing ? COMPASS[Math.round(facing.deg / 45) % 8] : null;
+
   const pickZoom = (z: Zoom) => { setZoom(z); if (live) mapRef.current?.frame(FRAME_M[z]); };
 
   return (
@@ -101,7 +126,10 @@ export default function Zones() {
               onMoveFire={moveFire} viewM={DIAGRAM_M[zoom ?? 'Cold']} />
           )}
           <View style={s.badges} pointerEvents="box-none">
-            <View style={s.badge} pointerEvents="none"><Icon name="nav" size={16} /><Text style={s.badgeText}>{windFrom} wind · plume {heads}</Text></View>
+            <View style={{ gap: 6 }} pointerEvents="none">
+              <View style={s.badge}><Icon name="nav" size={16} /><Text style={s.badgeText}>{windFrom} wind · plume {heads}</Text></View>
+              {facingDir && <View style={s.badge}><Icon name="loc" size={16} /><Text style={s.badgeText}>You face {facingDir}</Text></View>}
+            </View>
             <Pressable onPress={() => go('caveat')} accessibilityRole="button" accessibilityLabel="Planning estimate — read the caveat" style={s.pe}>
               <Icon name="warn" size={16} color={C.hazmatText} /><Text style={[s.badgeText, { color: C.hazmatText }]}>Planning estimate</Text>
             </Pressable>
@@ -142,6 +170,27 @@ export default function Zones() {
             <Text style={[st.body, { fontSize: 16 }]}>Plume heads {heads}.</Text>
           </View>
         </View>
+
+        {/* Compass heading: which way you're facing (F9 follow-up). */}
+        <View style={s.facing}>
+          <View style={s.facingDial} importantForAccessibility="no">
+            <Text style={s.facingN}>N</Text>
+            <View style={{ transform: [{ rotate: `${facing?.deg ?? 0}deg` }], opacity: facing ? 1 : 0.35 }}><Icon name="arrow" size={30} /></View>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
+            <Label>You're facing</Label>
+            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 24 }}>
+              {facing ? `${facingDir} · ${Math.round(facing.deg)}°` : '—'}
+            </Text>
+            <Text style={st.muted}>
+              {!facing ? 'Compass needs location permission — tap Use my location.'
+                : facing.acc <= 1 ? 'Compass weak — hold flat, away from the rig, move phone in a figure 8.' : 'Hold flat, away from the rig and metal.'}
+            </Text>
+          </View>
+        </View>
+        <Btn icon="nav" disabled={!facingDir} reason="No compass reading yet — set the wind by hand above."
+          label={facingDir ? `Wind in my face — set wind from ${facingDir}` : 'Wind in my face'}
+          onPress={() => facingDir && setWindFrom(facingDir as Compass)} />
 
         <View style={s.stepper}>
           <Pressable onPress={() => setWindMph((x) => Math.max(0, x - 5))} accessibilityRole="button" accessibilityLabel="Decrease wind speed by 5" style={s.stepBtn}>
@@ -240,6 +289,9 @@ const s = StyleSheet.create({
   cellText: { color: C.text, fontFamily: F.display, fontSize: 16 },
   mid: { borderRadius: 24, borderStyle: 'dashed', backgroundColor: C.surface2 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  facing: { flexDirection: 'row', alignItems: 'center', gap: S.md, borderTopWidth: 1, borderColor: C.border, paddingTop: S.md },
+  facingDial: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: C.line, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
+  facingN: { position: 'absolute', top: 2, color: C.redText, fontFamily: F.display, fontSize: 13 },
   stepBtn: { width: 60, minHeight: TARGET.sm, borderRadius: 12, borderWidth: 2, borderColor: C.line, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
   stepText: { color: C.text, fontFamily: F.display, fontSize: 21 },
   coord: { color: C.text, fontSize: 17, fontVariant: ['tabular-nums'] },

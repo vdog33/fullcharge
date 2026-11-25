@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, st } from '../src/components/ui';
+import { VerifyPicture } from '../src/components/VerifyPicture';
 import { EV_FIRST_MOVES } from '../src/data/content';
 import { getVehicle } from '../src/data/catalog';
 import { guideLabel } from '../src/lib/match-core';
@@ -42,6 +43,8 @@ export default function GuidePage() {
         <H1>{name}</H1>
         {g0 && <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{g0.years}{g0.powertrain ? ` · ${g0.powertrain}` : ''}</Text>}
       </View>
+
+      {guides.length > 0 && <VerifyPicture guides={guides} />}
 
       {/* Safety caveat first, word for word (F3). */}
       <Notice tone="warn">Chemistry not verified for this vehicle — treat as lithium-ion, Guide 147. Cut-loop location: see the sheet.</Notice>

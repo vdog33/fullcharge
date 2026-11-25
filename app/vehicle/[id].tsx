@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Bullets, Card, Disclose, Field, H1, H2, Input, Muted, Notice, PageTabs, Screen, st } from '../../src/components/ui';
+import { VerifyPicture } from '../../src/components/VerifyPicture';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
 import { sendFeedback } from '../../src/lib/identify';
@@ -21,6 +22,7 @@ export default function VehicleScreen() {
         <H1>{v.make} {v.model}</H1>
         <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{v.years} · {v.type}</Text>
       </View>
+      <VerifyPicture vehicleId={v.id} compact />
       {/* Safety flags first, in the warning style, same words (P3). */}
       {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
       {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}

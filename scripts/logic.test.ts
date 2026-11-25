@@ -147,3 +147,66 @@ test('bundles never exceed the 50 MB upload cap, even with lumpy sizes', () => {
   assert.equal(groups.reduce((a, g) => a + g.length, 0), 900);
   assert.ok(groups.every((g) => g.reduce((a, f) => a + f.bytes, 0) <= 44_000_000 || g.length === 1));
 });
+
+import { extractVin } from '../src/lib/vin-core.ts';
+
+test('VIN from barcode / photo text', () => {
+  assert.deepEqual(extractVin('1HGCM82633A004352'), { vin: '1HGCM82633A004352', checked: true });
+  assert.deepEqual(extractVin('I1HGCM82633A004352'), { vin: '1HGCM82633A004352', checked: true });   // Code 39 "I" prefix
+  assert.deepEqual(extractVin('VIN: 1HGCM82633A004352  MFD 03/03'), { vin: '1HGCM82633A004352', checked: true });
+  assert.deepEqual(extractVin('XX1HGCM82633A004352'), { vin: '1HGCM82633A004352', checked: true }); // stray chars
+  assert.equal(extractVin('hello world'), null);
+  assert.equal(extractVin('1HGCM82633A00435O')?.vin ?? null, null); // O is never in a VIN
+});
+
+import { brandOf, buildFamilies, chemistryOf, familyOf, matchBess, modelMatchesLabel } from '../src/lib/bess-core.ts';
+
+test('BESS catalog: brands, chemistry, families, label matching', () => {
+  assert.equal(brandOf('Tesla Inc.'), 'Tesla');
+  assert.equal(brandOf('Enphase Energy, Inc.'), 'Enphase');
+  assert.equal(brandOf('Energport Inc.'), 'Energport');
+  assert.equal(chemistryOf('3.84 kW, 5.0 kWh, 240 Vac, lithium ion phosphate energy storage system'), 'LFP');
+  assert.equal(chemistryOf('30 kW, 77 kWh, 480 Vac lithium iron phosphate energy storage system'), 'LFP');
+  assert.equal(chemistryOf('10 kW, 13.5 kWh, 240 Vac split phase, Lithium-Ion Energy Storage System'), 'Li-ion');
+  assert.equal(familyOf('1707000-XX-Y {10kW}', '10 kW, 13.5 kWh, Lithium-Ion Energy Storage System (Powerwall 3), where XX are numbers'), 'Powerwall 3');
+  assert.equal(familyOf('IQBATTERY-5P-1P-NA {240V}', '3.84 kW, 5.0 kWh lithium ion phosphate'), 'IQBATTERY-5P-1P-NA');
+  assert.ok(modelMatchesLabel('1707000-XX-Y {10kW}', 'P/N 1707000-25-K'));
+  assert.ok(!modelMatchesLabel('1707000-XX-Y', 'P/N 1850000-25-K'));
+  assert.ok(modelMatchesLabel('IQBATTERY-5P-1P-NA {240V}', 'IQBATTERY-5P-1P-NA'));
+  assert.ok(!modelMatchesLabel('FLEX-10', 'FLE1-10')); // X inside a word is a letter, not a wildcard
+
+  const rows = [
+    { manufacturer: 'Tesla Inc.', model: '1707000-XX-Y {10kW}', description: '10 kW, 13.5 kWh, 240 Vac split phase, Lithium-Ion Energy Storage System (Powerwall 3), where XX are numbers and Y is a letter.', kwh: 13.5, kw: 10, vac: 240 },
+    { manufacturer: 'Tesla Inc.', model: '1707000-XX-Y {7.6kW}', description: '7.6 kW, 13.5 kWh, 240 Vac split phase, Lithium-Ion Energy Storage System (Powerwall 3), where XX are numbers and Y is a letter.', kwh: 13.5, kw: 7.6, vac: 240 },
+    { manufacturer: 'Tesla Inc.', model: '1748844-XX-Y {2hr}', description: '50 kW, 160.6 kWh, 480 Vac Lithium-Ion Energy Storage System (Megapack 2), where xx are numbers', kwh: 160.6, kw: 50, vac: 480 },
+    { manufacturer: 'Enphase Energy, Inc.', model: 'IQBATTERY-5P-1P-NA {240V}', description: '3.84 kW, 5.0 kWh, 240 Vac, lithium ion phosphate energy storage system with PCS functionality.', kwh: 5, kw: 3.84, vac: 240 },
+  ];
+  const fams = buildFamilies(rows);
+  const pw3 = fams.find((f) => f.family === 'Powerwall 3')!;
+  assert.equal(pw3.models.length, 2); assert.equal(pw3.residential, true); assert.equal(pw3.curatedId, 'powerwall-3');
+  assert.equal(fams.find((f) => f.family === 'Megapack 2')!.residential, false);
+  assert.equal(fams.find((f) => f.brand === 'Enphase')!.chemistry, 'LFP');
+  assert.equal(fams.find((f) => f.brand === 'Enphase')!.curatedId, 'enphase-5p');
+  // label photo: model number wins
+  assert.equal(matchBess({ brand: 'Tesla', modelNumbers: ['1707000-25-K'] }, fams)[0].family.family, 'Powerwall 3');
+  // no readable label: brand + product name
+  assert.equal(matchBess({ brand: 'Tesla', product: 'Powerwall 3' }, fams)[0].family.family, 'Powerwall 3');
+  // brand only: residential families of that brand, no Megapack
+  assert.deepEqual(matchBess({ brand: 'Tesla' }, fams).map((m) => m.family.family), ['Powerwall 3']);
+});
+
+test('BESS: PWRcell 2 never borrows the original PWRcell card', async () => {
+  const { curatedFor } = await import('../src/lib/bess-core.ts');
+  assert.equal(curatedFor('Generac', 'PWRcell 2 M4', ['APKE00028']), undefined);
+  assert.equal(curatedFor('Generac', 'PWRcell M4 DCB', ['APKE00010']), 'generac-pwrcell');
+});
+
+test('BESS: company legal names fold into one brand', async () => {
+  const { brandOf, familyOf, curatedFor } = await import('../src/lib/bess-core.ts');
+  assert.equal(brandOf('PANASONIC CORPORATION OF NORTH AMERICA'), 'Panasonic');
+  assert.equal(brandOf('FranklinWH Technologies Co., Ltd.'), 'FranklinWH');
+  assert.equal(brandOf('LG Electronics Inc.'), 'LG');
+  assert.equal(familyOf('aPower Syyy {240V, 10kW}', '10 kW, 15 kWh'), 'aPower S');
+  assert.equal(familyOf('PWRcell x M4 EX', ''), 'PWRcell M4 EX');
+  assert.equal(curatedFor('Panasonic', 'EVHB-I7-X10', ['EVHB-I7-X10']), undefined);
+});

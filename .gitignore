@@ -12,3 +12,6 @@ web-build/
 *.ipa
 .DS_Store
 Thumbs.db
+tools/bess/out/
+tools/bess/node_modules/
+tools/logs/

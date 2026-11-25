@@ -7,6 +7,7 @@ import { ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold } from '@expo-google-f
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/lib/auth';
 import { ensureIndex, loadPacks, resumeInterrupted } from '../src/lib/packs';
+import { ensureBessCatalog } from '../src/lib/bess-catalog';
 import { BackBtn } from '../src/components/ui';
 import { C, F } from '../src/theme';
 
@@ -14,7 +15,10 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Root() {
   const [loaded, err] = useFonts({ Archivo_700Bold, Archivo_800ExtraBold, Archivo_900Black, ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold });
-  useEffect(() => { loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {}); }, []);
+  useEffect(() => {
+    loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {});
+    ensureBessCatalog().catch(() => {});
+  }, []);
   // Fonts are bundled; if they ever fail we still render with system fonts — never block the scene.
   useEffect(() => { if (loaded || err) SplashScreen.hideAsync().catch(() => {}); }, [loaded, err]);
   if (!loaded && !err) return null;
@@ -41,9 +45,13 @@ export default function Root() {
           <Stack.Screen name="vehicle/[id]" options={{ title: 'Vehicle' }} />
           <Stack.Screen name="bess/index" options={{ title: 'BESS' }} />
           <Stack.Screen name="bess/[id]" options={{ title: 'BESS' }} />
+          <Stack.Screen name="bess/brand" options={{ title: 'Home batteries' }} />
+          <Stack.Screen name="bess/family" options={{ title: 'Home battery' }} />
+          <Stack.Screen name="bess/camera" options={{ title: 'Identify home battery' }} />
           <Stack.Screen name="erg-pdf" options={{ headerLeft: undefined, headerBackVisible: true, headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Manufacturer ERG' }} />
           <Stack.Screen name="guide" options={{ title: 'Cut sheets' }} />
           <Stack.Screen name="sheet" options={{ headerLeft: undefined, headerBackVisible: true, headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Rescue sheet' }} />
+          <Stack.Screen name="scan-vin" options={{ title: 'Scan VIN' }} />
           <Stack.Screen name="hazmat" options={{ title: 'Hazmat ERG 147' }} />
           <Stack.Screen name="guide147" options={{ title: 'Guide 147 full text' }} />
           <Stack.Screen name="zones" options={{ title: 'Isolation Zones' }} />

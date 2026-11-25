@@ -1,18 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bullets, Card, CardBtn, Chips, Disclose, H1, H2, Label, Pill, Screen, st, useJump } from '../../src/components/ui';
+import { BigNav, Bullets, Card, CardBtn, Chips, Disclose, H1, H2, Label, Muted, Pill, Screen, Toggle, st, useJump } from '../../src/components/ui';
+import { BrandGrid } from '../../src/components/BrandGrid';
+import { bessCatalogInfo, bessFamilies, ensureBessCatalog, subscribeBess } from '../../src/lib/bess-catalog';
 import { LastVehicleBar } from '../../src/components/LastVehicleBar';
 import { BESS, shutdownSteps } from '../../src/data/catalog';
 import { BESS_CHEM_MORE, BESS_FAIL_POINTS, BESS_NO_FIRE, BESS_ON_FIRE, SIZE_UP } from '../../src/data/content';
 import { C, S } from '../../src/theme';
 
-const JUMPS = [{ key: 'list', label: 'Batteries' }, { key: 'size', label: 'Size-up' }, { key: 'nofire', label: 'No fire' }, { key: 'onfire', label: 'On fire' }];
+const JUMPS = [{ key: 'list', label: 'Batteries' }, { key: 'all', label: 'All systems' }, { key: 'size', label: 'Size-up' }, { key: 'nofire', label: 'No fire' }, { key: 'onfire', label: 'On fire' }];
 
 export default function BessList() {
   const r = useRouter();
   const { ref, mark, go } = useJump();
   const [sel, setSel] = useState('list');
+  const [, force] = useReducer((x) => x + 1, 0);
+  const [commercial, setCommercial] = useState(false);
+  useEffect(() => { ensureBessCatalog().then(force); return subscribeBess(force); }, []);
+  const fams = bessFamilies();
+  const brands = useMemo(() => {
+    const m = new Map<string, number>();
+    fams.filter((f) => commercial || f.residential).forEach((f) => m.set(f.brand, (m.get(f.brand) ?? 0) + 1));
+    return [...m.entries()].map(([make, models]) => ({ make, models })).sort((a, b) => a.make.localeCompare(b.make));
+  }, [fams.length, commercial]);
+  const info = bessCatalogInfo();
   return (
     <Screen ref={ref}>
       {/* "On fire" is one tap away (F30). */}
@@ -21,6 +33,8 @@ export default function BessList() {
 
       <View onLayout={mark('list')} style={{ gap: 10 }}>
         <H1>Home batteries</H1>
+        <BigNav tone="red" icon="cam" title="Identify by camera" sub="Photo the unit or its label" onPress={() => r.push('/bess/camera')} />
+        <H2>Verified shutdown cards</H2>
         {BESS.map((b) => {
           const verified = shutdownSteps(b).verified;
           return (
@@ -34,6 +48,19 @@ export default function BessList() {
             </CardBtn>
           );
         })}
+      </View>
+
+      <View onLayout={mark('all')} style={{ gap: 10 }}>
+        <H2>All US-listed systems</H2>
+        {info ? (
+          <>
+            <Muted>{brands.length} brands · every UL 9540 system on the California Energy Commission list ({info.version}).</Muted>
+            <Toggle label="Include commercial systems" sub="Over 20 kWh per unit." value={commercial} onChange={setCommercial} />
+            <BrandGrid brands={brands} onPick={(mk) => r.push(`/bess/brand?make=${encodeURIComponent(mk)}${commercial ? '&all=1' : ''}`)} />
+          </>
+        ) : (
+          <Card><Text style={st.body}>The full list loads the first time the app has signal.</Text></Card>
+        )}
       </View>
 
       <View onLayout={mark('size')} style={{ gap: 10 }}>

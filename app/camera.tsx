@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { Btn, Bullets, Card, Divider, H1, H2, Muted, Notice, Screen, Steps, Toggle, st } from '../src/components/ui';
+import { VerifyPicture } from '../src/components/VerifyPicture';
 import { Candidate, destination, IdResult, identifyPhoto, NO_SIGNAL_MSG } from '../src/lib/identify';
 import { getSettings, logIdAttempt, setSettings, updateIdAttempt } from '../src/lib/history';
 import { allReady, guideIndex } from '../src/lib/packs';
@@ -95,6 +96,7 @@ export default function CameraId() {
           <Muted>Match {i + 1} of {n}</Muted>
           <Card>
             <Text style={st.h1}>{cur.label}</Text>
+            <VerifyPicture guides={cur.guides} vehicleId={cur.vehicleId} compact />
             <Text style={st.body}>{cur.confidence}%{cur.guess.powertrain && cur.guess.powertrain !== 'UNKNOWN' ? ` · ${cur.guess.powertrain}` : ''}</Text>
             {cur.cues.length > 0 && <Bullets items={cur.cues} />}
             <OnFile c={cur} />

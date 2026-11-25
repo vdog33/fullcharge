@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { ActivityIndicator, Linking, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Btn, Card, Chips, H2, Input, Muted, Notice, Row, Screen, Seg, st } from '../src/components/ui';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Btn, Card, H2, Input, Muted, Notice, Row, Screen, Seg, st } from '../src/components/ui';
+import { BrandGrid, BrandItem } from '../src/components/BrandGrid';
+import { VerifyPicture } from '../src/components/VerifyPicture';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
@@ -14,7 +16,6 @@ import { S } from '../src/theme';
 
 type Mode = 'name' | 'vin';
 const SEED = VEHICLES.map((v) => ({ id: v.id, make: v.make, model: v.model, years: v.years, type: v.type }));
-const ALL = '__all';
 
 /** One row per make + model; the guide page lists every year / doc type. */
 function groupGuides(gs: Guide[]) {
@@ -36,6 +37,9 @@ export default function Search() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [res, setRes] = useState<{ r: VinResult; at: number; guides: Guide[] } | null>(null);
+  // Coming back from the scanner with a VIN: look it up straight away.
+  const params = useLocalSearchParams<{ vin?: string }>();
+  useEffect(() => { if (params.vin) { setMode('vin'); setVin(params.vin); runVin(params.vin); } }, [params.vin]);
 
   const index = guideIndex();
   const makesAll = useMemo(() => [...new Set([...VEHICLES.map((v) => v.make), ...index.map((g) => g.make)])].sort(), [index.length]);
@@ -49,18 +53,16 @@ export default function Search() {
     seedList.forEach((v) => (g[v.make] ??= []).push(v));
     return Object.entries(g);
   }, [seedList]);
-  const makeCounts = useMemo(() => {
+  // Brand grid: every make (FULLCHARGE + NHTSA) with its number of distinct models, A–Z.
+  const brands: BrandItem[] = useMemo(() => {
     const m = new Map<string, Set<string>>();
-    index.forEach((g) => m.set(g.make, (m.get(g.make) ?? new Set()).add(g.model)));
-    return [...m.entries()].map(([mk, set]) => [mk, set.size] as const).sort((a, b) => a[0].localeCompare(b[0]));
+    const add = (mk: string, model: string) => m.set(mk, (m.get(mk) ?? new Set()).add(model.toLowerCase()));
+    VEHICLES.forEach((v) => add(v.make, v.model));
+    index.forEach((g) => add(g.make, g.model));
+    return [...m.entries()].map(([mk, set]) => ({ make: mk, models: set.size })).sort((a, b) => a.make.localeCompare(b.make));
   }, [index.length]);
   const filtering = q.trim().length >= 2 || !!make;
   const guideGroups = useMemo(() => (filtering ? groupGuides(searchGuides(textQ, index, make, 200)) : []), [textQ, make, index.length]);
-  // Put the selected make first so it's visible without scrolling the chip row.
-  const chipOpts = useMemo(() => {
-    const rest = makesAll.filter((m) => m !== make);
-    return [{ key: ALL, label: 'All' }, ...(make ? [{ key: make, label: make }] : []), ...rest.map((m) => ({ key: m, label: m }))];
-  }, [makesAll, make]);
 
   async function runVin(v?: string) {
     setErr(''); setRes(null); setBusy(true);
@@ -93,8 +95,21 @@ export default function Search() {
           <Input label="Make or model" icon="search" placeholder="e.g. ioniq 6" value={q} onChangeText={setQ}
             onClear={() => { setQ(''); setChip(undefined); }} autoCorrect={false} autoCapitalize="none" returnKeyType="search" />
           {looksLikeVin(q) && <Btn icon="search" label="That looks like a VIN — look it up" onPress={() => { setMode('vin'); setVin(q); runVin(q); }} />}
-          <Chips label="Make" options={chipOpts} value={make ?? ALL}
-            onChange={(k) => { if (k === ALL) { setChip(undefined); if (typedMake) setQ(''); } else setChip(k === chip ? undefined : k); }} />
+          {make && (
+            <Btn tone="outline" size="sm" icon="back" label={`All brands · showing ${make}`}
+              onPress={() => { setChip(undefined); if (typedMake) setQ(''); }} />
+          )}
+          {!filtering && (
+            <>
+              <BrandGrid brands={brands} onPick={(mk) => { setChip(mk); setQ(''); }} />
+              {!index.length && (
+                <Card>
+                  <Text style={st.body}>Only the 20 FULLCHARGE vehicles until the vehicle list loads (needs signal once).</Text>
+                  <Btn tone="hazmat" size="sm" icon="dl" label="Download rescue sheets" onPress={() => r.push('/settings/downloads')} />
+                </Card>
+              )}
+            </>
+          )}
 
           {filtering && (
             <Muted>
@@ -102,27 +117,19 @@ export default function Search() {
             </Muted>
           )}
 
-          {seedGrouped.length > 0 && <H2 sub={filtering ? undefined : 'Quick-reference pages written for responders'}>FULLCHARGE pages</H2>}
-          {seedGrouped.map(([mk, vs]) => (
+          {filtering && seedGrouped.length > 0 && <H2 sub="Quick-reference pages written for responders">FULLCHARGE pages</H2>}
+          {filtering && seedGrouped.map(([mk, vs]) => (
             <View key={mk}>
               <Text style={[st.label, { paddingTop: S.sm }]}>{mk}</Text>
               {vs.map((v) => <Row key={v.id} title={v.model} meta={`${v.years} · ${v.type}`} onPress={() => r.push(`/vehicle/${v.id}`)} />)}
             </View>
           ))}
 
-          <H2 sub="Manufacturer rescue sheets, PDF">All cut sheets{index.length ? ` (${index.length})` : ''}</H2>
-          {!index.length && (
-            <Card>
-              <Text style={st.body}>No cut sheets on this phone yet.</Text>
-              <Btn tone="hazmat" size="sm" icon="dl" label="Download rescue sheets" onPress={() => r.push('/settings/downloads')} />
-            </Card>
-          )}
-          {!!index.length && !allReady() && <Notice tone="info">Download not finished — some sheets need signal.</Notice>}
-          {!!index.length && !guideGroups.length && filtering && <Muted>No cut sheet matches.</Muted>}
+          {filtering && <H2 sub="Manufacturer rescue sheets, PDF">{make ? `${make} cut sheets` : 'Cut sheets'}</H2>}
+          {filtering && !!index.length && !allReady() && <Notice tone="info">Download not finished — some sheets need signal.</Notice>}
+          {filtering && !!index.length && !guideGroups.length && <Muted>No cut sheet matches.</Muted>}
+          {filtering && !index.length && <Muted>NHTSA cut sheets appear once the vehicle list has loaded.</Muted>}
           <View>
-            {!!index.length && !filtering && makeCounts.map(([mk, n]) => (
-              <Row key={mk} title={mk} pill={plural(n, 'model')} onPress={() => setChip(mk)} />
-            ))}
             {guideGroups.map((gs) => {
               const label = `${gs[0].make} ${gs[0].model}`;
               const years = [...new Set(gs.map((g) => g.years))].join(' · ');
@@ -138,6 +145,7 @@ export default function Search() {
             autoCapitalize="characters" autoCorrect={false} maxLength={20} returnKeyType="search" onSubmitEditing={() => runVin()} />
           <Muted>Dash (driver side, through windshield) or driver door jamb.</Muted>
           <Btn tone="red" icon="search" label="Look up VIN" onPress={() => runVin()} disabled={busy || !vin.trim()} reason={busy ? undefined : "Type the VIN first."} />
+          <Btn icon="cam" label="Scan VIN — barcode or photo" onPress={() => r.push('/scan-vin')} />
         </>
       )}
 
@@ -155,6 +163,9 @@ export default function Search() {
           {res.r.warnings.map((w) => <Notice key={w} tone="warn">{w}</Notice>)}
 
           {(res.r.matches.length > 0 || res.guides.length > 0) && <H2>Is this the car?</H2>}
+          {(res.guides.length > 0 || res.r.matches[0]?.strength === 'model') && (
+            <VerifyPicture guides={res.guides} vehicleId={res.r.matches[0]?.strength === 'model' ? res.r.matches[0].vehicleId : undefined} compact />
+          )}
           {res.r.matches.map((m) => {
             const v = getVehicle(m.vehicleId)!;
             return <Btn key={m.vehicleId} tone={m.strength === 'model' ? 'red' : 'neutral'} label={`${v.make} ${v.model}`} sub={m.reason} onPress={() => open(m.vehicleId, `/vehicle/${m.vehicleId}`)} />;

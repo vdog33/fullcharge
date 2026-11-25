@@ -156,6 +156,22 @@ export async function sheetPageUris(g: Guide): Promise<SheetPage[]> {
   return pages.map((p, i) => ({ ...p, uri: uris[i] ?? storageUrl(p.file), local: !!uris[i] }));
 }
 
+/** Verification picture: page 1 of the vehicle's rescue sheet (the manufacturer's side / top drawings).
+ *  From the device when downloaded, else streamed. Only page 1 is pulled out of its bundle. */
+export type Picture = PageImage & { uri: string; local: boolean; guideKey: string };
+export async function pictureFor(guides: Guide[]): Promise<Picture | null> {
+  await loadPacks();
+  const g = guides.find((x) => x.docType === 'rescue_sheet' && x.images) ?? guides.find((x) => x.images);
+  if (!g) return null;
+  const lg = localGuide(g);
+  const src = (lg ?? g).images![IMAGE_SET].pages[0];
+  if (!src) return null;
+  const uri = lg ? await materialize(packForDoc(g.docType), src.file) : null;
+  return { ...src, uri: uri ?? storageUrl(src.file), local: !!uri, guideKey: g.key };
+}
+export const pictureForVehicle = (vehicleId: string) =>
+  pictureFor(guideIndex().filter((x) => x.vehicleId === vehicleId).sort((a, b) => (b.yearTo ?? 9999) - (a.yearTo ?? 9999)));
+
 async function existing(uri?: string) {
   if (!uri) return null;
   try { return (await FS.getInfoAsync(uri)).exists ? uri : null; } catch { return null; }

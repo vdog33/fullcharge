@@ -51,6 +51,13 @@
         {
           "locationWhenInUsePermission": "Your location centres the isolation-zone map on the scene."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FULLCHARGE uses the camera to photograph a vehicle or scan its VIN barcode.",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "experiments": {

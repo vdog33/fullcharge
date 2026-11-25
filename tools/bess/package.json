@@ -1,0 +1,16 @@
+{
+  "name": "fullcharge-bess-tools",
+  "private": true,
+  "type": "module",
+  "description": "Build the FULLCHARGE home-battery catalog from the California Energy Commission's Energy Storage System list (UL 9540 systems). Runs on your PC.",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "scrape": "node --experimental-strip-types scrape.mjs",
+    "publish": "node --experimental-strip-types publish.mjs",
+    "all": "npm run scrape && npm run publish",
+    "build": "node --experimental-strip-types build.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
