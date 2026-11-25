@@ -116,6 +116,27 @@ async function modelPhoto(make: string, model: string): Promise<Photo | null> {
 }
 const withPhotos = (gs: RawGuess[]) => Promise.all(gs.map(async (g) => ({ ...g, photo: await modelPhoto(g.make, g.model) })));
 
+/** VIN path: the VIN already names the car — just get checks a crew can confirm on it. Text only, no photo sent. */
+async function geminiChecks(make: string, model: string, year: number | null, powertrain: string): Promise<string[]> {
+  const prompt = `A firefighter has a ${year ?? ''} ${make} ${model} (${powertrain || 'unknown powertrain'}) from a VIN decode.
+Give 3 to 5 short features they can look at on the car in seconds to confirm it is THIS model and year range and not a look-alike
+(badge text and where it is, light shape, door handles, charge-port side, roofline, grille). Only features true for this model and year.
+Plain words, max 10 words each.`;
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: { checks: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['checks'] } },
+    }),
+  });
+  if (!res.ok) return [];
+  const out = await res.json();
+  try {
+    const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
+    return ((JSON.parse(text).checks ?? []) as unknown[]).map((c) => String(c).slice(0, 90)).slice(0, 5);
+  } catch { return []; }
+}
+
 /** Home battery / ESS from a photo of the unit or its label. The phone matches the answer to the CEC listing. */
 async function geminiBess(imageBase64: string, mimeType: string) {
   const prompt = `You help firefighters identify a home battery energy storage system (BESS / ESS) from a photo of the unit or its label.
@@ -204,6 +225,15 @@ Deno.serve(async (req: Request) => {
       if (!imageBase64 || imageBase64.length > 8_000_000) return json({ error: 'image missing or too large' }, 400);
       if (MOCK) return json({ guesses: [{ brand: 'Tesla', product: 'Powerwall 3', modelNumbers: ['1707000-25-K'], confidence: 90, cues: ['SERVER MOCK'] }], notes: 'SERVER MOCK — no Gemini key set.' });
       return json(await geminiBess(imageBase64, mimeType));
+    }
+
+    if (body.action === 'describe_model') {
+      const make = String(body.make ?? '').slice(0, 40), model = String(body.model ?? '').slice(0, 60);
+      if (!make || !model) return json({ error: 'make and model required' }, 400);
+      const year = Number(body.year) || null, powertrain = String(body.powertrain ?? '').slice(0, 20);
+      if (MOCK) return json({ photo: await modelPhoto(make, model), checks: ['SERVER MOCK — no Gemini key set.'] });
+      const [photo, checks] = await Promise.all([modelPhoto(make, model), geminiChecks(make, model, year, powertrain)]);
+      return json({ photo, checks });
     }
 
     if (body.action === 'read_vin') {

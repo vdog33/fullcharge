@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BigNav, BoltShield, Btn, Disclose, Icon, Notice, Screen, Steps, Wordmark } from '../src/components/ui';
+import { BigNav, Btn, Disclose, Icon, Notice, Screen, Steps, Wordmark } from '../src/components/ui';
 import { IconName } from '../src/components/Icon';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { EV_FIRST_MOVES } from '../src/data/content';
@@ -23,11 +23,8 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
       <Screen>
-        <View style={{ alignItems: 'center', gap: 6, marginTop: S.sm }}>
-          <BoltShield size={56} />
-          <Wordmark size={34} />
-          <Text style={{ color: C.muted, fontFamily: F.displayBold, fontSize: 15, letterSpacing: 2 }}>ERG · EVR · BESS EXPERT</Text>
-        </View>
+        {/* Just the FULLCHARGE wordmark — shield and tagline removed to free up space. */}
+        <View style={{ alignItems: 'center' }}><Wordmark size={26} /></View>
 
         <LastVehicleBar />
 

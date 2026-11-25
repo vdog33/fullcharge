@@ -3,7 +3,8 @@ import { ActivityIndicator, Linking, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Card, H2, Input, Muted, Notice, Row, Screen, Seg, st } from '../src/components/ui';
 import { BrandGrid, BrandItem } from '../src/components/BrandGrid';
-import { VerifyPicture } from '../src/components/VerifyPicture';
+import { MatchPicker } from '../src/components/MatchPicker';
+import { Candidate, describeModel, destination, vinCandidate } from '../src/lib/identify';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
@@ -37,6 +38,8 @@ export default function Search() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [res, setRes] = useState<{ r: VinResult; at: number; guides: Guide[] } | null>(null);
+  const [vinCand, setVinCand] = useState<Candidate | null>(null); // same pick → check → accept as camera ID
+  const [accepted, setAccepted] = useState<string | null>(null);
   // Coming back from the scanner with a VIN: look it up straight away.
   const params = useLocalSearchParams<{ vin?: string }>();
   useEffect(() => { if (params.vin) { setMode('vin'); setVin(params.vin); runVin(params.vin); } }, [params.vin]);
@@ -65,7 +68,7 @@ export default function Search() {
   const guideGroups = useMemo(() => (filtering ? groupGuides(searchGuides(textQ, index, make, 200)) : []), [textQ, make, index.length]);
 
   async function runVin(v?: string) {
-    setErr(''); setRes(null); setBusy(true);
+    setErr(''); setRes(null); setVinCand(null); setAccepted(null); setBusy(true);
     try {
       const out = await lookupVin(v ?? vin);
       const d = out.decoded;
@@ -76,6 +79,11 @@ export default function Search() {
         candidates: out.matches.map((m) => ({ label: m.reason, vehicleId: m.vehicleId, confidence: m.strength === 'model' ? 100 : 0 })), confirmedId: null,
       });
       setRes({ r: out, at, guides });
+      const vid = out.matches.find((m) => m.strength === 'model')?.vehicleId;
+      const c = vinCandidate(d, guides, vid);
+      setVinCand(c);
+      // Photo + checks arrive a moment later (need signal); the card works without them.
+      if (c) describeModel(c.guess).then((x) => setVinCand((p) => (p && p.label === c.label ? { ...p, photo: x.photo, checks: p.checks.length ? p.checks : x.checks } : p)));
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -164,22 +172,20 @@ export default function Search() {
           </Card>
           {res.r.warnings.map((w) => <Notice key={w} tone="warn">{w}</Notice>)}
 
-          {(res.r.matches.length > 0 || res.guides.length > 0) && <H2>Is this the car?</H2>}
-          {(res.guides.length > 0 || res.r.matches[0]?.strength === 'model') && (
-            <VerifyPicture guides={res.guides} vehicleId={res.r.matches[0]?.strength === 'model' ? res.r.matches[0].vehicleId : undefined} compact />
+          {vinCand && (
+            <MatchPicker title="Is this the car?" candidates={[vinCand]} accepted={accepted} noneLabel="Not this car — search by name"
+              onNone={async () => { await updateIdAttempt(res.at, { confirmedId: null }); setMode('name'); setRes(null); setVinCand(null); }}
+              onAccept={async (c) => {
+                const d = destination(c);
+                if (!d) return;
+                setAccepted(c.label);
+                await open(d.id, `${d.href}${d.href.includes('?') ? '&' : '?'}idAt=${res.at}`);
+              }} />
           )}
-          {res.r.matches.map((m) => {
-            const v = getVehicle(m.vehicleId)!;
-            return <Btn key={m.vehicleId} tone={m.strength === 'model' ? 'red' : 'neutral'} label={`${v.make} ${v.model}`} sub={m.reason} onPress={() => open(m.vehicleId, `/vehicle/${m.vehicleId}`)} />;
-          })}
-          {res.guides.length > 0 && (() => {
-            const label = [res.r.decoded.year, res.r.decoded.make, res.r.decoded.model].filter(Boolean).join(' ');
-            return <Btn tone="red" icon="book" label="Open cut sheet" sub={`${plural(res.guides.length, 'sheet')} · ${label}`} onPress={() => open(`guide:${res.guides[0].key}`, guideHref(res.guides, label))} />;
-          })()}
           {res.r.matches.some((m) => m.vehicleId === 'wrangler-4xe') && (
             <Notice tone="danger">4xe: check 68C recall remedy on this VIN before trusting the pack.</Notice>
           )}
-          {!res.r.matches.length && !res.guides.length && (
+          {!res.r.matches.some((m) => m.strength === 'model') && !res.guides.length && (
             <Card>
               {/^(ICE|)$/.test(res.r.decoded.electrification ?? '') && res.r.source === 'nhtsa-vpic'
                 ? <Text style={st.body}>No electrification listed for this VIN — likely gas-only. NHTSA cut sheets cover electric-powered vehicles only.</Text>
