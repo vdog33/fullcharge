@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { Btn, Bullets, Card, Divider, H1, H2, Muted, Notice, Screen, Steps, Toggle, st } from '../src/components/ui';
@@ -8,6 +8,7 @@ import { Candidate, destination, IdResult, identifyPhoto, NO_SIGNAL_MSG } from '
 import { getSettings, logIdAttempt, setSettings, updateIdAttempt } from '../src/lib/history';
 import { allReady, guideIndex } from '../src/lib/packs';
 import { ergFor } from '../src/lib/chem-guide';
+import { getLastId, markAccepted, saveLastId } from '../src/lib/last-id';
 import { C, F, S } from '../src/theme';
 
 type Phase = 'idle' | 'working' | 'confirm' | 'error';
@@ -19,6 +20,15 @@ export default function CameraId() {
   const [res, setRes] = useState<IdResult | null>(null);
   const [i, setI] = useState(0);
   const [open, setOpen] = useState(false); // false = picking from the photo cards, true = checking one
+  const [accepted, setAccepted] = useState<string | null>(null); // the car opened last, if they came back
+  const last = getLastId();
+  // Coming back from the rescue sheet: land on the match cards, not the one they accepted.
+  useFocusEffect(useCallback(() => { setOpen(false); }, []));
+  function restoreLast() {
+    const l = getLastId();
+    if (!l) return;
+    setRes(l.res); setUri(l.uri); setAt(l.at); setI(0); setOpen(false); setAccepted(l.accepted ?? null); setPhase('confirm');
+  }
   const [at, setAt] = useState(0);
   const [err, setErr] = useState('');
   const [share, setShare] = useState(false);
@@ -36,7 +46,8 @@ export default function CameraId() {
     try {
       const result = await identifyPhoto(out.assets[0].uri, { sharePhoto: share });
       const stamp = Date.now();
-      setAt(stamp); setRes(result); setI(0); setOpen(false);
+      setAt(stamp); setRes(result); setI(0); setOpen(false); setAccepted(null);
+      saveLastId({ res: result, uri: out.assets[0].uri, at: stamp });
       await logIdAttempt({
         at: stamp, source: 'camera', topMatch: result.candidates[0]?.label ?? null,
         candidates: result.candidates.map((c) => ({ label: c.label, vehicleId: c.vehicleId, confidence: c.confidence })),
@@ -56,7 +67,9 @@ export default function CameraId() {
   async function yes() {
     if (!cur || !dest) return;
     await updateIdAttempt(at, { confirmedId: dest.id, confirmedLabel: cur.label });
-    r.replace(`${dest.href}${dest.href.includes('?') ? '&' : '?'}idAt=${at}`);
+    markAccepted(cur.label); setAccepted(cur.label);
+    // push, not replace: Back from the sheet returns to these matches.
+    r.push(`${dest.href}${dest.href.includes('?') ? '&' : '?'}idAt=${at}`);
   }
   async function manual() {
     await updateIdAttempt(at, { confirmedId: null });
@@ -71,6 +84,9 @@ export default function CameraId() {
           {noSignal
             ? <Notice tone="warn" icon="signal" title="No signal">Photo ID needs signal. Search manually — downloaded cut sheets work offline.</Notice>
             : <Notice tone="ok" icon="signal"><Text style={[st.body, { fontSize: 17 }]}><Text style={{ fontWeight: '700' }}>Signal: {net.isConnected === null ? 'checking…' : 'good.'}</Text> Photo ID needs signal. Downloaded cut sheets don't.</Text></Notice>}
+          {last && (
+            <Btn tone="outline" icon="back" label={`Back to last matches (${Math.max(1, Math.round((Date.now() - last.t) / 60000))} min ago)`} onPress={restoreLast} />
+          )}
           <H1>Photo the car</H1>
           <Steps items={['Non-damaged side', 'Whole car in frame', 'Badge + lights if you can']} />
           <Btn big tone="red" icon="cam" label="Take photo" onPress={() => pick(true)} />
@@ -95,6 +111,7 @@ export default function CameraId() {
       {phase === 'confirm' && !open && res && (
         <View style={{ gap: S.block }}>
           <H1>Which car is it?</H1>
+          {accepted && <Notice tone="info" icon="back" title={`You opened ${accepted}`}>Wrong car? Pick another below — no need to start over.</Notice>}
           {res.candidates.length === 0 && <Notice tone="warn">No match from this photo. Search manually or try another angle.</Notice>}
           {res.candidates.map((c, k) => (
             <Pressable key={c.label} onPress={() => { setI(k); setOpen(true); }} accessibilityRole="button"
