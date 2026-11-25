@@ -63,22 +63,19 @@ export default function BessList() {
         )}
       </View>
 
-      <View onLayout={mark('size')} style={{ gap: 10 }}>
-        <H2>Size-up</H2>
-        <Card>
+      <View onLayout={mark('size')}>
+        <Disclose title="Size-up" count="spot + ask">
           {SIZE_UP.intro.map((l, i) => <Text key={l} style={[st.body, { fontSize: 17 }, i === 0 && { fontWeight: '700' }]}>{l}</Text>)}
           <Label>Spot</Label><Bullets items={SIZE_UP.spot} size={17} />
           <Label>Ask</Label><Bullets items={SIZE_UP.ask} size={17} />
-        </Card>
+        </Disclose>
       </View>
 
-      <View onLayout={mark('nofire')} style={{ gap: 10 }}>
-        <H2 icon="warn" color={C.hazmat}>No fire</H2>
-        <Bullets items={BESS_NO_FIRE} />
+      <View onLayout={mark('nofire')}>
+        <Disclose title="No fire — venting / heat" count={`${BESS_NO_FIRE.length} points`}><Bullets items={BESS_NO_FIRE} /></Disclose>
       </View>
-      <View onLayout={mark('onfire')} style={{ gap: 10 }}>
-        <H2 icon="bolt" color={C.redText}>On fire</H2>
-        <Bullets items={BESS_ON_FIRE} />
+      <View onLayout={mark('onfire')}>
+        <Disclose title="On fire" count={`${BESS_ON_FIRE.length} points`}><Bullets items={BESS_ON_FIRE} /></Disclose>
       </View>
 
       <Disclose title="More — LFP vs NMC chemistry">

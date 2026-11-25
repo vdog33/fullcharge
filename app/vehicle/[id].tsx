@@ -22,26 +22,24 @@ export default function VehicleScreen() {
         <H1>{v.make} {v.model}</H1>
         <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{v.years} · {v.type}</Text>
       </View>
-      {/* On scene, time matters: safety flag, then the answers crews act on — no taps, no scrolling past menus. */}
+      {/* Picture first: the manufacturer rescue sheet shows cut zones, HV and 12V on the car itself. */}
       {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
-      <Field label="Cut loop" value={v.cut_loop} />
-      <Field label="12V" value={v.lv_location} />
-      <Field label="No-cut" value={v.no_cut_zones} />
-      <Field label="Airbag / HV" value={v.airbag_hv} />
-      <Field label="Immobilise" value="Chock. Park / brake. No engine noise ≠ off." />
-
+      <VerifyPicture vehicleId={v.id} hero />
       <PageTabs kind="vehicle" id={v.id} />
 
-      <H2>Is this the car?</H2>
-      <VerifyPicture vehicleId={v.id} compact />
-      <Bullets items={v.id_cues} />
-
-      <H2>More</H2>
-      <Field label="Pack" value={v.pack} />
-      <Field label="Chemistry" value={v.chemistry} />
-      <Field label="Tow" value={v.tow} />
-      <Field label="Release" value={v.release} />
-      {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}
+      <Disclose title="Written notes" count="not yet verified">
+        <Field label="Cut loop" value={v.cut_loop} />
+        <Field label="12V" value={v.lv_location} />
+        <Field label="No-cut" value={v.no_cut_zones} />
+        <Field label="Airbag / HV" value={v.airbag_hv} />
+        <Field label="Pack" value={v.pack} />
+        <Field label="Chemistry" value={v.chemistry} />
+        <Field label="Tow" value={v.tow} />
+        <Field label="Release" value={v.release} />
+        <Text style={st.label}>ID cues</Text>
+        <Bullets items={v.id_cues} />
+        {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}
+      </Disclose>
 
       <Disclose title="Details" count="source + checks">
         <Field label="ERG source" value={v.erg_pdf_label} />
