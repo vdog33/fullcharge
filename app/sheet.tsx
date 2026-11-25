@@ -48,7 +48,7 @@ export default function Sheet() {
           {failed > 0 && <Muted>{failed} page(s) didn't load. Check signal, or update the pack.</Muted>}
           <View style={{ width: Math.min(pageW, 600), paddingHorizontal: S.lg, gap: S.sm, marginTop: S.md }}>
             <Btn tone="ghost" label="ORIGINAL PDF (needs signal)" onPress={() => r.push(`/erg-pdf?kind=guide&id=${g.key}&original=1`)} />
-            <Muted>Pinch to zoom. Confirm in the ERG / EVR app on scene.</Muted>
+            <Muted>Pinch to zoom.</Muted>
           </View>
         </ScrollView>
       )}

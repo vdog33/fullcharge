@@ -9,7 +9,7 @@ export const EV_FIRST_MOVES = [
   'No-cut: blue / orange / yellow cables, airbag cylinders, pack',
   'Boron / UHSS (22MnB5, ~1500 MPa) fractures, does not shear — expect tool stall + sudden break',
   'Runaway signs: white vapor, hissing, flames. Gear + SCBA on for any damaged EV',
-  'EVR app / ERG on scene — no VIN check needed to start',
+  'FULLCHARGE + manufacturer ERG on scene — no VIN check needed to start',
 ];
 
 export const STANDARD_RELEASE =

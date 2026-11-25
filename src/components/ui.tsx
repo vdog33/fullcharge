@@ -129,7 +129,7 @@ export function Notice({ tone = 'warn', title, icon, children, action }: {
 
 /** A labelled fact. Unverified text ("Confirm…", "Check ERG") gets the CONFIRM badge. */
 export function Field({ label, value }: { label: string; value: string }) {
-  const unverified = /confirm in the erg|check erg/i.test(value);
+  const unverified = /check the manufacturer rescue sheet|confirm in the erg|check erg/i.test(value);
   return (
     <View style={st.field}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

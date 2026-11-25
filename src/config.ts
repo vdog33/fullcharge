@@ -18,5 +18,5 @@ export const FUNCTIONS_URL = RAW_FUNCTIONS || (SUPABASE_URL ? `${SUPABASE_URL}/f
 export const BACKEND_READY = !USE_MOCKS && !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 
 export const DISCLAIMER = 'Responder aid — NOT a replacement for the manufacturer ERG.';
-export const CONFIRM = 'Confirm in the ERG / EVR app on scene';
+export const CONFIRM = 'Check the manufacturer rescue sheet';
 export const NHTSA_PORTAL = 'https://www.nhtsa.gov/emergency-response-guides';

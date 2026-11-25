@@ -1,4 +1,4 @@
-# FULLCHARGE — ERG · EVR · BESS EXPERT
+# FULLCHARGE — ERG · EV · BESS EXPERT
 
 React Native (Expo SDK 54, expo-router) · Supabase (auth, Postgres, storage, edge functions) · Gemini vision (server-side).
 **Responder aid — NOT a replacement for the manufacturer ERG.**
