@@ -2,10 +2,10 @@ import React, { useEffect, useReducer, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { Btn, Card, Muted, st } from '../src/components/ui';
+import { Btn, Card, Muted, st } from '../src/components/legacy';
 import { guideLabel } from '../src/lib/match-core';
 import { getGuide, loadPacks, SheetPage, sheetPageUris, subscribe } from '../src/lib/packs';
-import { C, S } from '../src/theme';
+import { LC as C, LS_ as S } from '../src/components/legacy';
 
 /** Rescue sheet shown as page images. Pinch to zoom (iOS). Works offline once the rescue-sheet pack is on the device. */
 export default function Sheet() {

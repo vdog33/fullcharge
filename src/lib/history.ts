@@ -41,6 +41,8 @@ export async function logView(kind: Recent['kind'], id: string, label?: string) 
 }
 export const getRecents = () => read<Recent[]>(RECENTS, []);
 export const clearRecents = () => write(RECENTS, []);
+/** Undo for "Clear recents". */
+export const restoreRecents = (list: Recent[]) => write(RECENTS, list);
 
 export async function logIdAttempt(a: IdAttempt) {
   const list = await read<IdAttempt[]>(IDHIST, []);
@@ -52,6 +54,7 @@ export async function updateIdAttempt(at: number, patch: Partial<IdAttempt>) {
 }
 export const getIdHistory = () => read<IdAttempt[]>(IDHIST, []);
 export const clearIdHistory = () => write(IDHIST, []);
+export const restoreIdHistory = (list: IdAttempt[]) => write(IDHIST, list);
 
 export const getSettings = () => read<Settings>(SETTINGS, { wifiOnly: true, sharePhotos: false });
 export async function setSettings(p: Partial<Settings>) {

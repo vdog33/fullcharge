@@ -33,14 +33,14 @@ export default function BessFamilyScreen() {
 
       <View style={{ gap: S.sm, marginVertical: S.md }}>
         {card
-          ? <Btn tone="red" label="VERIFIED SHUTDOWN CARD" sub={card.name} onPress={() => r.push(`/bess/${card.id}`)} />
-          : <Card style={{ borderColor: C.red }}>
-              <Text style={[st.label, { color: C.red }]}>Shutdown — generic, not verified for this model</Text>
+          ? <Btn tone="red" label="Verified shutdown card" sub={card.name} onPress={() => r.push(`/bess/${card.id}`)} />
+          : <Card style={{ borderColor: C.redText }}>
+              <Text style={[st.label, { color: C.redText }]}>Shutdown — generic, not verified for this model</Text>
               {GENERIC_SHUTDOWN.steps.map((s, i) => <Text key={i} style={st.body}>{i + 1}. {s}</Text>)}
               <Muted>Confirm with the manufacturer's emergency / installation guide on scene.</Muted>
             </Card>}
-        <Btn tone="hazmat" label="HAZMAT ERG 147" onPress={() => r.push('/hazmat')} />
-        <Btn tone="red" label="ISOLATION ZONES + MAP" onPress={() => r.push('/zones')} />
+        <Btn tone="hazmat" label="Hazmat ERG 147" icon="book" onPress={() => r.push('/hazmat')} />
+        <Btn tone="red" label="Isolation zones + map" icon="pin" onPress={() => r.push('/zones')} />
       </View>
 
       <Card>
@@ -58,7 +58,7 @@ export default function BessFamilyScreen() {
       <Text style={st.h2}>Contacts</Text>
       <Card>
         {card?.contact_phone ? <Btn label={`CALL ${card.contact_name}`} sub={card.contact_phone} onPress={() => tel(card.contact_phone!)} /> : <Muted>No verified manufacturer line on file for this model.</Muted>}
-        {SHARED_CONTACTS.map((c) => <Btn key={c.name} tone="ghost" label={`${c.name} ${c.phone}`} sub={c.note} onPress={() => tel(c.phone)} />)}
+        {SHARED_CONTACTS.map((c) => <Btn key={c.name} tone="outline" label={`${c.name} ${c.phone}`} sub={c.note} onPress={() => tel(c.phone)} />)}
       </Card>
 
       <More title={`Listed models (${f.models.length})`}>

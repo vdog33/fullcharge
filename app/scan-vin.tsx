@@ -51,8 +51,8 @@ export default function ScanVin() {
       <View style={{ flex: 1, backgroundColor: C.bg, padding: S.lg, gap: S.md }}>
         <Stack.Screen options={{ title: 'Scan VIN' }} />
         <Text style={st.body}>FULLCHARGE needs the camera to read the VIN barcode.</Text>
-        <Btn tone="red" label="ALLOW CAMERA" onPress={ask} />
-        <Btn tone="ghost" label="TYPE THE VIN INSTEAD" onPress={() => r.back()} />
+        <Btn tone="red" label="Allow camera" icon="cam" onPress={ask} />
+        <Btn tone="outline" label="Type the VIN instead" onPress={() => r.back()} />
       </View>
     );
   }
@@ -80,17 +80,17 @@ export default function ScanVin() {
             <Text style={[st.body, { fontFamily: F.narrowBold, fontSize: 22, letterSpacing: 1 }]}>{found.vin}</Text>
             <Muted>Check digit doesn't match — compare it with the vehicle before using it.</Muted>
             <View style={{ flexDirection: 'row', gap: S.sm }}>
-              <View style={{ flex: 1 }}><Btn tone="red" label="USE IT" onPress={() => go(found.vin)} /></View>
-              <View style={{ flex: 1 }}><Btn tone="ghost" label="SCAN AGAIN" onPress={() => { setFound(null); locked.current = false; }} /></View>
+              <View style={{ flex: 1 }}><Btn tone="red" label="Use it" icon="check" onPress={() => go(found.vin)} /></View>
+              <View style={{ flex: 1 }}><Btn tone="outline" label="Scan again" onPress={() => { setFound(null); locked.current = false; }} /></View>
             </View>
           </Card>
         ) : (
           <>
             <View style={{ flexDirection: 'row', gap: S.sm }}>
-              <View style={{ flex: 1 }}><Btn label={busy ? 'READING…' : 'READ FROM PHOTO'} disabled={busy} onPress={fromPhoto} /></View>
+              <View style={{ flex: 1 }}><Btn label={busy ? 'Reading…' : 'Read from photo'} disabled={busy} onPress={fromPhoto} /></View>
               <Pressable onPress={() => setTorch(!torch)} accessibilityRole="button" accessibilityLabel={torch ? 'Light off' : 'Light on'}
-                style={{ width: 64, borderRadius: 10, borderWidth: 1, borderColor: torch ? C.text : C.border, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: C.text, fontFamily: F.narrowBold }}>{torch ? 'LIGHT\nON' : 'LIGHT'}</Text>
+                style={{ width: 64, borderRadius: 10, borderWidth: 1, borderColor: torch ? C.text : C.line, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: C.text, fontFamily: F.narrowBold }}>{torch ? 'Light\non' : 'Light'}</Text>
               </Pressable>
             </View>
             {busy && <ActivityIndicator color={C.text} />}

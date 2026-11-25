@@ -21,16 +21,16 @@ export function BrandGrid({ brands, onPick }: { brands: BrandItem[]; onPick: (ma
         return (
           <Pressable key={b.make} onPress={() => onPick(b.make)} accessibilityRole="button" accessibilityLabel={`${b.make}, ${b.models} models`}
             style={({ pressed }) => ({
-              width: '48.5%', aspectRatio: 1.1, backgroundColor: C.surface, borderColor: C.border, borderWidth: 1, borderRadius: 12,
-              alignItems: 'center', justifyContent: 'center', padding: S.md, opacity: pressed ? 0.7 : 1,
+              width: '48.5%', aspectRatio: 1.1, backgroundColor: pressed ? C.surface2 : C.surface, borderColor: C.line, borderWidth: 2, borderRadius: 14,
+              alignItems: 'center', justifyContent: 'center', padding: S.md,
             })}>
             <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: logo ? '#fff' : C.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {logo
                 ? <Image source={logo} style={{ width: 60, height: 60 }} resizeMode="contain" />
                 : <Text style={{ color: C.text, fontFamily: F.display, fontSize: 26 }}>{initials(b.make)}</Text>}
             </View>
-            <Text style={{ color: C.text, fontFamily: F.narrowBold, fontSize: 16, marginTop: S.sm, textAlign: 'center' }} numberOfLines={2}>{b.make}</Text>
-            <Text style={{ color: C.muted, fontSize: 12 }}>{b.models} model{b.models === 1 ? '' : 's'}</Text>
+            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18, marginTop: S.sm, textAlign: 'center' }} numberOfLines={2}>{b.make}</Text>
+            <Text style={{ color: C.muted, fontSize: 15 }}>{b.models} model{b.models === 1 ? '' : 's'}</Text>
           </Pressable>
         );
       })}

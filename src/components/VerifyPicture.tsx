@@ -20,16 +20,16 @@ export function VerifyPicture({ guides, vehicleId, compact }: { guides?: Guide[]
   }, [key]);
 
   if (pic === undefined) return <ActivityIndicator color={C.text} style={{ marginVertical: S.md }} />;
-  if (!pic) return <Text style={{ color: C.muted, fontSize: 13, marginVertical: S.sm }}>No picture on file for this vehicle — check the badge.</Text>;
+  if (!pic) return <Text style={{ color: C.muted, fontSize: 15, marginVertical: S.sm }}>No picture on file for this vehicle — check the badge.</Text>;
   const h = Math.min(compact ? 200 : 320, (w * pic.h) / pic.w);
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ marginVertical: S.sm }}>
       <Pressable onPress={() => r.push(`/sheet?key=${pic.guideKey}`)} accessibilityLabel="Vehicle drawing from the rescue sheet. Tap to open the full sheet.">
-        <View style={{ backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden' }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden' }}>
           <Image source={{ uri: pic.uri }} style={{ width: '100%', height: h }} resizeMode="contain" />
         </View>
       </Pressable>
-      <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>
+      <Text style={{ color: C.muted, fontSize: 15, marginTop: 4 }}>
         Manufacturer drawing (rescue sheet p. 1) — check the shape matches. Tap to open.{pic.local ? '' : ' Needs signal until downloaded.'}
       </Text>
     </View>

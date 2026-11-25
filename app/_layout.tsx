@@ -2,18 +2,19 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useFonts, Archivo_700Bold, Archivo_800ExtraBold } from '@expo-google-fonts/archivo';
+import { useFonts, Archivo_700Bold, Archivo_800ExtraBold, Archivo_900Black } from '@expo-google-fonts/archivo';
 import { ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold } from '@expo-google-fonts/archivo-narrow';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/lib/auth';
 import { ensureIndex, loadPacks, resumeInterrupted } from '../src/lib/packs';
 import { ensureBessCatalog } from '../src/lib/bess-catalog';
+import { BackBtn } from '../src/components/ui';
 import { C, F } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Root() {
-  const [loaded, err] = useFonts({ Archivo_700Bold, Archivo_800ExtraBold, ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold });
+  const [loaded, err] = useFonts({ Archivo_700Bold, Archivo_800ExtraBold, Archivo_900Black, ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold });
   useEffect(() => {
     loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {});
     ensureBessCatalog().catch(() => {});
@@ -30,9 +31,12 @@ export default function Root() {
           screenOptions={{
             headerStyle: { backgroundColor: C.bg },
             headerTintColor: C.text,
-            headerTitleStyle: { fontFamily: F.narrowBold },
+            headerTitleStyle: { fontFamily: F.display, fontSize: 19 },
+            headerShadowVisible: false,
             contentStyle: { backgroundColor: C.bg },
             headerBackTitle: 'Back',
+            headerBackVisible: false,
+            headerLeft: () => <BackBtn />, // 48px, says "Back" (F19)
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -44,11 +48,12 @@ export default function Root() {
           <Stack.Screen name="bess/brand" options={{ title: 'Home batteries' }} />
           <Stack.Screen name="bess/family" options={{ title: 'Home battery' }} />
           <Stack.Screen name="bess/camera" options={{ title: 'Identify home battery' }} />
-          <Stack.Screen name="erg-pdf" options={{ title: 'Manufacturer ERG' }} />
+          <Stack.Screen name="erg-pdf" options={{ headerLeft: undefined, headerBackVisible: true, headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Manufacturer ERG' }} />
           <Stack.Screen name="guide" options={{ title: 'Cut sheets' }} />
-          <Stack.Screen name="sheet" options={{ title: 'Rescue sheet' }} />
+          <Stack.Screen name="sheet" options={{ headerLeft: undefined, headerBackVisible: true, headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Rescue sheet' }} />
           <Stack.Screen name="scan-vin" options={{ title: 'Scan VIN' }} />
           <Stack.Screen name="hazmat" options={{ title: 'Hazmat ERG 147' }} />
+          <Stack.Screen name="guide147" options={{ title: 'Guide 147 full text' }} />
           <Stack.Screen name="zones" options={{ title: 'Isolation Zones' }} />
           <Stack.Screen name="quick" options={{ title: 'Quick Sheet' }} />
           <Stack.Screen name="recents" options={{ title: 'Recents' }} />

@@ -20,8 +20,8 @@ export default function BessBrand() {
       <H1>{make}</H1>
       <Muted>{fams.length} listed system{fams.length === 1 ? '' : 's'}{all === '1' ? '' : ' (home-sized)'}</Muted>
       {fams.map((f) => (
-        <Pressable key={f.id} onPress={() => r.push(`/bess/family?id=${encodeURIComponent(f.id)}`)} style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border }}>
-          <Text style={st.body}>{f.family}{f.curatedId ? <Text style={{ color: C.you }}>  · VERIFIED CARD</Text> : null}</Text>
+        <Pressable key={f.id} onPress={() => r.push(`/bess/family?id=${encodeURIComponent(f.id)}`)} style={{ minHeight: 64, justifyContent: 'center', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border }}>
+          <Text style={st.body}>{f.family}{f.curatedId ? <Text style={{ color: C.green }}>  · Verified card</Text> : null}</Text>
           <Muted>{[f.chemistry, kwh(f.kwhMin, f.kwhMax), `${f.models.length} model${f.models.length === 1 ? '' : 's'}`, f.residential ? '' : 'commercial'].filter(Boolean).join(' · ')}</Muted>
         </Pressable>
       ))}

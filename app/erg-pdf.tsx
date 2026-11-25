@@ -4,11 +4,11 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import NetInfo from '@react-native-community/netinfo';
 import * as FS from 'expo-file-system/legacy';
-import { Btn, Card, Muted, Screen, st } from '../src/components/ui';
+import { Btn, Card, Muted, Screen, st } from '../src/components/legacy';
 import { getBess, getVehicle, pdfUrl } from '../src/data/catalog';
 import { allReady, cachedGuidePdf, cachedPdf, coreReady, getGuide, guideRemoteUrl, linkedSheetOnPhone, loadPacks, originalUrl } from '../src/lib/packs';
 import { guideLabel } from '../src/lib/match-core';
-import { C, S } from '../src/theme';
+import { LC as C, LS_ as S } from '../src/components/legacy';
 
 const FALLBACK = 'Manufacturer PDF not available — in-app sheet from verified ERG data, confirm in the EVR app on scene.';
 

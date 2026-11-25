@@ -37,9 +37,9 @@ export default function BessCamera() {
             'Or the whole unit front-on, logo visible',
             'Do NOT open the enclosure or go near a hot / venting unit for a photo',
           ]} />
-          <Btn big tone="red" label="TAKE PHOTO" onPress={() => pick(true)} />
-          <Btn label="FROM LIBRARY" onPress={() => pick(false)} />
-          <Btn tone="ghost" label="BROWSE BY BRAND" onPress={() => r.back()} />
+          <Btn big tone="red" label="Take photo" icon="cam" onPress={() => pick(true)} />
+          <Btn label="From library" icon="img" onPress={() => pick(false)} />
+          <Btn tone="outline" label="Browse by brand" onPress={() => r.back()} />
         </View>
       )}
       {busy && (
@@ -49,7 +49,7 @@ export default function BessCamera() {
           <Muted>Reading the unit…</Muted>
         </View>
       )}
-      {!!err && <Card style={{ marginTop: S.md }}><Text style={st.body}>{err}</Text><Btn tone="ghost" label="BROWSE BY BRAND" onPress={() => r.back()} /></Card>}
+      {!!err && <Card style={{ marginTop: S.md }}><Text style={st.body}>{err}</Text><Btn tone="outline" label="Browse by brand" onPress={() => r.back()} /></Card>}
       {res && (
         <View style={{ gap: S.md }}>
           {uri && <Image source={{ uri }} style={{ width: '100%', height: 200, borderRadius: 10 }} />}
@@ -64,12 +64,12 @@ export default function BessCamera() {
           ))}
           <Text style={st.h2}>{res.matches.length ? 'Is this the system?' : 'No listed system matched'}</Text>
           {res.matches.map((m) => (
-            <Btn key={m.family.id} tone={m.how === 'model-number' ? 'red' : 'neutral'} label={`${m.family.brand} ${m.family.family}`.toUpperCase()}
+            <Btn key={m.family.id} tone={m.how === 'model-number' ? 'red' : 'neutral'} label={`${m.family.brand} ${m.family.family}`}
               sub={`${HOW[m.how]}${m.family.curatedId ? ' · verified card' : ''}`} onPress={() => r.replace(`/bess/family?id=${encodeURIComponent(m.family.id)}`)} />
           ))}
           {!res.matches.length && <Muted>It may be unlisted (DIY or a portable power station wired in) — treat as lithium-ion, generic shutdown, Guide 147.</Muted>}
           {!!res.notes && <Muted>{res.notes}</Muted>}
-          <Btn tone="ghost" label="TRY ANOTHER PHOTO" onPress={() => { setRes(null); setUri(null); }} />
+          <Btn tone="outline" label="Try another photo" icon="cam" onPress={() => { setRes(null); setUri(null); }} />
         </View>
       )}
     </Screen>

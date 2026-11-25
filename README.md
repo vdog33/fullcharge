@@ -74,5 +74,12 @@ scripts/             seed, check-urls (run before every release), logic tests
 - Branding `.webp` files weren't in the upload → vector bolt-shield placeholder + `assets/icon.png` placeholder.
 - Gemini paid tier now stores generateContent requests by default for new projects — turn storage off in the project before sending scene photos.
 
+- **Design system v2** (design sheet, 24 Nov 2026): tokens in `src/theme.ts`, components in `src/components/ui.tsx`.
+  18px body / 15px floor, 48px minimum targets, solid-white selection with a check, safety caveats in the warning style.
+  The rescue-sheet / PDF viewers (`sheet`, `erg-pdf`) keep the v1 look on purpose — `src/components/legacy.tsx`.
+- **Downloads:** bundles run in the normal session while the app is on screen (full speed) and are handed to iOS's
+  background session when it leaves; failed bundles retry twice; 12 single files at a time; live MB/s + time left.
+  Vehicle pages can fetch just their own sheets ("Download all N") without the whole pack.
+
 ## Not built yet
 NHTSA ingestion job (portal is JS-filtered + bot-blocked — needs a browser fetch), on-device ID model, offline map tiles, Android PDF viewer (iOS WebView renders PDFs natively).

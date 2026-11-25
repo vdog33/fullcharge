@@ -37,7 +37,7 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const plume = plumePolygon(fire, plumeHeading, plumeHalfDeg, plumeLenM).map(ll);
 
   return (
-    <View style={{ height, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: C.border }}>
+    <View style={{ height, borderRadius: 10, overflow: 'hidden' }}>
       <MapView
         ref={map}
         style={{ flex: 1 }}
@@ -51,10 +51,10 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         userInterfaceStyle="dark"
         onLongPress={(e) => { const c = e.nativeEvent.coordinate; onMoveFire({ lat: c.latitude, lng: c.longitude }); }}
       >
-        <Polygon coordinates={plume} fillColor={rgba(C.red, 0.3)} strokeColor={C.red} strokeWidth={1} />
-        <Circle center={ll(fire)} radius={ZONES.cold_m} strokeColor={C.cold} strokeWidth={2} fillColor="rgba(0,0,0,0)" />
-        <Circle center={ll(fire)} radius={ZONES.warm_m} strokeColor={C.hazmat} strokeWidth={2} fillColor={rgba(C.hazmat, 0.08)} />
-        <Circle center={ll(fire)} radius={ZONES.hot_m} strokeColor={C.red} strokeWidth={2.5} fillColor={rgba(C.red, 0.15)} />
+        <Polygon coordinates={plume} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />
+        <Circle center={ll(fire)} radius={ZONES.cold_m} strokeColor={C.cold} strokeWidth={2.5} fillColor="rgba(0,0,0,0)" />
+        <Circle center={ll(fire)} radius={ZONES.warm_m} strokeColor={C.warm} strokeWidth={2.5} fillColor={rgba(C.warm, 0.08)} />
+        <Circle center={ll(fire)} radius={ZONES.hot_m} strokeColor={C.hot} strokeWidth={3} fillColor={rgba(C.hot, 0.15)} />
         <Circle center={ll(fire)} radius={ZONES.quarantine_m} strokeColor={C.gold} strokeWidth={2} lineDashPattern={[6, 5]} fillColor="rgba(0,0,0,0)" />
 
         <Marker
@@ -63,8 +63,8 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
           accessibilityLabel="Fire marker — drag to move"
         >
           <View style={{ alignItems: 'center' }}>
-            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.red, borderWidth: 2, borderColor: C.text }} />
-            <Text style={{ color: C.text, fontFamily: F.narrowBold, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 3, marginTop: 2 }}>FIRE</Text>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: C.hot, borderWidth: 2, borderColor: C.text }} />
+            <Text style={{ color: C.text, fontFamily: F.narrowBold, fontSize: 13, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 3, marginTop: 2 }}>FIRE</Text>
           </View>
         </Marker>
 
@@ -72,7 +72,7 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
           <Marker coordinate={ll(you)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
             <View style={{ alignItems: 'center' }}>
               <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.you, borderWidth: 2, borderColor: C.bg }} />
-              <Text style={{ color: C.you, fontFamily: F.narrowBold, fontSize: 11, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 3, marginTop: 2 }}>YOU</Text>
+              <Text style={{ color: C.you, fontFamily: F.narrowBold, fontSize: 13, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 3, marginTop: 2 }}>YOU</Text>
             </View>
           </Marker>
         )}
