@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import data from '../src/data/fullcharge-data.json' with { type: 'json' };
 import { checkDigitOk, looksLikeVin, matchCatalog, modelYear, wmiMake } from '../src/lib/vin-core.ts';
+import { ergFor } from '../src/lib/chem-guide.ts';
 import { angleDiff, bearingDeg, circularMean, distanceM, metresPerPixel, offsetM, plumeHeading, scaleBar, toCompass, toScreen } from '../src/lib/geo.ts';
 
 const cat = data.vehicles.map((v: { id: string; make: string }) => ({ id: v.id, make: v.make }));
@@ -220,4 +221,14 @@ test('wind marking: compass points and averaging across north', () => {
   assert.ok(Math.abs(circularMean([300, 320]) - 310) < 0.001);
   assert.equal(angleDiff(350, 10), 20);
   assert.equal(angleDiff(90, 270), 180);
+});
+
+test('ERG guide by powertrain', () => {
+  assert.deepEqual(ergFor('FCEV').guides, ['115', '147']);
+  assert.equal(ergFor('FCEV').tone, 'danger');
+  assert.deepEqual(ergFor('HEV').guides, ['171', '147']);
+  assert.equal(ergFor('PHEV').tone, 'none'); // plug-ins are lithium-ion
+  assert.equal(ergFor('BEV').tone, 'none');
+  assert.equal(ergFor('').tone, 'none');
+  assert.equal(ergFor(undefined).tone, 'none');
 });

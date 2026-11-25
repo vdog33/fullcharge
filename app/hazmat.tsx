@@ -7,6 +7,7 @@ import { chemFamily, ERG147, getBess, getVehicle, ZONES } from '../src/data/cata
 import { GUIDE_147_SECTIONS } from '../src/data/content';
 import { plumeHeading, toCompass } from '../src/lib/geo';
 import { getScene, subscribeScene } from '../src/lib/scene';
+import { NOT_147 } from '../src/lib/chem-guide';
 import { C, F, R, S } from '../src/theme';
 
 const SNAP_ORIGIN = { lat: 39.5, lng: -98.35 }; // diagram maths only — no coordinates are shown
@@ -38,6 +39,7 @@ export default function Hazmat() {
       </View>
 
       {name && <Notice tone="info" icon="batt" title={name}>{chem!.label}</Notice>}
+      <Notice tone="info" icon="warn">{NOT_147}</Notice>
 
       <H2>Distances</H2>
       {/* Number first, large; rule underneath (F17). Values exactly as in the data. */}
