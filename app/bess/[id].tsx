@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Linking, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Btn, Card, Disclose, Field, H1, H2, Muted, Notice, PageTabs, Pill, Screen, st } from '../../src/components/ui';
+import { Btn, Card, Disclose, Field, H1, H2, Muted, Notice, PageTabs, Pill, Screen, Steps, st } from '../../src/components/ui';
 import { getBess, SHARED_CONTACTS, shutdownSteps } from '../../src/data/catalog';
 import { BESS_CHEM_MORE } from '../../src/data/content';
 import { logView } from '../../src/lib/history';
@@ -27,12 +27,13 @@ export default function BessScreen() {
         </View>
       </View>
       {!!b.recalls && <Notice tone="danger" title="Recall">{b.recalls}</Notice>}
-      <PageTabs kind="bess" id={b.id} />
 
+      {/* Shutdown is what crews come here for: first, numbered, then the call button. */}
       <H2 sub={sd.verified ? undefined : sd.title}>{sd.verified ? 'Shutdown — verified' : 'Shutdown — generic'}</H2>
-      <Card>
-        {sd.steps.map((s, i) => <Text key={i} style={st.body}>{i + 1}. {s}</Text>)}
-      </Card>
+      <Card><Steps items={sd.steps} /></Card>
+      {!!b.contact_phone && <Btn tone="neutral" label={`Call ${b.contact_name}`} sub={b.contact_phone} onPress={() => tel(b.contact_phone!)} />}
+
+      <PageTabs kind="bess" id={b.id} />
 
       <H2>System</H2>
       <Field label="Chemistry" value={b.chemistry} />
@@ -43,7 +44,7 @@ export default function BessScreen() {
       <H2>Contacts</H2>
       <Card>
         <Text style={st.body}>{b.contact_name}</Text>
-        {b.contact_phone ? <Btn label={`Call ${b.contact_phone}`} onPress={() => tel(b.contact_phone!)} /> : <Muted>No verified phone.</Muted>}
+        {b.contact_phone ? <Muted>{b.contact_phone}</Muted> : <Muted>No verified phone.</Muted>}
         <Muted>{b.contact_note}</Muted>
       </Card>
       <View style={{ gap: S.sm }}>
