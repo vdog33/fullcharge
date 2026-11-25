@@ -200,3 +200,13 @@ test('BESS: PWRcell 2 never borrows the original PWRcell card', async () => {
   assert.equal(curatedFor('Generac', 'PWRcell 2 M4', ['APKE00028']), undefined);
   assert.equal(curatedFor('Generac', 'PWRcell M4 DCB', ['APKE00010']), 'generac-pwrcell');
 });
+
+test('BESS: company legal names fold into one brand', async () => {
+  const { brandOf, familyOf, curatedFor } = await import('../src/lib/bess-core.ts');
+  assert.equal(brandOf('PANASONIC CORPORATION OF NORTH AMERICA'), 'Panasonic');
+  assert.equal(brandOf('FranklinWH Technologies Co., Ltd.'), 'FranklinWH');
+  assert.equal(brandOf('LG Electronics Inc.'), 'LG');
+  assert.equal(familyOf('aPower Syyy {240V, 10kW}', '10 kW, 15 kWh'), 'aPower S');
+  assert.equal(familyOf('PWRcell x M4 EX', ''), 'PWRcell M4 EX');
+  assert.equal(curatedFor('Panasonic', 'EVHB-I7-X10', ['EVHB-I7-X10']), undefined);
+});

@@ -28,8 +28,17 @@ const SUFFIX = /[,.]?\s+(inc|llc|l\.l\.c|ltd|limited|co|corp|corporation|company
 export function brandOf(manufacturer: string): string {
   let m = manufacturer.trim().replace(/\s+/g, ' ');
   for (let i = 0; i < 4; i++) m = m.replace(SUFFIX, '').replace(/[,.]$/, '').trim();
-  return BRAND_MAP[m.toLowerCase()] ?? m;
+  const low = m.toLowerCase();
+  if (BRAND_MAP[low]) return BRAND_MAP[low];
+  const pre = BRAND_PREFIX.find(([re]) => re.test(low));
+  return pre ? pre[1] : m;
 }
+/** Same company, several legal names ("FranklinWH Technologies Co., Ltd.", "PANASONIC CORPORATION OF NORTH AMERICA"). */
+const BRAND_PREFIX: [RegExp, string][] = [
+  [/^tesla\b/, 'Tesla'], [/^enphase\b/, 'Enphase'], [/^franklin\s*wh\b/, 'FranklinWH'], [/^solaredge\b/, 'SolarEdge'],
+  [/^generac\b/, 'Generac'], [/^lg\b/, 'LG'], [/^panasonic\b/, 'Panasonic'], [/^sonnen\b/, 'sonnen'], [/^eg4\b/, 'EG4'],
+  [/^ecoflow\b/, 'EcoFlow'], [/^anker\b/, 'Anker SOLIX'], [/^fortress\b/, 'Fortress Power'], [/^sunpower\b/, 'SunPower'],
+];
 
 export function chemistryOf(text: string): Chem {
   const t = text.toLowerCase();
@@ -47,7 +56,7 @@ export function chemistryOf(text: string): Chem {
 export function familyOf(model: string, description: string): string {
   const paren = description.match(/\(([^)]{2,40})\)/);
   if (paren && !/^where\b/i.test(paren[1])) return paren[1].trim();
-  return model.replace(/\{[^}]*\}/g, '').replace(/[-_ ](x{1,4}|y{1,2})(?=[-_ ]|$)/gi, '').replace(/[-_ ]+$/, '').trim() || model.trim();
+  return model.replace(/\{[^}]*\}/g, '').replace(/(?<=[A-Z0-9])y{2,}\b/g, '').replace(/[-_ ](x{1,4}|y{1,2})(?=[-_ ]|$)/gi, '').replace(/[-_ ]+$/, '').trim() || model.trim();
 }
 
 const squash = (s: string) => s.toUpperCase().replace(/[^A-Z0-9*]/g, '');
@@ -88,7 +97,8 @@ const CURATED: { id: string; brand: string; test: RegExp }[] = [
   { id: 'lg-resu-prime', brand: 'LG', test: /resu\s*(10h|16h)?\s*prime|RESU1[06]H\s*PRIME/i },
   // PWRcell 2 is a different product (own shutdown) — never borrow the original PWRcell card.
   { id: 'generac-pwrcell', brand: 'Generac', test: /^(?!.*pwrcell\s*2\b).*pwrcell/i },
-  { id: 'panasonic-evervolt', brand: 'Panasonic', test: /evervolt/i },
+  // Card = original EverVolt (NMC). The EVHB listings are lithium-iron — a different product; not linked.
+  { id: 'panasonic-evervolt', brand: 'Panasonic', test: /^(?!EVHB).*evervolt/i },
 ];
 export function curatedFor(brand: string, family: string, models: string[]): string | undefined {
   return CURATED.find((c) => c.brand === brand && [family, ...models].some((s) => c.test.test(s)))?.id;
