@@ -4,6 +4,8 @@ import { VEHICLES } from '../data/catalog';
 import { callFunction } from './supabase';
 import { Guess, Guide, matchGuess } from './match-core';
 import { extractVin } from './vin-core';
+import { BessGuess, BessMatch, matchBess } from './bess-core';
+import { bessFamilies, loadBessCatalog } from './bess-catalog';
 import { guideIndex, loadPacks } from './packs';
 
 // Camera ID = Gemini's own general knowledge of cars (no per-car training).
@@ -93,4 +95,34 @@ export async function readVinFromPhoto(uri: string): Promise<{ vin: string; chec
   } catch {
     throw new Error('Could not read the VIN — likely no signal. Scan the barcode or type it.');
   }
+}
+
+// ---- Home batteries ----
+
+export type BessIdResult = { guesses: (BessGuess & { label: string })[]; matches: BessMatch[]; notes: string };
+
+/** Photo of a home battery / its label -> Gemini reads brand, product, model numbers -> matched to the CEC catalog on the phone. */
+export async function identifyBessPhoto(uri: string): Promise<BessIdResult> {
+  await loadBessCatalog();
+  let guesses: (BessGuess & { label: string })[];
+  let notes = '';
+  if (USE_MOCKS) {
+    await new Promise((r) => setTimeout(r, 800));
+    guesses = [{ brand: 'Tesla', product: 'Powerwall 3', modelNumbers: ['1707000-25-K'], confidence: 90, cues: ['white flat wall unit', 'Tesla logo', 'label P/N 1707000'], label: 'Tesla Powerwall 3' }];
+    notes = 'MOCK result. Confirm on the unit label.';
+  } else {
+    if (!BACKEND_READY) throw new Error('Photo ID needs signal. Browse by brand below.');
+    const img = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1600 } }], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+    try {
+      const r = await callFunction<{ guesses: BessGuess[]; notes: string }>('identify-vehicle', { action: 'identify_bess', imageBase64: img.base64, mimeType: 'image/jpeg' }, 25000);
+      guesses = (r.guesses ?? []).map((g) => ({ ...g, label: [g.brand, g.product].filter(Boolean).join(' ') || 'Unknown unit' }));
+      notes = r.notes ?? '';
+    } catch {
+      throw new Error('Photo ID couldn\'t run — likely no signal. Browse by brand below.');
+    }
+  }
+  const fams = bessFamilies();
+  const seen = new Set<string>();
+  const matches = guesses.flatMap((g) => matchBess(g, fams)).filter((m) => (seen.has(m.family.id) ? false : (seen.add(m.family.id), true))).slice(0, 6);
+  return { guesses, matches, notes };
 }

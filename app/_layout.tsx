@@ -7,13 +7,17 @@ import { ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold } from '@expo-google-f
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/lib/auth';
 import { ensureIndex, loadPacks, resumeInterrupted } from '../src/lib/packs';
+import { ensureBessCatalog } from '../src/lib/bess-catalog';
 import { C, F } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Root() {
   const [loaded, err] = useFonts({ Archivo_700Bold, Archivo_800ExtraBold, ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold });
-  useEffect(() => { loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {}); }, []);
+  useEffect(() => {
+    loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {});
+    ensureBessCatalog().catch(() => {});
+  }, []);
   // Fonts are bundled; if they ever fail we still render with system fonts — never block the scene.
   useEffect(() => { if (loaded || err) SplashScreen.hideAsync().catch(() => {}); }, [loaded, err]);
   if (!loaded && !err) return null;
@@ -37,6 +41,9 @@ export default function Root() {
           <Stack.Screen name="vehicle/[id]" options={{ title: 'Vehicle' }} />
           <Stack.Screen name="bess/index" options={{ title: 'BESS' }} />
           <Stack.Screen name="bess/[id]" options={{ title: 'BESS' }} />
+          <Stack.Screen name="bess/brand" options={{ title: 'Home batteries' }} />
+          <Stack.Screen name="bess/family" options={{ title: 'Home battery' }} />
+          <Stack.Screen name="bess/camera" options={{ title: 'Identify home battery' }} />
           <Stack.Screen name="erg-pdf" options={{ title: 'Manufacturer ERG' }} />
           <Stack.Screen name="guide" options={{ title: 'Cut sheets' }} />
           <Stack.Screen name="sheet" options={{ title: 'Rescue sheet' }} />

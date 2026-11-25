@@ -84,6 +84,49 @@ In "notes", say what limits certainty (damage, angle, lighting, missing badge). 
   return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? '') };
 }
 
+/** Home battery / ESS from a photo of the unit or its label. The phone matches the answer to the CEC listing. */
+async function geminiBess(imageBase64: string, mimeType: string) {
+  const prompt = `You help firefighters identify a home battery energy storage system (BESS / ESS) from a photo of the unit or its label.
+Read the brand, the product name (e.g. "Powerwall 3", "IQ Battery 5P", "aPower 2", "PWRcell", "Home Battery"), and copy EVERY model,
+part or catalog number printed on the label exactly as printed (e.g. "1707000-25-K", "IQBATTERY-5P-1P-NA"). Also read the kWh rating
+and battery chemistry if printed (e.g. LFP / lithium iron phosphate, NMC). Do not invent numbers you cannot read.
+Return up to 3 guesses, most likely first, each with confidence 0-100 and up to 6 short visible cues.
+In "notes", say what limits certainty (no label visible, glare, damage, cover closed).`;
+  const body = {
+    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, { text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          guesses: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+            brand: { type: 'STRING' }, product: { type: 'STRING' },
+            modelNumbers: { type: 'ARRAY', items: { type: 'STRING' } },
+            kwh: { type: 'NUMBER' }, chemistry: { type: 'STRING' },
+            confidence: { type: 'INTEGER' }, cues: { type: 'ARRAY', items: { type: 'STRING' } },
+          }, required: ['brand', 'confidence'] } },
+          notes: { type: 'STRING' },
+        },
+        required: ['guesses', 'notes'],
+      },
+    },
+  };
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = await res.json();
+  const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
+  const parsed = JSON.parse(text);
+  const guesses = (parsed.guesses ?? []).slice(0, 3).map((g: Record<string, unknown>) => ({
+    brand: String(g.brand ?? '').slice(0, 40), product: String(g.product ?? '').slice(0, 60),
+    modelNumbers: ((g.modelNumbers as unknown[]) ?? []).map((m) => String(m).slice(0, 40)).slice(0, 8),
+    kwh: Number(g.kwh) || null, chemistry: g.chemistry ? String(g.chemistry).slice(0, 30) : undefined,
+    confidence: Math.max(0, Math.min(100, Math.round(Number(g.confidence) || 0))), cues: ((g.cues as unknown[]) ?? []).map(String).slice(0, 6),
+  }));
+  return { guesses, notes: String(parsed.notes ?? '') };
+}
+
 /** Read a VIN off a photo (dash plate through the windshield, or the door-jamb label). */
 async function geminiVin(imageBase64: string, mimeType: string) {
   const prompt = `Read the vehicle identification number (VIN) in this photo. It may be on a metal plate seen through the windshield,
@@ -121,6 +164,14 @@ Deno.serve(async (req: Request) => {
         confirmed_id: confirmedId ?? null, correction: correction ? String(correction).slice(0, 120) : null, feedback_at: new Date().toISOString(),
       }).eq('id', attemptId);
       return json({ ok: true });
+    }
+
+    if (body.action === 'identify_bess') {
+      const { imageBase64, mimeType = 'image/jpeg' } = body;
+      if (!/^image\/(jpeg|png)$/.test(mimeType)) return json({ error: 'JPEG or PNG only' }, 400);
+      if (!imageBase64 || imageBase64.length > 8_000_000) return json({ error: 'image missing or too large' }, 400);
+      if (MOCK) return json({ guesses: [{ brand: 'Tesla', product: 'Powerwall 3', modelNumbers: ['1707000-25-K'], confidence: 90, cues: ['SERVER MOCK'] }], notes: 'SERVER MOCK — no Gemini key set.' });
+      return json(await geminiBess(imageBase64, mimeType));
     }
 
     if (body.action === 'read_vin') {
