@@ -14,3 +14,4 @@ web-build/
 Thumbs.db
 tools/bess/out/
 tools/bess/node_modules/
+tools/logs/
