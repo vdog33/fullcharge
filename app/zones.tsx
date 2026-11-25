@@ -3,11 +3,11 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { Btn, H2, Icon, Input, Label, Muted, Notice, Screen, Seg, st, useJump } from '../src/components/ui';
+import { Btn, H2, Icon, Input, Label, Muted, Notice, Screen, Seg, Steps, st, useJump } from '../src/components/ui';
 import { ZoneDiagram } from '../src/components/ZoneDiagram';
 import { ZoneMap, ZoneMapHandle } from '../src/components/ZoneMap';
 import { chemFamily, getBess, getVehicle, ZONES } from '../src/data/catalog';
-import { bearingDeg, COMPASS, Compass, distanceM, LatLng, M_TO_FT, offsetM, plumeHeading } from '../src/lib/geo';
+import { angleDiff, bearingDeg, circularMean, Compass, distanceM, LatLng, M_TO_FT, offsetM, plumeHeading, toCompass } from '../src/lib/geo';
 import { getScene, setScene } from '../src/lib/scene';
 import { C, F, R, S, TARGET } from '../src/theme';
 
@@ -33,7 +33,11 @@ export default function Zones() {
   const [night, setNight] = useState(sc0.night);
   const [windFrom, setWindFrom] = useState<Compass>(sc0.windFrom);
   const [windMph, setWindMph] = useState(sc0.windMph);
-  useEffect(() => { setScene({ night, windFrom, windMph }); }, [night, windFrom, windMph]);
+  const [windDeg, setWindDeg] = useState<number | null>(sc0.windDeg); // set by "Face the wind" → Mark
+  const [windMode, setWindMode] = useState<'Manual' | 'Face the wind'>(sc0.windDeg !== null ? 'Face the wind' : 'Manual');
+  const [markedAt, setMarkedAt] = useState<number | null>(null);
+  const [markMsg, setMarkMsg] = useState('');
+  useEffect(() => { setScene({ night, windFrom, windDeg, windMph }); }, [night, windFrom, windDeg, windMph]);
 
   // Location
   const [you, setYou] = useState<(LatLng & { acc?: number }) | null>(null);
@@ -75,8 +79,9 @@ export default function Zones() {
 
   const plumeM = night ? ZONES.plume_night_m : ZONES.plume_day_m;
   const spread = night ? ZONES.plume_night_spread_deg : ZONES.plume_day_spread_deg;
-  const heading = plumeHeading(windFrom);
-  const heads = COMPASS[Math.round(heading / 45) % 8];
+  const heading = windDeg !== null ? (windDeg + 180) % 360 : plumeHeading(windFrom);
+  const heads = toCompass(heading);
+  const windLabel = windDeg !== null ? `${toCompass(windDeg)} ${Math.round(windDeg)}°` : windFrom;
   const moveFire = useCallback((p: LatLng) => setFire(p), []);
   const step = (e: number, n: number) => setFire((f) => offsetM(f, e, n));
   const distFt = you && fireReal ? distanceM(you, fire) * M_TO_FT : null;
@@ -84,6 +89,7 @@ export default function Zones() {
   // Phone compass: which way the responder is facing. Face into the wind, tap once, and "Wind from" is set.
   const [facing, setFacing] = useState<{ deg: number; acc: number } | null>(null);
   const lastDeg = useRef(-999);
+  const recent = useRef<{ t: number; d: number }[]>([]); // last ~1.5 s of raw readings, for Mark
   useEffect(() => {
     let sub: { remove: () => void } | null = null;
     let alive = true;
@@ -94,6 +100,9 @@ export default function Zones() {
         sub = await Location.watchHeadingAsync((h) => {
           const deg = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
           if (deg < 0) return;
+          const now = Date.now();
+          recent.current.push({ t: now, d: deg });
+          while (recent.current.length && now - recent.current[0].t > 1500) recent.current.shift();
           // Only re-render on a real turn (≥3°) — keeps the map smooth.
           if (Math.abs(((deg - lastDeg.current + 540) % 360) - 180) < 3) return;
           lastDeg.current = deg;
@@ -104,7 +113,22 @@ export default function Zones() {
     })();
     return () => { alive = false; sub?.remove(); };
   }, [!!you]); // retry once location permission is granted
-  const facingDir = facing ? COMPASS[Math.round(facing.deg / 45) % 8] : null;
+  const facingDir = facing ? toCompass(facing.deg) : null;
+
+  /** Lock the wind direction to where the phone points — only if it was held steady for the last second. */
+  function markWind() {
+    setMarkMsg('');
+    const now = Date.now();
+    const pts = recent.current.filter((x) => now - x.t <= 1000).map((x) => x.d);
+    if (pts.length < 2 && facing) pts.push(facing.deg);
+    if (!pts.length) return setMarkMsg('No compass reading yet — hold the phone flat and try again.');
+    const mean = circularMean(pts);
+    const wobble = Math.max(...pts.map((d) => angleDiff(d, mean)));
+    if (wobble > 15) return setMarkMsg(`Phone moved ${Math.round(wobble)}° while marking — hold still for a second and mark again.`);
+    setWindDeg(mean);
+    setWindFrom(toCompass(mean));
+    setMarkedAt(now);
+  }
 
   const pickZoom = (z: Zoom) => { setZoom(z); if (live) mapRef.current?.frame(FRAME_M[z]); };
 
@@ -127,7 +151,7 @@ export default function Zones() {
           )}
           <View style={s.badges} pointerEvents="box-none">
             <View style={{ gap: 6 }} pointerEvents="none">
-              <View style={s.badge}><Icon name="nav" size={16} /><Text style={s.badgeText}>{windFrom} wind · plume {heads}</Text></View>
+              <View style={s.badge}><Icon name="nav" size={16} /><Text style={s.badgeText}>{windLabel} wind · plume {heads}</Text></View>
               {facingDir && <View style={s.badge}><Icon name="loc" size={16} /><Text style={s.badgeText}>You face {facingDir}</Text></View>}
             </View>
             <Pressable onPress={() => go('caveat')} accessibilityRole="button" accessibilityLabel="Planning estimate — read the caveat" style={s.pe}>
@@ -151,46 +175,60 @@ export default function Zones() {
           {live ? 'Pinch / drag to move the map. Drag the FIRE marker, or long-press the map, to move the fire.' : 'Drag the fire marker, or tap the diagram, to move the fire.'}
         </Muted>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
-          <View style={s.compass} accessibilityRole="radiogroup" accessibilityLabel="Wind from">
-            {GRID.map((d, i) => d ? (
-              <Pressable key={d} onPress={() => setWindFrom(d)} accessibilityRole="radio" accessibilityState={{ checked: windFrom === d }}
-                accessibilityLabel={`Wind from ${d}`} style={[s.cell, windFrom === d && { backgroundColor: '#FFF', borderColor: '#FFF' }]}>
-                <Text style={[s.cellText, windFrom === d && { color: C.hazmatText }]}>{d}</Text>
-              </Pressable>
-            ) : (
-              <View key={i} style={[s.cell, s.mid]} importantForAccessibility="no">
-                <View style={{ transform: [{ rotate: `${heading}deg` }] }}><Icon name="arrow" size={26} /></View>
-              </View>
-            ))}
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Label>Wind from</Label>
-            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 24 }}>{windFrom}</Text>
-            <Text style={[st.body, { fontSize: 16 }]}>Plume heads {heads}.</Text>
-          </View>
-        </View>
+        <Seg label="Set wind by" options={['Manual', 'Face the wind'] as const} value={windMode} onChange={setWindMode} />
 
-        {/* Compass heading: which way you're facing (F9 follow-up). */}
-        <View style={s.facing}>
-          <View style={s.facingDial} importantForAccessibility="no">
-            <Text style={s.facingN}>N</Text>
-            <View style={{ transform: [{ rotate: `${facing?.deg ?? 0}deg` }], opacity: facing ? 1 : 0.35 }}><Icon name="arrow" size={30} /></View>
+        {windMode === 'Manual' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
+            <View style={s.compass} accessibilityRole="radiogroup" accessibilityLabel="Wind from">
+              {GRID.map((d, i) => d ? (
+                <Pressable key={d} onPress={() => { setWindFrom(d); setWindDeg(null); setMarkedAt(null); }} accessibilityRole="radio"
+                  accessibilityState={{ checked: windDeg === null && windFrom === d }} accessibilityLabel={`Wind from ${d}`}
+                  style={[s.cell, windDeg === null && windFrom === d && { backgroundColor: '#FFF', borderColor: '#FFF' }]}>
+                  <Text style={[s.cellText, windDeg === null && windFrom === d && { color: C.hazmatText }]}>{d}</Text>
+                </Pressable>
+              ) : (
+                <View key={i} style={[s.cell, s.mid]} importantForAccessibility="no">
+                  <View style={{ transform: [{ rotate: `${heading}deg` }] }}><Icon name="arrow" size={26} /></View>
+                </View>
+              ))}
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Label>Wind from</Label>
+              <Text style={{ color: C.text, fontFamily: F.display, fontSize: 24 }}>{windLabel}</Text>
+              <Text style={[st.body, { fontSize: 16 }]}>Plume heads {heads}.</Text>
+              {windDeg !== null && <Text style={st.muted}>Marked by facing the wind. Tap a direction to set it by hand.</Text>}
+            </View>
           </View>
-          <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
-            <Label>You're facing</Label>
-            <Text style={{ color: C.text, fontFamily: F.display, fontSize: 24 }}>
-              {facing ? `${facingDir} · ${Math.round(facing.deg)}°` : '—'}
-            </Text>
-            <Text style={st.muted}>
-              {!facing ? 'Compass needs location permission — tap Use my location.'
-                : facing.acc <= 1 ? 'Compass weak — hold flat, away from the rig, move phone in a figure 8.' : 'Hold flat, away from the rig and metal.'}
-            </Text>
+        )}
+
+        {windMode === 'Face the wind' && (
+          <View style={{ gap: S.md }}>
+            <Steps items={['Step clear of the rig — metal throws the compass off.', 'Face straight into the wind: you feel it on your face.', 'Hold the phone flat in front of you, top edge pointing ahead. Hold still, then tap Mark.']} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
+              <View style={s.facingDial} importantForAccessibility="no">
+                <Text style={s.facingN}>N</Text>
+                <View style={{ transform: [{ rotate: `${facing?.deg ?? 0}deg` }], opacity: facing ? 1 : 0.35 }}><Icon name="arrow" size={40} /></View>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
+                <Label>You're facing</Label>
+                <Text style={{ color: C.text, fontFamily: F.black, fontSize: 30 }}>{facing ? `${facingDir} · ${Math.round(facing.deg)}°` : '—'}</Text>
+                <Text style={st.muted}>
+                  {!facing ? 'Compass needs location permission — tap Use my location below.'
+                    : facing.acc <= 1 ? 'Compass weak — move the phone in a figure 8, then try again.' : 'Compass OK.'}
+                </Text>
+              </View>
+            </View>
+            <Btn big tone="red" icon="nav" disabled={!facing} reason="No compass reading yet — switch to Manual and set the wind by hand."
+              label={facing ? `Mark wind from ${facingDir} · ${Math.round(facing.deg)}°` : 'Mark wind direction'} onPress={markWind} />
+            {!!markMsg && <Notice tone="warn">{markMsg}</Notice>}
+            {windDeg !== null && markedAt !== null && (
+              <Notice tone="ok" icon="check" title={`Wind from ${windLabel}`}>
+                {`Marked ${new Date(markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Plume heads ${heads} — check the map. Wind shifts: mark again.`}
+              </Notice>
+            )}
+            {windDeg !== null && markedAt === null && <Muted>Wind from {windLabel} (marked earlier). Mark again if it has shifted.</Muted>}
           </View>
-        </View>
-        <Btn icon="nav" disabled={!facingDir} reason="No compass reading yet — set the wind by hand above."
-          label={facingDir ? `Wind in my face — set wind from ${facingDir}` : 'Wind in my face'}
-          onPress={() => facingDir && setWindFrom(facingDir as Compass)} />
+        )}
 
         <View style={s.stepper}>
           <Pressable onPress={() => setWindMph((x) => Math.max(0, x - 5))} accessibilityRole="button" accessibilityLabel="Decrease wind speed by 5" style={s.stepBtn}>
@@ -290,8 +328,8 @@ const s = StyleSheet.create({
   mid: { borderRadius: 24, borderStyle: 'dashed', backgroundColor: C.surface2 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   facing: { flexDirection: 'row', alignItems: 'center', gap: S.md, borderTopWidth: 1, borderColor: C.border, paddingTop: S.md },
-  facingDial: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: C.line, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
-  facingN: { position: 'absolute', top: 2, color: C.redText, fontFamily: F.display, fontSize: 13 },
+  facingDial: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: C.line, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
+  facingN: { position: 'absolute', top: 4, color: C.redText, fontFamily: F.display, fontSize: 15 },
   stepBtn: { width: 60, minHeight: TARGET.sm, borderRadius: 12, borderWidth: 2, borderColor: C.line, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
   stepText: { color: C.text, fontFamily: F.display, fontSize: 21 },
   coord: { color: C.text, fontSize: 17, fontVariant: ['tabular-nums'] },

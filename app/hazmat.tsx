@@ -5,7 +5,7 @@ import { Bullets, H2, Icon, LinkRow, Notice, Screen, st } from '../src/component
 import { ZoneDiagram } from '../src/components/ZoneDiagram';
 import { chemFamily, ERG147, getBess, getVehicle, ZONES } from '../src/data/catalog';
 import { GUIDE_147_SECTIONS } from '../src/data/content';
-import { COMPASS, plumeHeading } from '../src/lib/geo';
+import { plumeHeading, toCompass } from '../src/lib/geo';
 import { getScene, subscribeScene } from '../src/lib/scene';
 import { C, F, R, S } from '../src/theme';
 
@@ -25,8 +25,9 @@ export default function Hazmat() {
   const zonesHref = kind && id ? `/zones?kind=${kind}&id=${id}` : '/zones';
 
   const sc = getScene();
-  const heading = plumeHeading(sc.windFrom);
-  const heads = COMPASS[Math.round(heading / 45) % 8];
+  const heading = sc.windDeg !== null ? (sc.windDeg + 180) % 360 : plumeHeading(sc.windFrom);
+  const heads = toCompass(heading);
+  const windLabel = sc.windDeg !== null ? `${toCompass(sc.windDeg)} ${Math.round(sc.windDeg)}°` : sc.windFrom;
 
   return (
     <Screen>
@@ -55,7 +56,7 @@ export default function Hazmat() {
             plumeHalfDeg={sc.night ? ZONES.plume_night_spread_deg : ZONES.plume_day_spread_deg}
             plumeLenM={sc.night ? ZONES.plume_night_m : ZONES.plume_day_m} height={220} />
           <View style={s.badges} pointerEvents="none">
-            <View style={s.badge}><Icon name="nav" size={16} /><Text style={s.badgeText}>{sc.windFrom} wind · plume {heads}</Text></View>
+            <View style={s.badge}><Icon name="nav" size={16} /><Text style={s.badgeText}>{windLabel} wind · plume {heads}</Text></View>
             <View style={s.badge}><Icon name="expand" size={16} /><Text style={s.badgeText}>Open</Text></View>
           </View>
         </View>
