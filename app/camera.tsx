@@ -8,6 +8,7 @@ import { VerifyPicture } from '../src/components/VerifyPicture';
 import { Candidate, destination, IdResult, identifyPhoto, NO_SIGNAL_MSG } from '../src/lib/identify';
 import { getSettings, logIdAttempt, setSettings, updateIdAttempt } from '../src/lib/history';
 import { allReady, guideIndex } from '../src/lib/packs';
+import { ergFor } from '../src/lib/chem-guide';
 import { C, S } from '../src/theme';
 
 type Phase = 'idle' | 'working' | 'confirm' | 'error';
@@ -97,6 +98,7 @@ export default function CameraId() {
           <Card>
             <Text style={st.h1}>{cur.label}</Text>
             <VerifyPicture guides={cur.guides} vehicleId={cur.vehicleId} compact />
+            {(() => { const e = ergFor(cur.guess.powertrain); return e.tone !== 'none' ? <Notice tone={e.tone} title={e.title}>{e.text}</Notice> : null; })()}
             <Text style={st.body}>{cur.confidence}%{cur.guess.powertrain && cur.guess.powertrain !== 'UNKNOWN' ? ` · ${cur.guess.powertrain}` : ''}</Text>
             {cur.cues.length > 0 && <Bullets items={cur.cues} />}
             <OnFile c={cur} />

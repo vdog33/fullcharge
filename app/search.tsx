@@ -133,7 +133,9 @@ export default function Search() {
             {guideGroups.map((gs) => {
               const label = `${gs[0].make} ${gs[0].model}`;
               const years = [...new Set(gs.map((g) => g.years))].join(' · ');
-              return <Row key={label} title={label} meta={`${years}${gs[0].powertrain ? ` · ${gs[0].powertrain}` : ''}`} pill={plural(gs.length, 'sheet')} onPress={() => r.push(guideHref(gs, label))} />;
+              const pt = gs[0].powertrain ?? '';
+              const flag = /FCEV/i.test(pt) ? 'Hydrogen · 115' : /^HEV$/i.test(pt) ? 'Hybrid · 171?' : plural(gs.length, 'sheet');
+              return <Row key={label} title={label} meta={`${years}${pt ? ` · ${pt}` : ''}`} pill={flag} onPress={() => r.push(guideHref(gs, label))} />;
             })}
           </View>
         </>
