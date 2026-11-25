@@ -3,7 +3,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { Btn, H2, Icon, Input, Label, Muted, Notice, Screen, Seg, Steps, st, useJump } from '../src/components/ui';
+import { Btn, H2, Icon, Input, Label, Muted, Notice, Screen, Seg, st, useJump } from '../src/components/ui';
 import { ZoneDiagram } from '../src/components/ZoneDiagram';
 import { ZoneMap, ZoneMapHandle } from '../src/components/ZoneMap';
 import { chemFamily, getBess, getVehicle, ZONES } from '../src/data/catalog';
@@ -124,7 +124,7 @@ export default function Zones() {
     if (!pts.length) return setMarkMsg('No compass reading yet — hold the phone flat and try again.');
     const mean = circularMean(pts);
     const wobble = Math.max(...pts.map((d) => angleDiff(d, mean)));
-    if (wobble > 15) return setMarkMsg(`Phone moved ${Math.round(wobble)}° while marking — hold still for a second and mark again.`);
+    if (wobble > 25) return setMarkMsg('Phone moving — hold still and tap Mark again.');
     setWindDeg(mean);
     setWindFrom(toCompass(mean));
     setMarkedAt(now);
@@ -203,7 +203,7 @@ export default function Zones() {
 
         {windMode === 'Face the wind' && (
           <View style={{ gap: S.md }}>
-            <Steps items={['Step clear of the rig — metal throws the compass off.', 'Face straight into the wind: you feel it on your face.', 'Hold the phone flat in front of you, top edge pointing ahead. Hold still, then tap Mark.']} />
+            <Text style={[st.body, { fontSize: 17 }]}>Face into the wind, phone flat, top edge forward. Tap Mark.</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
               <View style={s.facingDial} importantForAccessibility="no">
                 <Text style={s.facingN}>N</Text>
@@ -212,21 +212,19 @@ export default function Zones() {
               <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
                 <Label>You're facing</Label>
                 <Text style={{ color: C.text, fontFamily: F.black, fontSize: 30 }}>{facing ? `${facingDir} · ${Math.round(facing.deg)}°` : '—'}</Text>
-                <Text style={st.muted}>
-                  {!facing ? 'Compass needs location permission — tap Use my location below.'
-                    : facing.acc <= 1 ? 'Compass weak — move the phone in a figure 8, then try again.' : 'Compass OK.'}
-                </Text>
+                {!facing && <Text style={st.muted}>No compass — use Manual.</Text>}
+                {!!facing && facing.acc <= 1 && <Text style={[st.muted, { color: C.hazmat }]}>Compass weak — away from the rig, figure-8 the phone.</Text>}
               </View>
             </View>
-            <Btn big tone="red" icon="nav" disabled={!facing} reason="No compass reading yet — switch to Manual and set the wind by hand."
+            <Btn big tone="red" icon="nav" disabled={!facing} reason="No compass reading — use Manual."
               label={facing ? `Mark wind from ${facingDir} · ${Math.round(facing.deg)}°` : 'Mark wind direction'} onPress={markWind} />
             {!!markMsg && <Notice tone="warn">{markMsg}</Notice>}
             {windDeg !== null && markedAt !== null && (
               <Notice tone="ok" icon="check" title={`Wind from ${windLabel}`}>
-                {`Marked ${new Date(markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Plume heads ${heads} — check the map. Wind shifts: mark again.`}
+                {`Plume heads ${heads}. Marked ${new Date(markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`}
               </Notice>
             )}
-            {windDeg !== null && markedAt === null && <Muted>Wind from {windLabel} (marked earlier). Mark again if it has shifted.</Muted>}
+            {windDeg !== null && markedAt === null && <Muted>Wind from {windLabel} (marked earlier).</Muted>}
           </View>
         )}
 
