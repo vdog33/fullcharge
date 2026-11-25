@@ -117,7 +117,7 @@ export default function Search() {
             </Muted>
           )}
 
-          {filtering && seedGrouped.length > 0 && <H2 sub="Quick-reference pages written for responders">FULLCHARGE pages</H2>}
+          {filtering && seedGrouped.length > 0 && <H2>FULLCHARGE pages</H2>}
           {filtering && seedGrouped.map(([mk, vs]) => (
             <View key={mk}>
               <Text style={[st.label, { paddingTop: S.sm }]}>{mk}</Text>
@@ -125,7 +125,7 @@ export default function Search() {
             </View>
           ))}
 
-          {filtering && <H2 sub="Manufacturer rescue sheets, PDF">{make ? `${make} cut sheets` : 'Cut sheets'}</H2>}
+          {filtering && <H2>{make ? `${make} cut sheets` : 'Cut sheets'}</H2>}
           {filtering && !!index.length && !allReady() && <Notice tone="info">Download not finished — some sheets need signal.</Notice>}
           {filtering && !!index.length && !guideGroups.length && <Muted>No cut sheet matches.</Muted>}
           {filtering && !index.length && <Muted>NHTSA cut sheets appear once the vehicle list has loaded.</Muted>}

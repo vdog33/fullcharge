@@ -22,25 +22,26 @@ export default function VehicleScreen() {
         <H1>{v.make} {v.model}</H1>
         <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{v.years} · {v.type}</Text>
       </View>
-      <VerifyPicture vehicleId={v.id} compact />
-      {/* Safety flags first, in the warning style, same words (P3). */}
+      {/* On scene, time matters: safety flag, then the answers crews act on — no taps, no scrolling past menus. */}
       {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
-      {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}
-      <PageTabs kind="vehicle" id={v.id} />
-
-      <H2>ID cues</H2>
-      <Bullets items={v.id_cues} />
-
-      <H2>On scene</H2>
-      <Field label="Immobilise" value="Chock. Park / brake. No engine noise ≠ off." />
       <Field label="Cut loop" value={v.cut_loop} />
       <Field label="12V" value={v.lv_location} />
       <Field label="No-cut" value={v.no_cut_zones} />
       <Field label="Airbag / HV" value={v.airbag_hv} />
+      <Field label="Immobilise" value="Chock. Park / brake. No engine noise ≠ off." />
+
+      <PageTabs kind="vehicle" id={v.id} />
+
+      <H2>Is this the car?</H2>
+      <VerifyPicture vehicleId={v.id} compact />
+      <Bullets items={v.id_cues} />
+
+      <H2>More</H2>
       <Field label="Pack" value={v.pack} />
       <Field label="Chemistry" value={v.chemistry} />
       <Field label="Tow" value={v.tow} />
       <Field label="Release" value={v.release} />
+      {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}
 
       <Disclose title="Details" count="source + checks">
         <Field label="ERG source" value={v.erg_pdf_label} />

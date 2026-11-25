@@ -6,7 +6,7 @@ import { BigNav, BoltShield, Btn, Disclose, Icon, Notice, Screen, Steps, Wordmar
 import { IconName } from '../src/components/Icon';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { EV_FIRST_MOVES } from '../src/data/content';
-import { BESS } from '../src/data/catalog';
+import { BESS, ERG147 } from '../src/data/catalog';
 import { allReady, coreReady, loadPacks } from '../src/lib/packs';
 import { C, F, R, S } from '../src/theme';
 
@@ -37,6 +37,18 @@ export default function Home() {
             Cut sheets not all on this phone yet — some need signal.
           </Notice>
         )}
+
+        {/* The big numbers, readable without a tap. Tap for the rest of Guide 147. */}
+        <Pressable onPress={() => r.push('/hazmat')} accessibilityRole="button"
+          accessibilityLabel={`Guide 147 distances: isolate ${ERG147.distances.isolate_ft} feet, large spill ${ERG147.distances.large_spill_downwind_ft} feet downwind, rail or trailer fire ${ERG147.distances.rail_trailer_fire_label}. Open Hazmat ERG 147.`}
+          style={({ pressed }) => ({ flexDirection: 'row', borderWidth: 2, borderColor: C.hazmat, borderRadius: R.card, backgroundColor: pressed ? C.warnBg : C.surface, overflow: 'hidden' })}>
+          {[[`${ERG147.distances.isolate_ft} ft`, 'Isolate'], [`${ERG147.distances.large_spill_downwind_ft} ft`, 'Downwind'], [ERG147.distances.rail_trailer_fire_label, 'Rail / trailer']].map(([n, l], i) => (
+            <View key={l} style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 8, borderLeftWidth: i ? 1 : 0, borderColor: C.border }}>
+              <Text style={{ color: C.text, fontFamily: F.black, fontSize: 24 }} numberOfLines={1} adjustsFontSizeToFit>{n}</Text>
+              <Text style={{ color: C.muted, fontSize: 15 }}>{l}</Text>
+            </View>
+          ))}
+        </Pressable>
 
         <BigNav tone="red" icon="cam" title="Identify by camera" sub="Photograph the non-damaged side" onPress={() => r.push('/camera')} />
         <BigNav icon="search" title="Search a vehicle" sub="Make / model · VIN" onPress={() => r.push('/search')} />

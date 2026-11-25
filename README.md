@@ -74,6 +74,9 @@ scripts/             seed, check-urls (run before every release), logic tests
 - Branding `.webp` files weren't in the upload → vector bolt-shield placeholder + `assets/icon.png` placeholder.
 - Gemini paid tier now stores generateContent requests by default for new projects — turn storage off in the project before sending scene photos.
 
+- **On-scene rule (applies to every screen):** this is used at an emergency where time matters, with gloves,
+  glare and smoke. The big stuff (distances, cut loop, 12V, shutdown steps) is readable at 0–1 taps; detail is one
+  tap further in. No instructions to read in the moment, no extra steps, nothing a crew has to set up first.
 - **Design system v2** (design sheet, 24 Nov 2026): tokens in `src/theme.ts`, components in `src/components/ui.tsx`.
   18px body / 15px floor, 48px minimum targets, solid-white selection with a check, safety caveats in the warning style.
   The rescue-sheet / PDF viewers (`sheet`, `erg-pdf`) keep the v1 look on purpose — `src/components/legacy.tsx`.

@@ -44,8 +44,6 @@ export default function GuidePage() {
         {g0 && <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{g0.years}{g0.powertrain ? ` · ${g0.powertrain}` : ''}</Text>}
       </View>
 
-      {guides.length > 0 && <VerifyPicture guides={guides} />}
-
       {/* Safety caveat first, word for word (F3). */}
       <Notice tone="warn">Chemistry not verified for this vehicle — treat as lithium-ion, Guide 147. Cut-loop location: see the sheet.</Notice>
 
@@ -78,6 +76,7 @@ export default function GuidePage() {
           </CardBtn>
         );
       })}
+      {guides.length > 0 && <VerifyPicture guides={guides} compact />}
       {!guides.length && <Notice tone="info">Cut sheet not found on this phone. Update the rescue-sheet pack in Downloads.</Notice>}
 
       {linked && getVehicle(linked) && <Btn label="FULLCHARGE page — cut loop, 12V, tow" onPress={() => r.push(`/vehicle/${linked}`)} />}

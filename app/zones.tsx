@@ -171,9 +171,7 @@ export default function Zones() {
             })}
           </View>
         </View>
-        <Muted style={{ paddingHorizontal: 4 }}>
-          {live ? 'Pinch / drag to move the map. Drag the FIRE marker, or long-press the map, to move the fire.' : 'Drag the fire marker, or tap the diagram, to move the fire.'}
-        </Muted>
+        <Muted style={{ paddingHorizontal: 4 }}>{live ? 'Drag FIRE or long-press to move it.' : 'Drag or tap to move the fire.'}</Muted>
 
         <Seg label="Set wind by" options={['Manual', 'Face the wind'] as const} value={windMode} onChange={setWindMode} />
 
