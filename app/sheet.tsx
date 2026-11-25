@@ -59,7 +59,7 @@ export default function Sheet() {
 function PageView({ uri, w, h, n, of, onFail }: { uri: string; w: number; h: number; n: number; of: number; onFail: () => void }) {
   const [loading, setLoading] = useState(true);
   return (
-    <View style={{ width: w, height: h, backgroundColor: '#fff' }} accessibilityLabel={`Page ${n} of ${of}`}>
+    <View style={{ width: w, height: h, backgroundColor: '#fff' }} accessible accessibilityRole="image" accessibilityLabel={`Rescue sheet page ${n} of ${of}`}>
       <Image source={{ uri }} style={{ width: w, height: h }} resizeMode="contain"
         onLoadEnd={() => setLoading(false)} onError={() => { setLoading(false); onFail(); }} />
       {loading && <ActivityIndicator color={C.bg} style={{ position: 'absolute', top: h / 2 - 10, alignSelf: 'center' }} />}

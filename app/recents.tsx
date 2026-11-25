@@ -18,7 +18,7 @@ export default function Recents() {
         const name = recentName(x);
         if (!name) return null;
         return (
-          <Pressable key={x.kind + x.id} onPress={() => r.push(recentHref(x))} style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border }}>
+          <Pressable key={x.kind + x.id} onPress={() => r.push(recentHref(x))} accessibilityRole="button" style={{ minHeight: 56, justifyContent: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border }}>
             <Text style={st.body}>{name}</Text>
             <Muted>{recentKind(x)} · {new Date(x.at).toLocaleString()}</Muted>
           </Pressable>

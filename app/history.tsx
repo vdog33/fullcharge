@@ -22,7 +22,8 @@ export default function History() {
       <View style={{ marginTop: S.md }}>
         {shown.map((a) => (
           <Pressable key={a.at} disabled={!a.confirmedId} onPress={() => a.confirmedId && r.push(a.confirmedId.startsWith('guide:') ? `/guide?keys=${a.confirmedId.slice(6)}&title=${encodeURIComponent(a.confirmedLabel ?? '')}` : `/vehicle/${a.confirmedId}`)}
-            style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border }}>
+            accessibilityRole={a.confirmedId ? 'button' : undefined}
+            style={{ minHeight: 56, justifyContent: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border }}>
             <Text style={st.body}>{a.source.toUpperCase()} · top: {nm(a.topMatch)}</Text>
             <Text style={st.body}>Confirmed: {a.confirmedLabel ?? nm(a.confirmedId)}{a.correction ? ` · "it was ${a.correction}"` : ''}</Text>
             <Muted>{new Date(a.at).toLocaleString()}</Muted>

@@ -35,7 +35,7 @@ export default function Downloads() {
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: S.md }}>
         <Text style={st.body}>Wi-Fi only</Text>
-        <Switch value={wifiOnly} onValueChange={(v) => { setWifi(v); setSettings({ wifiOnly: v }); }} />
+        <Switch value={wifiOnly} accessibilityLabel="Download on Wi-Fi only" onValueChange={(v) => { setWifi(v); setSettings({ wifiOnly: v }); }} />
       </View>
       <Muted>On this device: {fmtBytes(usedBytes())} · Free: {Number.isFinite(free) ? fmtBytes(free) : '—'}</Muted>
       <Muted>Rescue sheets download as {IMAGE_SET === '300' ? 'sharper iPad' : 'iPhone'} images.</Muted>
@@ -79,7 +79,8 @@ function PackRow({ p, free }: { p: PackDef; free: number }) {
       {updateAvailable(p.id) && <Text style={[st.body, { color: C.hazmat }]}>Update available{pend ? ` — ${pend.files} new / changed (${fmtBytes(pend.bytes)})` : ''}.</Text>}
       {(s.status === 'downloading' || s.status === 'paused') && (
         <>
-          <View style={{ height: 8, backgroundColor: C.surface2, borderRadius: 4, overflow: 'hidden' }}>
+          <View style={{ height: 10, backgroundColor: C.surface2, borderRadius: 5, overflow: 'hidden', borderWidth: 1, borderColor: C.control }}
+            accessibilityRole="progressbar" accessibilityLabel={`${p.name} download`} accessibilityValue={{ min: 0, max: 100, now: pct }}>
             <View style={{ width: `${pct}%`, height: 8, backgroundColor: C.text }} />
           </View>
           <Muted>{s.status === 'paused' ? (s.interrupted ? 'Paused — resumes when the app is open' : 'Paused') : 'Downloading'} · {s.bytesTotal ? `${pct}% · ${fmtBytes(s.bytesDone)} of ${fmtBytes(s.bytesTotal)}` : `${s.filesDone ?? 0} of ${s.filesTotal ?? '?'} files`}</Muted>

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Linking, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Btn, Bullets, Card, More, Muted, Screen, st } from '../src/components/ui';
+import { Btn, Bullets, Card, H2, More, Muted, Screen, Warning, st } from '../src/components/ui';
 import { chemFamily, ERG147, getBess, getVehicle } from '../src/data/catalog';
 import { GUIDE_147_SECTIONS } from '../src/data/content';
-import { C, F, S } from '../src/theme';
+import { C, F, S, T } from '../src/theme';
 
 export default function Hazmat() {
   const { kind, id } = useLocalSearchParams<{ kind?: 'vehicle' | 'bess'; id?: string }>();
@@ -19,19 +19,21 @@ export default function Hazmat() {
   return (
     <Screen>
       <View style={{ backgroundColor: C.hazmat, borderRadius: 10, padding: S.md }}>
-        <Text style={{ color: C.hazmatText, fontFamily: F.display, fontSize: 26 }}>GUIDE {ERG147.guide}</Text>
-        <Text style={{ color: C.hazmatText, fontFamily: F.narrowBold, fontSize: 16 }}>{ERG147.title}</Text>
-        <Text style={{ color: C.hazmatText }}>{ERG147.un_numbers.join(' / ')} · Class {ERG147.hazard_class} · {ERG147.source}</Text>
+        <Text style={{ color: C.hazmatText, fontFamily: F.display, fontSize: T.h1 }} accessibilityRole="header">GUIDE {ERG147.guide}</Text>
+        <Text style={{ color: C.hazmatText, fontFamily: F.narrowBold, fontSize: T.body }}>{ERG147.title}</Text>
+        <Text style={{ color: C.hazmatText, fontSize: T.floor + 1 }}>{ERG147.un_numbers.join(' / ')} · Class {ERG147.hazard_class} · {ERG147.source}</Text>
       </View>
 
-      {name && (
-        <Card style={{ marginTop: S.md }}>
-          <Text style={st.label}>{name}</Text>
-          <Text style={st.body}>{chem!.label}</Text>
-        </Card>
-      )}
+      {name && (chem!.family === 'UNKNOWN'
+        ? <View style={{ marginTop: S.md }}><Warning title={name}>{chem!.label}</Warning></View>
+        : (
+          <Card style={{ marginTop: S.md }}>
+            <Text style={st.label}>{name}</Text>
+            <Text style={st.body}>{chem!.label}</Text>
+          </Card>
+        ))}
 
-      <Text style={st.h2}>Distances</Text>
+      <H2>Distances</H2>
       <Card>
         <Text style={st.body}>Isolate {d.isolate_ft} ft ({d.isolate_m} m) — all directions</Text>
         <Text style={st.body}>Large spill: downwind ≥{d.large_spill_downwind_ft} ft ({d.large_spill_downwind_m} m)</Text>
@@ -41,10 +43,10 @@ export default function Hazmat() {
         <Text style={st.body}>{ERG147.honest_limit}</Text>
       </Card>
 
-      <Text style={st.h2}>Fire</Text>
+      <H2>Fire</H2>
       <Bullets items={ERG147.fire_notes} />
 
-      <Text style={st.h2}>Vent gas</Text>
+      <H2>Vent gas</H2>
       {showNmc && <Text style={st.body}>NMC / NCA: {vent.nmc_nca}</Text>}
       {showLfp && <Text style={[st.body, { marginTop: 6 }]}>LFP: {vent.lfp}</Text>}
 
@@ -52,7 +54,7 @@ export default function Hazmat() {
         <Btn tone="red" label="ISOLATION ZONES + MAP" onPress={() => r.push(kind && id ? `/zones?kind=${kind}&id=${id}` : '/zones')} />
       </View>
 
-      <More title="More — full Guide 147 text">
+      <More title="Full Guide 147 text" count={`${GUIDE_147_SECTIONS.length} sections · works offline`}>
         {GUIDE_147_SECTIONS.map((s) => (
           <View key={s.h} style={{ marginBottom: S.sm }}>
             <Text style={st.label}>{s.h}</Text>
@@ -61,7 +63,7 @@ export default function Hazmat() {
         ))}
       </More>
 
-      <More title="Official PDFs (need signal)">
+      <More title="Official PDFs" count="3 links · need signal">
         <Btn tone="hazmat" label="GUIDE 147 PDF (NOAA CAMEO)" onPress={() => Linking.openURL(ERG147.guide_147_pdf_url)} />
         <Btn tone="hazmat" label="FULL ERG 2024 (PHMSA)" onPress={() => Linking.openURL(ERG147.full_erg_2024_pdf_url)} />
         <Btn tone="hazmat" label="CAMEO UN3480" onPress={() => Linking.openURL(ERG147.cameo_un3480_url)} />

@@ -10,7 +10,7 @@
     "mock": "expo start",
     "mock:tunnel": "expo start --tunnel",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test scripts/logic.test.ts",
+    "test": "node --experimental-strip-types --test scripts/logic.test.ts scripts/contrast.test.ts",
     "check-urls": "node scripts/check-urls.mjs",
     "seed": "node scripts/seed-supabase.mjs",
     "fn:serve": "supabase functions serve --env-file supabase/.env.local",
