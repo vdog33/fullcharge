@@ -17,7 +17,13 @@ const admin = createClient(URL_, serverKey());
 
 // Open-world: Gemini names the vehicle from its own general knowledge. No catalog list, no per-car training.
 // The phone matches the name to the cut sheets it has stored.
-type RawGuess = { make: string; model: string; yearFrom?: number | null; yearTo?: number | null; powertrain?: string; trim?: string; confidence: number; cues: string[] };
+type Photo = { url: string; credit: string; page: string };
+type RawGuess = {
+  make: string; model: string; yearFrom?: number | null; yearTo?: number | null; powertrain?: string; trim?: string;
+  confidence: number; cues: string[];
+  checks?: string[];   // visible features a crew can check on the car to confirm THIS model vs look-alikes
+  photo?: Photo | null; // reference photo of the model (Wikipedia lead image) — for the crew to compare
+};
 
 const sha256 = async (s: string) =>
   Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))))
@@ -32,6 +38,7 @@ function clean(list: RawGuess[]): RawGuess[] {
       powertrain: String(g.powertrain ?? 'unknown').toUpperCase(), trim: g.trim ? String(g.trim).slice(0, 40) : undefined,
       confidence: Math.max(0, Math.min(100, Math.round(Number(g.confidence) || 0))),
       cues: (g.cues ?? []).map(String).slice(0, 6),
+      checks: (g.checks ?? []).map((c) => String(c).slice(0, 90)).slice(0, 5),
     }))
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 5);
@@ -53,6 +60,9 @@ Identify the vehicle in the photo from your own knowledge of vehicles: make, mod
 likely model-year range, and powertrain: BEV, PHEV, HEV, FCEV, ICE or UNKNOWN. Look for EV cues: charge-port door, no exhaust, closed grille, EV badges
 ("e-tron", "EQ", "Lightning", "4xe", "Prime", "Recharge", "Hybrid").
 Return up to 5 guesses, most likely first, each with confidence 0-100 and up to 6 short visible cues you used.
+For each guess also give "checks": 3 to 5 short features a firefighter can look at on the car in seconds to confirm it is
+THIS model and not a look-alike (badge text and where it is, light shape, door handles, charge-port side, roofline, grille).
+Only features that are true for that model and year range; plain words, max 10 words each.
 Similar-looking vehicles that differ in powertrain (e.g. F-150 vs F-150 Lightning, Wrangler vs Wrangler 4xe) MUST be separate guesses.
 In "notes", say what limits certainty (damage, angle, lighting, missing badge). Never claim certainty from one photo.`;
   const body = {
@@ -67,7 +77,8 @@ In "notes", say what limits certainty (damage, angle, lighting, missing badge). 
             yearFrom: { type: 'INTEGER' }, yearTo: { type: 'INTEGER' },
             powertrain: { type: 'STRING', enum: ['BEV', 'PHEV', 'HEV', 'FCEV', 'ICE', 'UNKNOWN'] },
             confidence: { type: 'INTEGER' }, cues: { type: 'ARRAY', items: { type: 'STRING' } },
-          }, required: ['make', 'model', 'powertrain', 'confidence', 'cues'] } },
+            checks: { type: 'ARRAY', items: { type: 'STRING' } },
+          }, required: ['make', 'model', 'powertrain', 'confidence', 'cues', 'checks'] } },
           notes: { type: 'STRING' },
         },
         required: ['guesses', 'notes'],
@@ -83,6 +94,27 @@ In "notes", say what limits certainty (damage, angle, lighting, missing badge). 
   const parsed = JSON.parse(text);
   return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? '') };
 }
+
+/** Reference photo of a model: the lead image of its Wikipedia article. Best effort — 2.5 s, never blocks the ID. */
+async function modelPhoto(make: string, model: string): Promise<Photo | null> {
+  const q = encodeURIComponent(`${make} ${model} automobile`);
+  const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${q}&gsrlimit=1` +
+    `&prop=pageimages|info&piprop=thumbnail&pithumbsize=800&inprop=url`;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 2500);
+    const r = await fetch(url, { signal: ctl.signal, headers: { 'User-Agent': 'FULLCHARGE/1.0 (first-responder app; vehicle reference photos)' } });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const pages = Object.values((await r.json())?.query?.pages ?? {}) as { title?: string; fullurl?: string; thumbnail?: { source?: string } }[];
+    const p = pages[0];
+    if (!p?.thumbnail?.source || !p.title) return null;
+    // The article must actually be about this make — a search can drift to a different car.
+    if (!p.title.toLowerCase().includes(make.toLowerCase().split(' ')[0])) return null;
+    return { url: p.thumbnail.source, credit: `Wikipedia: ${p.title}`, page: p.fullurl ?? '' };
+  } catch { return null; }
+}
+const withPhotos = (gs: RawGuess[]) => Promise.all(gs.map(async (g) => ({ ...g, photo: await modelPhoto(g.make, g.model) })));
 
 /** Home battery / ESS from a photo of the unit or its label. The phone matches the answer to the CEC listing. */
 async function geminiBess(imageBase64: string, mimeType: string) {
@@ -189,11 +221,11 @@ Deno.serve(async (req: Request) => {
 
     const raw = MOCK
       ? { guesses: [
-          { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front'] },
-          { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'] },
+          { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front'], checks: ['No grille, smooth nose', 'Tall hatchback, taller than Model 3'] },
+          { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'], checks: ['Pony badge on the nose', 'Tri-bar tail lights'] },
         ], notes: 'SERVER MOCK — no Gemini key set.' }
       : await gemini(imageBase64, mimeType);
-    const guesses = clean(raw.guesses);
+    const guesses = await withPhotos(clean(raw.guesses));
     const top = guesses[0] ? `${guesses[0].yearFrom ?? ''} ${guesses[0].make} ${guesses[0].model}`.trim() : null;
 
     const uid = await userId(req);
