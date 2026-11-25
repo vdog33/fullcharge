@@ -2,6 +2,7 @@ import React, { useEffect, useReducer } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Bullets, Card, H1, More, Muted, Screen, st } from '../src/components/ui';
+import { VerifyPicture } from '../src/components/VerifyPicture';
 import { EV_FIRST_MOVES } from '../src/data/content';
 import { getVehicle } from '../src/data/catalog';
 import { guideLabel } from '../src/lib/match-core';
@@ -27,6 +28,7 @@ export default function GuidePage() {
       <Stack.Screen options={{ title: name }} />
       <H1>{name}</H1>
       {g0 && <Muted>{g0.years}{g0.powertrain ? ` · ${g0.powertrain}` : ''}</Muted>}
+      {guides.length > 0 && <VerifyPicture guides={guides} />}
 
       {new Set(guides.map((x) => `${x.make}|${x.model}`)).size > 1 && (
         <Card style={{ borderColor: C.muted, marginTop: S.md }}>

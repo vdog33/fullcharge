@@ -3,6 +3,7 @@ import { USE_MOCKS, BACKEND_READY } from '../config';
 import { VEHICLES } from '../data/catalog';
 import { callFunction } from './supabase';
 import { Guess, Guide, matchGuess } from './match-core';
+import { extractVin } from './vin-core';
 import { guideIndex, loadPacks } from './packs';
 
 // Camera ID = Gemini's own general knowledge of cars (no per-car training).
@@ -79,4 +80,17 @@ export async function sendFeedback(p: { attemptId?: string; feedbackToken?: stri
   try {
     await callFunction('identify-vehicle', { action: 'feedback', attemptId: p.attemptId, feedbackToken: p.feedbackToken, confirmedId: p.confirmed, correction: p.correction }, 10000);
   } catch { /* offline — stays in local ID history */ }
+}
+
+/** Read the VIN off a photo of the dash plate / door label (Gemini, needs signal). Validated on the phone. */
+export async function readVinFromPhoto(uri: string): Promise<{ vin: string; checked: boolean } | null> {
+  if (USE_MOCKS) { await new Promise((r) => setTimeout(r, 700)); return { vin: '7SAYGDEEXPF000001', checked: true }; }
+  if (!BACKEND_READY) throw new Error('Reading a VIN from a photo needs signal. Scan the door-jamb barcode or type it.');
+  const img = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1600 } }], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+  try {
+    const r = await callFunction<{ vin?: string; candidates?: string[] }>('identify-vehicle', { action: 'read_vin', imageBase64: img.base64, mimeType: 'image/jpeg' }, 20000);
+    return extractVin([r.vin, ...(r.candidates ?? [])].filter(Boolean).join(' '));
+  } catch {
+    throw new Error('Could not read the VIN — likely no signal. Scan the barcode or type it.');
+  }
 }

@@ -40,6 +40,7 @@ export default function Root() {
           <Stack.Screen name="erg-pdf" options={{ title: 'Manufacturer ERG' }} />
           <Stack.Screen name="guide" options={{ title: 'Cut sheets' }} />
           <Stack.Screen name="sheet" options={{ title: 'Rescue sheet' }} />
+          <Stack.Screen name="scan-vin" options={{ title: 'Scan VIN' }} />
           <Stack.Screen name="hazmat" options={{ title: 'Hazmat ERG 147' }} />
           <Stack.Screen name="zones" options={{ title: 'Isolation Zones' }} />
           <Stack.Screen name="quick" options={{ title: 'Quick Sheet' }} />

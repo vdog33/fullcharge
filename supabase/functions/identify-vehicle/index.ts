@@ -7,7 +7,13 @@ const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
 const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
 const MOCK = Deno.env.get('IDENTIFY_MOCK') === 'true' || !GEMINI_KEY;
 const URL_ = Deno.env.get('SUPABASE_URL')!;
-const admin = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+// Server key: a SERVICE_KEY secret if you set one, else the legacy service_role key, else the project's new secret key.
+function serverKey(): string {
+  const direct = Deno.env.get('SERVICE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (direct) return direct;
+  try { const all = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}'); return String(Object.values(all)[0] ?? ''); } catch { return ''; }
+}
+const admin = createClient(URL_, serverKey());
 
 // Open-world: Gemini names the vehicle from its own general knowledge. No catalog list, no per-car training.
 // The phone matches the name to the cut sheets it has stored.
@@ -34,7 +40,9 @@ function clean(list: RawGuess[]): RawGuess[] {
 async function userId(req: Request): Promise<string | null> {
   const auth = req.headers.get('Authorization');
   if (!auth) return null;
-  const c = createClient(URL_, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+    let pub = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+  if (!pub) { try { pub = String(Object.values(JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') ?? '{}'))[0] ?? ''); } catch { /* none */ } }
+  const c = createClient(URL_, pub, { global: { headers: { Authorization: auth } } });
   const { data } = await c.auth.getUser();
   return data.user?.id ?? null;
 }
@@ -76,6 +84,29 @@ In "notes", say what limits certainty (damage, angle, lighting, missing badge). 
   return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? '') };
 }
 
+/** Read a VIN off a photo (dash plate through the windshield, or the door-jamb label). */
+async function geminiVin(imageBase64: string, mimeType: string) {
+  const prompt = `Read the vehicle identification number (VIN) in this photo. It may be on a metal plate seen through the windshield,
+or on the door-jamb certification label. A VIN is exactly 17 characters, letters and digits, and never contains I, O or Q.
+Copy the characters exactly as printed; do not guess hidden characters. If several 17-character strings are visible, list them all.`;
+  const body = {
+    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, { text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: { type: 'OBJECT', properties: { vin: { type: 'STRING' }, candidates: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['vin'] },
+    },
+  };
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = await res.json();
+  const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
+  const parsed = JSON.parse(text);
+  const clean = (v: unknown) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return { vin: clean(parsed.vin), candidates: (parsed.candidates ?? []).map(clean).filter((v: string) => v.length >= 17).slice(0, 5) };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -90,6 +121,14 @@ Deno.serve(async (req: Request) => {
         confirmed_id: confirmedId ?? null, correction: correction ? String(correction).slice(0, 120) : null, feedback_at: new Date().toISOString(),
       }).eq('id', attemptId);
       return json({ ok: true });
+    }
+
+    if (body.action === 'read_vin') {
+      const { imageBase64, mimeType = 'image/jpeg' } = body;
+      if (!/^image\/(jpeg|png)$/.test(mimeType)) return json({ error: 'JPEG or PNG only' }, 400);
+      if (!imageBase64 || imageBase64.length > 8_000_000) return json({ error: 'image missing or too large' }, 400);
+      if (MOCK) return json({ vin: '7SAYGDEEXPF000001', candidates: [] });
+      return json(await geminiVin(imageBase64, mimeType)); // not stored: a VIN photo is not training data
     }
 
     // identify

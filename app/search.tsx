@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Card, Muted, Screen, st } from '../src/components/ui';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
+import { BrandGrid, BrandItem } from '../src/components/BrandGrid';
+import { VerifyPicture } from '../src/components/VerifyPicture';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
 import { looksLikeVin } from '../src/lib/vin-core';
@@ -34,21 +36,26 @@ export default function Search() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [res, setRes] = useState<{ r: VinResult; at: number; guides: Guide[] } | null>(null);
+  // Coming back from the scanner with a VIN: look it up straight away.
+  const params = useLocalSearchParams<{ vin?: string }>();
+  useEffect(() => { if (params.vin) { setMode('vin'); setVin(params.vin); runVin(params.vin); } }, [params.vin]);
 
   const index = guideIndex();
-  const makesAll = useMemo(() => [...new Set([...VEHICLES.map((v) => v.make), ...index.map((g) => g.make)])].sort(), [index.length]);
   const seedList = useMemo(() => searchVehicles(q, make), [q, make]);
   const seedGrouped = useMemo(() => {
     const g: Record<string, Vehicle[]> = {};
     seedList.forEach((v) => (g[v.make] ??= []).push(v));
     return Object.entries(g);
   }, [seedList]);
-  // Browse list: every make with how many distinct models it has.
-  const makeCounts = useMemo(() => {
+  // Brand grid: every make (FULLCHARGE + NHTSA) with its number of distinct models, A–Z.
+  const brands: BrandItem[] = useMemo(() => {
     const m = new Map<string, Set<string>>();
-    index.forEach((g) => m.set(g.make, (m.get(g.make) ?? new Set()).add(g.model)));
-    return [...m.entries()].map(([mk, set]) => [mk, set.size] as const).sort((a, b) => a[0].localeCompare(b[0]));
+    const add = (mk: string, model: string) => m.set(mk, (m.get(mk) ?? new Set()).add(model.toLowerCase()));
+    VEHICLES.forEach((v) => add(v.make, v.model));
+    index.forEach((g) => add(g.make, g.model));
+    return [...m.entries()].map(([make, set]) => ({ make, models: set.size })).sort((a, b) => a.make.localeCompare(b.make));
   }, [index.length]);
+  const browsing = q.trim().length < 2 && !make; // nothing typed or picked -> show the brand grid
   const guideGroups = useMemo(
     () => (q.trim().length >= 2 || make ? groupGuides(searchGuides(q, index, make, 200)) : []),
     [q, make, index.length],
@@ -90,17 +97,26 @@ export default function Search() {
         <>
           <TextInput style={st.input} placeholder="Make or model (e.g. ioniq 6)" placeholderTextColor={C.muted} value={q} onChangeText={setQ} autoCorrect={false} />
           {looksLikeVin(q) && <View style={{ marginTop: S.sm }}><Btn label="THAT LOOKS LIKE A VIN — LOOK IT UP" onPress={() => { setMode('vin'); setVin(q); runVin(q); }} /></View>}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: S.md }} contentContainerStyle={{ gap: S.sm }}>
-            {[undefined, ...makesAll].map((m) => (
-              <Pressable key={m ?? 'all'} onPress={() => setMake(m === make ? undefined : m)}
-                style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: make === m ? C.text : C.border }}>
-                <Text style={{ color: C.text, fontFamily: F.narrow }}>{m ?? 'All'}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          {make && (
+            <Pressable onPress={() => setMake(undefined)} style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, marginTop: S.md }}>
+              <Text style={{ color: C.text, fontFamily: F.narrowBold }}>‹ ALL BRANDS</Text>
+              <Text style={st.muted}>· {make}</Text>
+            </Pressable>
+          )}
+          {browsing && (
+            <View style={{ marginTop: S.md }}>
+              <BrandGrid brands={brands} onPick={(mk) => { setMake(mk); setQ(''); }} />
+              {!index.length && (
+                <Card style={{ marginTop: S.md }}>
+                  <Text style={st.body}>Only the 20 FULLCHARGE vehicles until the vehicle list loads (needs signal once).</Text>
+                  <Btn label="DOWNLOAD RESCUE SHEETS" onPress={() => r.push('/settings/downloads')} />
+                </Card>
+              )}
+            </View>
+          )}
 
-          {seedGrouped.length > 0 && <Text style={st.h2}>FULLCHARGE pages</Text>}
-          {seedGrouped.map(([mk, vs]) => (
+          {!browsing && seedGrouped.length > 0 && <Text style={st.h2}>FULLCHARGE pages</Text>}
+          {!browsing && seedGrouped.map(([mk, vs]) => (
             <View key={mk} style={{ marginBottom: S.md }}>
               <Text style={st.label}>{mk}</Text>
               {vs.map((v) => (
@@ -111,21 +127,10 @@ export default function Search() {
             </View>
           ))}
 
-          <Text style={st.h2}>All cut sheets{index.length ? ` (${index.length})` : ''}</Text>
-          {!index.length && (
-            <Card>
-              <Text style={st.body}>No cut sheets on this phone yet.</Text>
-              <Btn label="DOWNLOAD RESCUE SHEETS" onPress={() => r.push('/settings/downloads')} />
-            </Card>
-          )}
-          {!!index.length && !allReady() && <Muted>Download not finished — some sheets need signal.</Muted>}
-          {!!index.length && !guideGroups.length && (q.trim().length >= 2 || make) && <Muted>No cut sheet matches.</Muted>}
-          {!!index.length && q.trim().length < 2 && !make && makeCounts.map(([mk, n]) => (
-            <Pressable key={mk} onPress={() => setMake(mk)} style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={st.body}>{mk}</Text>
-              <Text style={st.muted}>{n} model{n > 1 ? 's' : ''} ›</Text>
-            </Pressable>
-          ))}
+          {!browsing && <Text style={st.h2}>{make ? `${make} cut sheets` : 'Cut sheets'}</Text>}
+          {!browsing && !!index.length && !allReady() && <Muted>Download not finished — some sheets need signal.</Muted>}
+          {!browsing && !!index.length && !guideGroups.length && <Muted>No cut sheet matches.</Muted>}
+          {!browsing && !index.length && <Muted>NHTSA cut sheets appear once the vehicle list has loaded.</Muted>}
           {guideGroups.map((gs) => {
             const label = `${gs[0].make} ${gs[0].model}`;
             const years = [...new Set(gs.map((g) => g.years))].join(' · ');
@@ -145,6 +150,7 @@ export default function Search() {
             onChangeText={(t) => setVin(t.toUpperCase())} autoCapitalize="characters" autoCorrect={false} maxLength={20} />
           <Muted>Dash (driver side, through windshield) or driver door jamb.</Muted>
           <Btn tone="red" label="LOOK UP VIN" onPress={() => runVin()} disabled={busy} />
+          <Btn label="SCAN VIN — BARCODE OR PHOTO" onPress={() => r.push('/scan-vin')} />
         </View>
       )}
 
@@ -162,6 +168,9 @@ export default function Search() {
           </Card>
 
           {(res.r.matches.length > 0 || res.guides.length > 0) && <Text style={st.h2}>Is this the car?</Text>}
+          {(res.guides.length > 0 || res.r.matches[0]?.strength === 'model') && (
+            <VerifyPicture guides={res.guides} vehicleId={res.r.matches[0]?.strength === 'model' ? res.r.matches[0].vehicleId : undefined} compact />
+          )}
           {res.r.matches.map((m) => {
             const v = getVehicle(m.vehicleId)!;
             return <Btn key={m.vehicleId} tone={m.strength === 'model' ? 'red' : 'neutral'} label={`${v.make} ${v.model}`.toUpperCase()} sub={m.reason} onPress={() => open(m.vehicleId, `/vehicle/${m.vehicleId}`)} />;

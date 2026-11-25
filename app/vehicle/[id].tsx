@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Bullets, Card, Field, H1, More, Muted, PageTabs, Screen, st } from '../../src/components/ui';
+import { VerifyPicture } from '../../src/components/VerifyPicture';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
 import { sendFeedback } from '../../src/lib/identify';
@@ -19,6 +20,7 @@ export default function VehicleScreen() {
       <Stack.Screen options={{ title: `${v.make} ${v.model}` }} />
       <Muted>{v.make} · {v.years} · {v.type}</Muted>
       <H1>{v.model}</H1>
+      <VerifyPicture vehicleId={v.id} compact />
       <PageTabs kind="vehicle" id={v.id} />
 
       {!!v.warning && <Card style={{ borderColor: C.muted, marginBottom: S.sm }}><Text style={st.label}>Data note</Text><Text style={st.body}>{v.warning}</Text></Card>}

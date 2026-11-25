@@ -100,3 +100,21 @@ export function matchCatalog(d: Decoded, catalog: { id: string; make: string }[]
     .filter((v) => n(v.make) === mk)
     .map((v) => ({ vehicleId: v.id, reason: `Make ${d.make} only — model not matched`, strength: 'make-only' as const }));
 }
+
+/** Pull a VIN out of whatever a barcode / photo read returned.
+ *  - Door-jamb Code 39 labels often prefix the VIN with "I" (import) — 18 chars.
+ *  - Data Matrix / QR codes may hold the VIN plus other fields.
+ *  Prefers a 17-character run that passes the check digit; otherwise the first plausible one. */
+export function extractVin(raw: string): { vin: string; checked: boolean } | null {
+  const up = (raw ?? '').toUpperCase();
+  const runs = up.split(/[^A-Z0-9]+/).filter(Boolean);
+  const cands: string[] = [];
+  for (const r of runs) {
+    if (r.length === 18 && r.startsWith('I')) cands.push(r.slice(1));
+    for (let i = 0; i + 17 <= r.length; i++) cands.push(r.slice(i, i + 17));
+  }
+  const valid = cands.filter((c) => /^[A-HJ-NPR-Z0-9]{17}$/.test(c));
+  const good = valid.find((c) => checkDigitOk(c));
+  if (good) return { vin: good, checked: true };
+  return valid.length ? { vin: valid[0], checked: false } : null;
+}

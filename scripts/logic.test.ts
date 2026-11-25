@@ -147,3 +147,14 @@ test('bundles never exceed the 50 MB upload cap, even with lumpy sizes', () => {
   assert.equal(groups.reduce((a, g) => a + g.length, 0), 900);
   assert.ok(groups.every((g) => g.reduce((a, f) => a + f.bytes, 0) <= 44_000_000 || g.length === 1));
 });
+
+import { extractVin } from '../src/lib/vin-core.ts';
+
+test('VIN from barcode / photo text', () => {
+  assert.deepEqual(extractVin('1HGCM82633A004352'), { vin: '1HGCM82633A004352', checked: true });
+  assert.deepEqual(extractVin('I1HGCM82633A004352'), { vin: '1HGCM82633A004352', checked: true });   // Code 39 "I" prefix
+  assert.deepEqual(extractVin('VIN: 1HGCM82633A004352  MFD 03/03'), { vin: '1HGCM82633A004352', checked: true });
+  assert.deepEqual(extractVin('XX1HGCM82633A004352'), { vin: '1HGCM82633A004352', checked: true }); // stray chars
+  assert.equal(extractVin('hello world'), null);
+  assert.equal(extractVin('1HGCM82633A00435O')?.vin ?? null, null); // O is never in a VIN
+});
