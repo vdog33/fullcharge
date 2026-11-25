@@ -1,6 +1,6 @@
 {
  "app": "FULLCHARGE",
- "subtitle": "ERG · EV · BESS EXPERT",
+ "subtitle": "ERG · EV · BESS",
  "data_version": "2026-11-22",
  "source": "Live FULLCHARGE app embedded catalog, extracted 2026-11-21/22; last ERG PDF audit 2026-11-20",
  "vehicles": [
@@ -765,7 +765,7 @@
  },
  "branding": {
   "name": "FULLCHARGE",
-  "subtitle": "ERG · EV · BESS EXPERT",
+  "subtitle": "ERG · EV · BESS",
   "icon": "bolt-in-a-shield",
   "wordmark": "Stencil wordmark — FULL white, CHARGE red, A in CHARGE is a lightning bolt, on black",
   "colours": {
