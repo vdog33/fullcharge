@@ -89,52 +89,105 @@ In "notes", one short sentence on what limits certainty (damage, angle, lighting
       },
     },
   };
-  const parsed = JSON.parse(await callGemini(body));
-  return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? '') };
+  const { text, model } = await askChainHard(body);
+  const parsed = JSON.parse(text);
+  return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? ''), model };
 }
 
 // No live photo lookup any more (#16): the old Wikipedia search often showed the wrong car.
 // Real, approved photos now ship on the phone with the rescue-sheet pack. `photo` stays null for older app builds.
 const withPhotos = (gs: RawGuess[]) => gs.map((g) => ({ ...g, photo: null }));
 
-/** One Gemini call. Low thinking keeps photo ID fast (~2–5 s); if a model rejects the thinking setting, retry without it. */
-async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL, retried = false): Promise<string> {
+// ---- Never a busy line ----
+// Several Google models, each with its own capacity. Busy / refused / slow → the next one starts at once.
+// The first good answer wins. Override with the GEMINI_MODELS secret (comma list, best first).
+const MODELS = (Deno.env.get('GEMINI_MODELS') ?? '').split(',').map((m) => m.trim()).filter(Boolean);
+const CHAIN = [...new Set([...(MODELS.length ? MODELS : [GEMINI_MODEL]), FALLBACK_MODEL, 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'])];
+const HEDGE_MS = 6000;      // no answer yet from one model → start the next alongside it
+const PER_MODEL_MS = 20000; // give up on a single model after this
+
+class GeminiError extends Error {
+  status: number; model: string;
+  constructor(msg: string, status: number, model: string) { super(msg); this.status = status; this.model = model; }
+}
+
+/** One request to one model. Low thinking keeps it fast; a model that rejects a speed setting is sent it plain. */
+async function oneModel(body: Record<string, unknown>, model: string, signal: AbortSignal): Promise<string> {
   const send = (b: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(b),
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(b), signal,
   });
   const gc = (body.generationConfig ?? {}) as Record<string, unknown>;
   let res = await send({ ...body, generationConfig: { ...gc, thinkingConfig: { thinkingLevel: 'low' } } });
   if (res.status === 400) {
-    // A model that doesn't take one of the speed settings: send it again without them.
     const t = await res.text();
-    if (/thinking|media.?resolution/i.test(t)) {
-      const { mediaResolution: _m, ...plain } = gc;
-      res = await send({ ...body, generationConfig: plain });
-    } else throw new Error(`Gemini 400 (${model}): ${t.slice(0, 300)}`);
-  }
-  // Busy, or not available on this account: go straight to 3.5 Flash (no waiting on an overloaded model).
-  if (!res.ok && [403, 404, 429, 500, 503].includes(res.status) && model !== FALLBACK_MODEL) {
-    console.warn(`Gemini ${res.status} on ${model} — falling back to ${FALLBACK_MODEL}: ${(await res.text()).slice(0, 200)}`);
-    return callGemini(body, FALLBACK_MODEL);
-  }
-  // 3.5 Flash itself busy: one quick retry.
-  if (!res.ok && [500, 503].includes(res.status) && !retried) {
-    await new Promise((r) => setTimeout(r, 700));
-    return callGemini(body, model, true);
+    if (!/thinking|media.?resolution/i.test(t)) throw new GeminiError(`Gemini 400 (${model}): ${t.slice(0, 200)}`, 400, model);
+    const { mediaResolution: _m, ...plain } = gc;
+    res = await send({ ...body, generationConfig: plain });
   }
   if (!res.ok) {
-    // Pull Google's one-line message out of its JSON so the phone shows words, not code.
     const t = await res.text();
     let msg = t;
     try { msg = JSON.parse(t)?.error?.message ?? t; } catch { /* not JSON */ }
-    throw new Error(`Gemini ${res.status} (${model}): ${String(msg).slice(0, 160)}`);
+    throw new GeminiError(`Gemini ${res.status} (${model}): ${String(msg).slice(0, 160)}`, res.status, model);
   }
   const out = await res.json();
   const parts = (out?.candidates?.[0]?.content?.parts ?? []) as { text?: string; thought?: boolean }[];
   const text = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('').trim();
-  if (!text) throw new Error(`Gemini gave no answer (${out?.candidates?.[0]?.finishReason ?? out?.promptFeedback?.blockReason ?? 'empty'})`);
-  return text.replace(/^```(?:json)?\s*|\s*```$/g, '');
+  if (!text) throw new GeminiError(`Gemini gave no answer (${out?.candidates?.[0]?.finishReason ?? out?.promptFeedback?.blockReason ?? 'empty'})`, 422, model);
+  const clean = text.replace(/^```(?:json)?\s*|\s*```$/g, '');
+  JSON.parse(clean); // a broken answer counts as a failure, so the next model gets a turn
+  return clean;
 }
+
+/** Ask the chain. Starts model 1; on failure — or after HEDGE_MS with no answer — starts the next. First success wins. */
+async function askChain(body: Record<string, unknown>): Promise<{ text: string; model: string }> {
+  const errors: string[] = [];
+  const ctls: AbortController[] = [];
+  return await new Promise((resolve, reject) => {
+    let next = 0, running = 0, done = false;
+    let hedge: ReturnType<typeof setTimeout> | undefined;
+    const finish = (err?: Error, ok?: { text: string; model: string }) => {
+      if (done) return;
+      done = true; clearTimeout(hedge);
+      ctls.forEach((c) => c.abort()); // stop the others
+      if (ok) resolve(ok); else reject(err ?? new Error(errors.join(' | ') || 'no model available'));
+    };
+    const start = () => {
+      if (done) return;
+      if (next >= CHAIN.length) { if (running === 0) finish(); return; }
+      const model = CHAIN[next++];
+      const ctl = new AbortController(); ctls.push(ctl);
+      const t = setTimeout(() => ctl.abort(), PER_MODEL_MS);
+      running++;
+      clearTimeout(hedge);
+      hedge = setTimeout(start, HEDGE_MS); // slow → bring in the next model too
+      oneModel(body, model, ctl.signal)
+        .then((text) => {
+          if (errors.length) console.warn(`answered by ${model} after: ${errors.join(' | ')}`);
+          finish(undefined, { text, model });
+        })
+        .catch((e) => {
+          if (done) return;
+          errors.push(e instanceof GeminiError ? e.message : `${model}: ${String((e as Error)?.message ?? e).slice(0, 80)}`);
+          // A 400 that isn't about settings means the request itself is bad — every model would refuse it.
+          if (e instanceof GeminiError && e.status === 400) return finish(e);
+          start();
+        })
+        .finally(() => { clearTimeout(t); running--; if (!done && running === 0 && next >= CHAIN.length) finish(); });
+    };
+    start();
+  });
+}
+/** Every model busy at the same moment: wait a beat and go round once more before giving up. */
+async function askChainHard(body: Record<string, unknown>) {
+  try { return await askChain(body); } catch (e) {
+    if (e instanceof GeminiError && e.status === 400) throw e;
+    console.warn('all models failed, second round:', String((e as Error).message).slice(0, 300));
+    await new Promise((r) => setTimeout(r, 1200));
+    return await askChain(body);
+  }
+}
+const callGemini = async (body: Record<string, unknown>) => (await askChainHard(body)).text;
 
 /** VIN path: the VIN already names the car — just get checks a crew can confirm on it. Text only, no photo sent. */
 async function geminiChecks(make: string, model: string, year: number | null, powertrain: string): Promise<string[]> {
@@ -255,7 +308,7 @@ Deno.serve(async (req: Request) => {
       ? { guesses: [
           { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front'], checks: ['No grille, smooth nose', 'Tall hatchback, taller than Model 3'] },
           { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'], checks: ['Pony badge on the nose', 'Tri-bar tail lights'] },
-        ], notes: 'SERVER MOCK — no Gemini key set.' }
+        ], notes: 'SERVER MOCK — no Gemini key set.', model: 'mock' }
       : await gemini(imageBase64, mimeType);
     const tGemini = Date.now() - t0;
     const guesses = withPhotos(clean(raw.guesses));
@@ -267,7 +320,7 @@ Deno.serve(async (req: Request) => {
     const log = (async () => {
       const uid = await userId(req).catch(() => null);
       const { error } = await admin.from('id_attempts').insert({
-        id: attemptId, user_id: uid, source: 'camera', model: MOCK ? 'mock' : GEMINI_MODEL, top_match: top,
+        id: attemptId, user_id: uid, source: 'camera', model: raw.model, top_match: top,
         candidates: guesses, notes: raw.notes, feedback_token_hash: await sha256(token),
       });
       if (error) { console.error('id_attempts insert', error.message); return; }
@@ -282,7 +335,7 @@ Deno.serve(async (req: Request) => {
     const rt = (globalThis as any).EdgeRuntime;
     if (rt?.waitUntil) rt.waitUntil(log); else await log;
 
-    const timing = { geminiMs: tGemini, serverMs: Date.now() - t0, imageKB: Math.round((imageBase64.length * 3) / 4 / 1024), model: MOCK ? 'mock' : GEMINI_MODEL };
+    const timing = { geminiMs: tGemini, serverMs: Date.now() - t0, imageKB: Math.round((imageBase64.length * 3) / 4 / 1024), model: raw.model };
     console.log('identify timing', JSON.stringify(timing));
     return json({ guesses, notes: raw.notes, attemptId, feedbackToken: token, timing });
   } catch (e) {
