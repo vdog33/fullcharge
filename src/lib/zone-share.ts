@@ -4,6 +4,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { BETA } from '../config';
+import { myPushToken } from './push';
 
 /** BETA: one open test zone — no sign-in, no code; everyone on the beta sees and can update every scene in it.
  *  (supabase/migrations/0007_open_test_zone.sql). Invite-only groups still work alongside it for signed-in users. */
@@ -54,7 +55,7 @@ export async function shareIncident(p: Pick<Incident, 'group_id' | 'unit' | 'veh
   const sb = need(); const { data: u } = await sb.auth.getUser();
   if (!u.user && p.group_id !== OPEN_ZONE_ID) throw new Error('Sign in first (Settings).');
   if (p.unit) setMyUnit(p.unit);
-  const { data, error } = await sb.from('zone_incidents').insert({ ...p, created_by: u.user?.id ?? null }).select('*').single(); msg(error);
+  const { data, error } = await sb.from('zone_incidents').insert({ ...p, created_by: u.user?.id ?? null, sender_token: myPushToken() }).select('*').single(); msg(error);
   return data as Incident;
 }
 export async function updateIncident(id: string, p: Partial<Pick<Incident, 'wind_from_deg' | 'place' | 'lat' | 'lng' | 'status'>>) {

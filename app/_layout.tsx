@@ -13,7 +13,10 @@ import { C, F } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+import { listenForTaps, registerPush } from '../src/lib/push';
+
 export default function Root() {
+  useEffect(() => { registerPush(); return listenForTaps(); }, []);
   const [loaded, err] = useFonts({ Archivo_700Bold, Archivo_800ExtraBold, Archivo_900Black, ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold });
   useEffect(() => {
     loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {});
@@ -62,6 +65,7 @@ export default function Root() {
           <Stack.Screen name="setup" options={{ title: 'Scene-ready setup' }} />
           <Stack.Screen name="zone/index" options={{ title: 'Zone sharing' }} />
           <Stack.Screen name="zone/share" options={{ title: 'Share to zone' }} />
+          <Stack.Screen name="zone/pick" options={{ title: 'Which vehicle?' }} />
           <Stack.Screen name="zone/[id]" options={{ title: 'Shared scene' }} />
           <Stack.Screen name="command" options={{ title: 'Command view' }} />
           <Stack.Screen name="history" options={{ title: 'ID History' }} />

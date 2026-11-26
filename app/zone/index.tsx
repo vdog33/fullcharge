@@ -43,6 +43,8 @@ export default function ZoneHome() {
       <H1>Zone sharing</H1>
       {!!err && <Notice tone="warn">{err}</Notice>}
 
+      <Btn big tone="red" icon="share" label="Share a scene" sub="Pick the vehicle, then send" onPress={() => r.push('/zone/pick')} />
+
       <H2 sub="Info only — no approach instructions. Scenes clear after 6 hours.">Live scenes</H2>
       {!inc.length && <Muted>{groups.length ? 'No active scenes in your zones.' : 'Join or create a zone group below.'}</Muted>}
       {inc.map((i) => (
