@@ -22,16 +22,18 @@ export default function ShareToZone() {
   const [wind, setWind] = useState<Compass | 'Not set'>('Not set');
   const [fix, setFix] = useState(lastFix());
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    if (user || OPEN_ZONE) myGroups().then((x) => { setGroups(x); if (x[0]) { setG(x[0].id); setUnit(x[0].unit); } }).catch((e) => setErr(e.message));
+    if (user || OPEN_ZONE) myGroups().then((x) => { setGroups(x); if (x[0]) { setG(x[0].id); setUnit(x[0].unit); } }).catch((e) => setErr(e.message)).finally(() => setLoaded(true));
     quickFix().then((x) => { if (x && x !== 'denied') setFix(x); });
     const sc = getScene(); if (sc.windDeg != null || sc.windFrom) setWind(sc.windFrom);
   }, [user?.id]);
 
-  if (!user || !groups.length) return (
+  // Open beta zone: no sign-in needed. Only block when there's truly no zone to send to.
+  if ((!user && !OPEN_ZONE) || (loaded && !groups.length)) return (
     <Screen>
       <H1>Share to zone</H1>
-      <Notice tone="info">{!user ? 'Sign in first (Settings), then join your zone group.' : 'Join your zone group first.'}</Notice>
+      <Notice tone="info">{!user && !OPEN_ZONE ? 'Sign in first (Settings), then join your zone group.' : 'Join your zone group first.'}</Notice>
       <Btn label="Zone sharing" icon="users" onPress={() => r.replace('/zone')} />
     </Screen>
   );
