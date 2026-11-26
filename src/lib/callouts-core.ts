@@ -55,3 +55,15 @@ export function fromBox2d(b: number[]): { x: number; y: number; w: number; h: nu
   if (x1 <= x0 || y1 <= y0) return null;
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
+
+/** Region of the page to show for one item: the box plus room around it so you can see where on the car it is
+ *  (at least 30% of the page wide), kept on the page. Fractions of the page. */
+export function cropFor(b: Pick<Box, 'x' | 'y' | 'w' | 'h'>, pageW: number, pageH: number): { x: number; y: number; w: number; h: number } {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  let w = Math.min(1, Math.max(0.3, b.w * 2.2));
+  // Height in page fractions for a 4:3 view, at least the box height plus margin.
+  let h = Math.min(1, Math.max(b.h * 1.8, (w * pageW * 0.75) / pageH));
+  w = Math.min(1, Math.max(w, (h * pageH) / (pageW * 1.6))); // never taller than 1.6 : 1
+  const x = Math.min(1 - w, Math.max(0, cx - w / 2)), y = Math.min(1 - h, Math.max(0, cy - h / 2));
+  return { x, y, w, h };
+}

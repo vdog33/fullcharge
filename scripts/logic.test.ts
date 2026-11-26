@@ -293,3 +293,14 @@ test('Test list matches the right cut sheets', () => {
   assert.ok(isTestMatch(t('Ford', 'F-150 Lightning'), { make: 'Ford', model: 'F-150 LIGHTNING' }));
   assert.ok(!isTestMatch(t('Tesla', 'Model 3'), { make: 'Tesla', model: 'Model S' }));
 });
+
+import { confirmedFor, cropFor } from '../src/lib/callouts-core.ts';
+test('Callouts: only checked sheets show; crops stay on the page and contain the box', () => {
+  const box = { kind: 'cut_loop' as const, page: 0, x: 0.9, y: 0.05, w: 0.08, h: 0.05 };
+  const f = { version: '1', sheets: { a: { guideKey: 'a', title: 'A', status: 'proposed' as const, boxes: [box] }, b: { guideKey: 'b', title: 'B', status: 'confirmed' as const, confirmedBy: 'Vince', boxes: [box] } } };
+  assert.equal(confirmedFor(f, 'a'), null);
+  assert.equal(confirmedFor(f, 'b')!.boxes.length, 1);
+  const c = cropFor(box, 2550, 3300);
+  assert.ok(c.x >= 0 && c.y >= 0 && c.x + c.w <= 1.0001 && c.y + c.h <= 1.0001);
+  assert.ok(c.x <= box.x && c.x + c.w >= box.x + box.w && c.y <= box.y && c.y + c.h >= box.y + box.h);
+});

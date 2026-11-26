@@ -16,7 +16,10 @@
     "logos:build": "node --experimental-strip-types logos.mjs build",
     "pictures": "npm run logos:find && npm run guide:scan && npm run photos:find",
     "guide:scan": "node --experimental-strip-types guide-scan.mjs",
-    "publish:extras": "node --experimental-strip-types publish-extras.mjs"
+    "publish:extras": "node --experimental-strip-types publish-extras.mjs",
+    "callouts:propose": "node --experimental-strip-types callouts.mjs propose",
+    "callouts:review": "node --experimental-strip-types callouts.mjs review",
+    "callouts:publish": "node --experimental-strip-types callouts.mjs publish"
   },
   "dependencies": {
     "playwright": "^1.49.0",

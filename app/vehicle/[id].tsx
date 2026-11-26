@@ -5,6 +5,7 @@ import { Btn, Bullets, Card, Field, H1, Input, Muted, Notice, Screen, TabBar, st
 import { ChemistryPanel, ContactsPanel, TabKey, TowPanel, vehicleTabs } from '../../src/components/VehicleTabs';
 import { guideIndex } from '../../src/lib/packs';
 import { VerifyPicture } from '../../src/components/VerifyPicture';
+import { SheetItems } from '../../src/components/SheetItems';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
 import { sendFeedback } from '../../src/lib/identify';
@@ -33,6 +34,7 @@ export default function VehicleScreen() {
         <>
           {/* Picture first: the manufacturer rescue sheet shows cut zones, HV and 12V on the car itself. */}
           {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
+          <SheetItems guides={guideIndex().filter((g) => g.vehicleId === v.id && g.docType === 'rescue_sheet')} />
           <VerifyPicture vehicleId={v.id} hero />
           <Btn tone="red" icon="book" label="Manufacturer cut sheet (PDF)" onPress={() => r.push(`/erg-pdf?kind=vehicle&id=${v.id}`)} />
           <Btn icon="pin" label="Isolation zones + map" onPress={() => r.push(`/zones?kind=vehicle&id=${v.id}`)} />
