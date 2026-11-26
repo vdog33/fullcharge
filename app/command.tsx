@@ -9,7 +9,8 @@ import { Btn, Bullets, Chips, Label, Muted, Seg, st } from '../src/components/ui
 import { Icon } from '../src/components/Icon';
 import { ZoneMap } from '../src/components/ZoneMap';
 import { SheetItems } from '../src/components/SheetItems';
-import { VerifyPicture } from '../src/components/VerifyPicture';
+import { SheetZoom } from '../src/components/SheetZoom';
+import { getWeather, Weather } from '../src/lib/weather';
 import { ShareToZoneBtn } from '../src/components/ShareToZoneBtn';
 import { GUIDE_147_SECTIONS } from '../src/data/content';
 import { ZONES } from '../src/data/catalog';
@@ -48,6 +49,9 @@ export default function Command() {
   const [pane, setPane] = useState<'Cut sheet' | 'ERG 147' | 'Map'>(wide ? 'Cut sheet' : 'Map');
   const [inc, setInc] = useState<Incident[]>([]);
   const [paneH, setPaneH] = useState(0);
+  const [rightH, setRightH] = useState(0);
+  const [wx, setWx] = useState<Weather | null>(null);
+  const [windOpen, setWindOpen] = useState(false);
   const [err, setErr] = useState('');
   const [, tick] = useState(0);
   const [focus, setFocus] = useState<Focus>({ label: 'Your location', guides: [], at: lastFix(), windFrom: null });
@@ -55,7 +59,8 @@ export default function Command() {
   // Open beta zone: anyone can update. Invite-only zones: the unit that shared it.
   const canEdit = !!live && live.status === 'active' && (live.group_id === OPEN_ZONE_ID || (!!user && user.id === live.created_by));
 
-  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []); // keeps "12 min" fresh
+  const [openedAt] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []); // scene clock
 
   // Opened for a shared scene (from Share to zone, a notification or the zone list).
   useEffect(() => {
@@ -74,7 +79,7 @@ export default function Command() {
         label: x ? recentName(x) ?? 'Last vehicle' : 'No vehicle yet', at: f.at ?? lastFix(),
         guides: x ? guidesForRef(x.kind === 'vehicle' ? `vehicle:${x.id}` : x.id) : [],
         ref: x ? (x.kind === 'vehicle' ? `vehicle:${x.id}` : `guide:${x.id}`) : undefined,
-        windFrom: sc.windDeg ?? compassDeg(sc.windFrom),
+        windFrom: sc.windSource === 'none' ? null : sc.windDeg ?? compassDeg(sc.windFrom),
       }));
     });
     quickFix().then((p) => { if (p && p !== 'denied') setFocus((f) => (f.incident || f.at ? f : { ...f, at: p })); });
@@ -86,6 +91,22 @@ export default function Command() {
     loadInc();
     return user || OPEN_ZONE ? watchIncidents((i) => { loadInc(); setFocus((f) => (f.incident?.id === i.id ? { ...fromIncident(i), guides: f.guides.length ? f.guides : fromIncident(i).guides } : f)); }) : undefined;
   }, [user?.id]);
+
+  // Weather at the fire: shown on the map, and fills the wind when nobody has set it.
+  useEffect(() => {
+    const at = focus.at;
+    if (!at) return;
+    getWeather(at).then((w) => {
+      if (!w) return;
+      setWx(w);
+      if (w.windFromDeg == null) return;
+      setFocus((f) => {
+        if (f.windFrom != null) return f;
+        if (f.incident && (f.incident.group_id === OPEN_ZONE_ID || user?.id === f.incident.created_by)) updateIncident(f.incident.id, { wind_from_deg: w.windFromDeg! }).catch(() => {});
+        return f.incident && !(f.incident.group_id === OPEN_ZONE_ID || user?.id === f.incident.created_by) ? f : { ...f, windFrom: w.windFromDeg };
+      });
+    });
+  }, [focus.at ? Math.round(focus.at.lat * 100) : null, focus.at ? Math.round(focus.at.lng * 100) : null, live?.id]);
 
   function moveFire(p: LatLng) {
     setFocus((f) => ({ ...f, at: p }));
@@ -117,21 +138,36 @@ export default function Command() {
     </View>
   );
 
-  const windRow = (
-    <View style={{ gap: 4 }}>
-      <Text style={st.label}>Wind from {focus.windFrom != null ? toCompass(focus.windFrom) : '— not set'}{live && canEdit ? ' · changes go to everyone' : ''}</Text>
-      <Chips label="Wind from" square options={COMPASS.map((c) => ({ key: c, label: c }))} value={focus.windFrom != null ? toCompass(focus.windFrom) : undefined}
-        onChange={(c) => (!live || canEdit ? setWind(c as Compass) : undefined)} />
+  // Dashboard tiles (option 5): temp · wind from · speed · gusts · scene clock. Wind tile opens the compass.
+  const since = live ? Date.parse(live.created_at) : openedAt;
+  const secs = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  const clock = `${Math.floor(secs / 3600) ? `${Math.floor(secs / 3600)}:` : ''}${String(Math.floor((secs % 3600) / 60)).padStart(Math.floor(secs / 3600) ? 2 : 1, '0')}:${String(secs % 60).padStart(2, '0')}`;
+  const wxAge = wx ? Math.max(0, Math.round((Date.now() - wx.observedAt) / 60000)) : 0;
+  const editWind = !live || canEdit;
+  const tiles = (
+    <View style={{ gap: 6, paddingHorizontal: S.md, paddingBottom: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <Tile label="Temp" value={wx?.tempF != null ? `${wx.tempF}°F` : '—'} sub={wx ? `${wx.source.replace('Open-Meteo model', 'Model')} · ${wxAge < 1 ? 'now' : `${wxAge} min`}` : 'No weather yet'} />
+        <Tile label="Wind from" value={focus.windFrom != null ? toCompass(focus.windFrom) : 'Set'} sub={editWind ? (windOpen ? 'Tap to close' : 'Tap to change') : 'View only'}
+          on={windOpen} onPress={editWind ? () => setWindOpen((x) => !x) : undefined} />
+        <Tile label="Speed" value={wx?.windMph != null ? `${wx.windMph}` : '—'} unit="mph" />
+        <Tile label="Gusts" value={wx?.gustMph != null ? `${wx.gustMph}` : '—'} unit="mph" />
+        <Tile label={live ? 'Since shared' : 'Scene clock'} value={clock} mono />
+      </View>
+      {windOpen && <Chips label="Wind from" square options={COMPASS.map((c) => ({ key: c, label: c }))} value={focus.windFrom != null ? toCompass(focus.windFrom) : undefined}
+        onChange={(c) => { setWind(c as Compass); setWindOpen(false); }} />}
     </View>
   );
 
-  const mapH = wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 200) : Math.min(460, height * 0.55);
+  const mapH = wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 260) : Math.min(460, height * 0.55);
   const map = focus.at ? (
-    <View style={{ gap: 6 }}>
-      <ZoneMap key={live?.id ?? 'mine'} fire={focus.at} you={lastFix()} mapType="satellite" height={mapH - (wide ? 30 : 0)}
+    <View style={{ height: mapH }}>
+      <ZoneMap key={live?.id ?? 'mine'} fire={focus.at} you={lastFix()} mapType="satellite" height={mapH}
         plumeHeading={((focus.windFrom ?? 0) + 180) % 360} plumeHalfDeg={focus.windFrom != null ? ZONES.plume_day_spread_deg : 0}
         plumeLenM={focus.windFrom != null ? ZONES.plume_day_m : 0} onMoveFire={moveFire} />
-      <Muted>{!live || canEdit ? 'Drag the fire (or press and hold) to move it — the zones follow' + (live ? ' on every phone.' : '.') : 'View only — the sharing unit moves the fire.'}</Muted>
+      <View pointerEvents="none" style={{ position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+        <Text style={{ color: '#fff', fontSize: 13 }}>{!live || canEdit ? `Drag the fire — zones follow${live ? ' on every phone' : ''}` : 'View only'}</Text>
+      </View>
     </View>
   ) : <Muted>Waiting for your location…</Muted>;
 
@@ -140,7 +176,7 @@ export default function Command() {
       {!live && focus.ref && <ShareToZoneBtn vehicleRef={focus.ref} title={focus.label} />}
       {focus.guides.length ? <>
         <SheetItems guides={focus.guides} />
-        <VerifyPicture guides={focus.guides} hero />
+        <SheetZoom guides={focus.guides} height={wide ? Math.max(320, rightH - 70) : Math.round(height * 0.7)} />
         <Btn tone="outline" icon="book" label="Full cut sheet page" onPress={() => r.push(`/guide?keys=${focus.guides.map((g) => g.key).join(',')}&title=${encodeURIComponent(focus.label)}`)} />
       </> : <Btn icon="search" label="Find the vehicle" onPress={() => r.push('/search')} />}
     </View>
@@ -157,11 +193,11 @@ export default function Command() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
       {status}
+      {tiles}
       {!!err && <Text style={{ color: C.redText, paddingHorizontal: S.md }}>{err}</Text>}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.md, paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}>
-        <View style={{ flex: 1.25, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
-        <View style={{ flex: 1, minWidth: 0, gap: S.sm }}>
-          {windRow}
+        <View style={{ flex: 1, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
+        <View style={{ flex: 1, minWidth: 0, gap: S.sm }} onLayout={(e) => setRightH(Math.round(e.nativeEvent.layout.height))}>
           <Seg label="Right side" options={['Cut sheet', 'ERG 147'] as const} value={pane === 'Map' ? 'Cut sheet' : pane} onChange={setPane} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40, gap: S.block }}>{pane === 'ERG 147' ? erg : sheet}</ScrollView>
         </View>
@@ -172,10 +208,11 @@ export default function Command() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
       {status}
+      {tiles}
       <View style={{ paddingHorizontal: S.md }}><Seg label="Show" options={['Map', 'Cut sheet', 'ERG 147'] as const} value={pane} onChange={setPane} /></View>
       <ScrollView contentContainerStyle={{ padding: S.md, paddingBottom: insets.bottom + 40, gap: S.block }}>
         {!!err && <Text style={{ color: C.redText }}>{err}</Text>}
-        {pane === 'Map' ? <>{windRow}{map}</> : pane === 'ERG 147' ? erg : sheet}
+        {pane === 'Map' ? map : pane === 'ERG 147' ? erg : sheet}
       </ScrollView>
     </View>
   );
@@ -188,6 +225,21 @@ function Chip({ on, title, sub, onPress }: { on: boolean; title: string; sub: st
         borderColor: on ? '#FFF' : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.surface, justifyContent: 'center' })}>
       <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.text, fontFamily: F.display, fontSize: 16 }}>{title}</Text>
       <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.muted, fontSize: 14 }}>{sub}</Text>
+    </Pressable>
+  );
+}
+
+function Tile({ label, value, unit, sub, on, mono, onPress }: { label: string; value: string; unit?: string; sub?: string; on?: boolean; mono?: boolean; onPress?: () => void }) {
+  const fg = on ? C.hazmatText : C.text;
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : 'text'} accessibilityLabel={`${label} ${value} ${unit ?? ''}. ${sub ?? ''}`}
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: 110, minHeight: 72, paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.card, borderWidth: 2,
+        borderColor: on ? '#FFF' : onPress ? C.hazmat : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.warnBg, justifyContent: 'center' })}>
+      <Text style={{ color: on ? C.hazmatText : C.hazmat, fontFamily: F.display, fontSize: 13, letterSpacing: 0.8 }} numberOfLines={1}>{label.toUpperCase()}</Text>
+      <Text style={{ color: fg, fontFamily: F.black, fontSize: 28, lineHeight: 32, fontVariant: mono ? ['tabular-nums'] : undefined }} numberOfLines={1} adjustsFontSizeToFit>
+        {value}{unit && value !== '—' ? <Text style={{ fontSize: 15, fontFamily: F.display }}> {unit}</Text> : null}
+      </Text>
+      {!!sub && <Text style={{ color: on ? C.hazmatText : C.muted, fontSize: 13 }} numberOfLines={1}>{sub}</Text>}
     </Pressable>
   );
 }
