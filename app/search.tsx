@@ -9,7 +9,7 @@ import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
 import { looksLikeVin } from '../src/lib/vin-core';
-import { Guide, matchGuess, matchMakes, namedMake, smartSearchGuides } from '../src/lib/match-core';
+import { cleanModel, Guide, matchGuess, matchMakes, namedMake, smartSearchGuides } from '../src/lib/match-core';
 import { allReady, guideIndex, loadPacks, subscribe } from '../src/lib/packs';
 import { logIdAttempt, updateIdAttempt } from '../src/lib/history';
 import { NHTSA_PORTAL } from '../src/config';
@@ -79,7 +79,8 @@ export default function Search() {
     try {
       const out = await lookupVin(v ?? vin);
       const d = out.decoded;
-      const guides = d.make && d.model ? matchGuess({ make: d.make, model: d.model, yearFrom: d.year, yearTo: d.year, powertrain: d.electrification }, SEED, index).guides : [];
+      const mg = d.make && d.model ? matchGuess({ make: d.make, model: d.model, yearFrom: d.year, yearTo: d.year, powertrain: d.electrification }, SEED, index) : null;
+      const guides = mg?.guides ?? [];
       const at = Date.now();
       await logIdAttempt({
         at, source: 'vin', topMatch: [d.year, d.make, d.model].filter(Boolean).join(' ') || null,
@@ -87,7 +88,8 @@ export default function Search() {
       });
       setRes({ r: out, at, guides });
       const vid = out.matches.find((m) => m.strength === 'model')?.vehicleId;
-      const c = vinCandidate(d, guides, vid);
+      const c0 = vinCandidate(d, guides, vid);
+      const c = c0 ? { ...c0, yearsLoose: mg?.yearsLoose } : null;
       setVinCand(c);
       // Photo + checks arrive a moment later (need signal); the card works without them.
       if (c) describeModel(c.guess).then((x) => setVinCand((p) => (p && p.label === c.label ? { ...p, photo: x.photo, checks: p.checks.length ? p.checks : x.checks } : p)));
@@ -152,7 +154,7 @@ export default function Search() {
           {filtering && !index.length && <Muted>NHTSA cut sheets appear once the vehicle list has loaded.</Muted>}
           <View>
             {guideGroups.map((gs) => {
-              const label = `${gs[0].make} ${gs[0].model}`;
+              const label = `${gs[0].make} ${cleanModel(gs[0].model)}`;
               const years = [...new Set(gs.map((g) => g.years))].join(' · ');
               const pt = gs[0].powertrain ?? '';
               const flag = /FCEV/i.test(pt) ? 'Hydrogen · 115' : /^HEV$/i.test(pt) ? 'Hybrid · 171?' : plural(gs.length, 'sheet');

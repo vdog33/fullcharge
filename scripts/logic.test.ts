@@ -73,7 +73,9 @@ test('open-world match: guess -> NHTSA cut sheets', () => {
     G({ make: 'Kia', model: 'Niro EV', years: '2019–2022', yearFrom: 2019, yearTo: 2022, powertrain: 'BEV' }),
   ];
   assert.deepEqual(matchGuess({ make: 'Hyundai', model: 'Ioniq 6', yearFrom: 2024 }, SEED, guides).guides.map((g) => g.model), ['IONIQ 6']);
-  assert.equal(matchGuess({ make: 'Hyundai', model: 'Ioniq 6', yearFrom: 2018, yearTo: 2018 }, SEED, guides).guides.length, 0); // wrong years
+  // wrong years: never nothing — the closest sheet, flagged so the crew checks it
+  const wy = matchGuess({ make: 'Hyundai', model: 'Ioniq 6', yearFrom: 2018, yearTo: 2018 }, SEED, guides);
+  assert.equal(wy.guides.length, 1); assert.equal(wy.yearsLoose, true);
   assert.deepEqual(matchGuess({ make: 'Toyota', model: 'Prius Prime', powertrain: 'PHEV' }, SEED, guides).guides.map((g) => g.powertrain), ['PHEV']);
   assert.equal(matchGuess({ make: 'Kia', model: 'Niro', powertrain: 'BEV' }, SEED, guides).guides.length, 1);
   assert.equal(searchGuides('ioniq', guides).length, 2);
@@ -264,4 +266,16 @@ test('forgiving search', async () => {
   assert.ok(looseMatch('ioniq5', 'Hyundai Ioniq 5 2022'));
   assert.ok(looseMatch('modle y', 'Tesla Model Y'));
   assert.ok(!looseMatch('camry', 'Tesla Model Y'));
+});
+
+test('Mercedes division names + year fallback (EQE / EQS)', async () => {
+  const { matchGuess } = await import('../src/lib/match-core.ts');
+  const G = (model: string, y: number) => ({ key: model + y, make: 'Mercedes-Benz', model, years: String(y), yearFrom: y, yearTo: y, powertrain: 'BEV', docType: 'rescue_sheet', sourceUrl: '', file: '', bytes: 0 });
+  const idx = [G('Cars EQE350 Sedan', 2026), G('Cars EQS450+', 2027), G('Vans EQS450 4MATIC Sedan', 2026)];
+  const r = matchGuess({ make: 'Mercedes-Benz', model: 'EQE', yearFrom: 2023, yearTo: 2023, powertrain: 'BEV' }, [], idx as never);
+  assert.equal(r.guides.length, 1);
+  assert.equal(r.yearsLoose, true);
+  const r2 = matchGuess({ make: 'Mercedes', model: 'EQS 450', yearFrom: 2026, yearTo: 2027, powertrain: 'BEV' }, [], idx as never);
+  assert.ok(r2.guides.length >= 1);
+  assert.ok(!r2.yearsLoose);
 });

@@ -70,6 +70,16 @@ npm run logos:build      # → assets\brands\*.png + src\data\brand-logos.ts. Co
 ```
 `npm run pictures` runs both "find" steps (logos + vehicle photos) in one go.
 
+## Vehicles NHTSA doesn't list (e.g. BMW i3)
+NHTSA's portal only carries what manufacturers upload — mostly current models. Older / discontinued EVs (BMW i3
+2014–2022 and others) are missing. Add them in **`extra-guides.csv`** (in this folder), one row per sheet, using the
+manufacturer's OWN PDF (BMW: aos.bmwgroup.com → rescue sheets; Euro NCAP's Euro Rescue app also links them):
+```
+make,model,years,powertrain,docType,sourceUrl
+BMW,i3,2014–2022,BEV,rescue_sheet,https://…the BMW PDF link…
+```
+Then `npm run download`, `npm run compress`, `npm run publish` — it ships like any NHTSA sheet.
+
 ## Vehicles with no rescue sheet
 Some NHTSA entries (Autocar and other trucks / buses) only have a full ERG. Those ERGs now go in the
 "All rescue sheets" pack too, so every vehicle has its cut info offline with just that one pack.

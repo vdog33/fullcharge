@@ -44,6 +44,8 @@ export function parseNhtsa(context, url) {
   let model = rest.slice(makeRaw.length).trim();
   // "ZOOX ZOOX SEDAN", "ZEEKR ZEEKR RT": drop a repeated make
   if (model.toUpperCase().startsWith(makeRaw + ' ')) model = model.slice(makeRaw.length).trim();
+  // "MERCEDES-BENZ CARS EQE350", "VOLVO CARS XC40": the division word isn't part of the model.
+  model = model.replace(/^(CARS|VANS|TRUCKS?)\s+/i, '');
   const make = CANON[makeRaw] ?? smartCase(makeRaw);
   if (make === 'Nova Bus') model = model.replace(/^BUS\s+/i, '');
   const [yearFrom, yearTo] = yearsFromFile(file);

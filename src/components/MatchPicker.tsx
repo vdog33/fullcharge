@@ -104,6 +104,10 @@ function CarPhoto({ c, h }: { c: Candidate; h: number }) {
 }
 
 function OnFile({ c }: { c: Candidate }) {
+  if (c.yearsLoose && c.guides.length) {
+    const ys = [...new Set(c.guides.map((g) => g.years))].join(', ');
+    return <Notice tone="warn" title="Sheet is listed for other years">{`Closest cut sheet: ${ys}. NHTSA often lists a sheet only under its newest year — check the drawing matches this car before you cut.`}</Notice>;
+  }
   if (c.vehicleId) return <Text style={[st.label, { color: C.green }]}>FULLCHARGE page{c.guides.length ? ` + ${c.guides.length} cut sheet(s)` : ''}</Text>;
   if (c.guides.length) return <Text style={[st.label, { color: C.green }]}>{c.guides.length} cut sheet(s) on file</Text>;
   if (c.guess.powertrain === 'ICE') return <Muted>Looks gas-only — NHTSA lists electric-powered vehicles only, so no EV cut sheet exists. Check for hybrid / plug-in badges.</Muted>;

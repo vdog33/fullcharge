@@ -63,10 +63,13 @@ const MAKE_ALIASES: Record<string, string> = {
 export const norm = (s?: string | null) => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 export const normMake = (s?: string | null) => { const n = norm(s); return MAKE_ALIASES[n] ?? n; };
 
+/** NHTSA lists some makes by division: "Cars EQE350 Sedan", "Vans EQS450…", "Cars XC40…". The division isn't the model. */
+export const cleanModel = (m: string) => (m ?? '').replace(/^(cars|vans|trucks|truck|car|van)\s+/i, '');
+
 /** Guess model matches catalog model. Guess may be MORE specific ("Model Y Long Range" -> "Model Y").
  *  A LESS specific guess ("F-150") only matches a longer EV name ("F-150 Lightning") if the guess isn't ICE. */
 export function modelMatches(guessModel: string, catModel: string, powertrain?: string): boolean {
-  const g = norm(guessModel), c = norm(catModel);
+  const g = norm(cleanModel(guessModel)), c = norm(cleanModel(catModel));
   if (!g || !c) return false;
   if (g === c) return true;
   if (g.startsWith(c) && c.length >= 2) return true;
@@ -110,7 +113,7 @@ export function ptCompatible(guess?: string | null, doc?: string | null): boolea
 
 export type SeedLite = { id: string; make: string; model: string; years: string; type?: string };
 
-export type MatchResult = { vehicleId?: string; guides: Guide[] };
+export type MatchResult = { vehicleId?: string; guides: Guide[]; yearsLoose?: boolean };
 
 /** Best FULLCHARGE page + every NHTSA cut sheet that fits the guess, newest first. */
 export function matchGuess(g: Guess, seed: SeedLite[], guides: Guide[]): MatchResult {
@@ -122,10 +125,18 @@ export function matchGuess(g: Guess, seed: SeedLite[], guides: Guide[]): MatchRe
     .find((v) => v.model.split('/').some((m) => modelMatches(g.model, m.trim(), g.powertrain)) &&
       (!v.type || v.type.includes('/') || ptCompatible(g.powertrain, v.type)) &&
       (() => { const y = parseYears(v.years); return yearsOverlap(g.yearFrom, g.yearTo, y.yearFrom, y.yearTo); })());
-  const gs = guides
-    .filter((x) => normMake(x.make) === mk && modelMatches(g.model, x.model, g.powertrain) && ptCompatible(g.powertrain, x.powertrain) && yearsOverlap(g.yearFrom, g.yearTo, x.yearFrom, x.yearTo))
-    .sort((a, b) => (b.yearTo ?? 9999) - (a.yearTo ?? 9999) || (b.yearFrom ?? 0) - (a.yearFrom ?? 0) || (a.docType === 'rescue_sheet' ? -1 : 1));
-  return { vehicleId: seedHit?.id ?? gs.find((x) => x.vehicleId)?.vehicleId, guides: gs };
+  const sameModel = guides.filter((x) => normMake(x.make) === mk && modelMatches(g.model, x.model, g.powertrain) && ptCompatible(g.powertrain, x.powertrain));
+  // NHTSA often lists a sheet only under its newest model year (EQE "2026") though it covers earlier cars of the same
+  // generation. No sheet for the exact years → show the closest years, and say so (yearsLoose) — never nothing.
+  let gs = sameModel.filter((x) => yearsOverlap(g.yearFrom, g.yearTo, x.yearFrom, x.yearTo));
+  const yearsLoose = !gs.length && sameModel.length > 0;
+  if (yearsLoose) {
+    const y = g.yearFrom ?? g.yearTo ?? 0;
+    const dist = (x: Guide) => Math.min(Math.abs((x.yearFrom ?? y) - y), Math.abs((x.yearTo ?? x.yearFrom ?? y) - y));
+    gs = [...sameModel].sort((a, b) => dist(a) - dist(b));
+  }
+  gs = gs.sort((a, b) => (b.yearTo ?? 9999) - (a.yearTo ?? 9999) || (b.yearFrom ?? 0) - (a.yearFrom ?? 0) || (a.docType === 'rescue_sheet' ? -1 : 1));
+  return { vehicleId: seedHit?.id ?? gs.find((x) => x.vehicleId)?.vehicleId, guides: gs, yearsLoose };
 }
 
 /** Free-text search over the offline cut-sheet index. */
@@ -138,7 +149,7 @@ export function searchGuides(q: string, guides: Guide[], make?: string, limit = 
 }
 
 export const guideLabel = (x: Guide) =>
-  `${x.make} ${x.model} ${x.years}${x.powertrain ? ' · ' + x.powertrain : ''} · ${x.docType === 'rescue_sheet' ? 'Rescue sheet' : 'ERG'}`;
+  `${x.make} ${cleanModel(x.model)} ${x.years}${x.powertrain ? ' · ' + x.powertrain : ''} · ${x.docType === 'rescue_sheet' ? 'Rescue sheet' : 'ERG'}`;
 
 /** Files a guide needs for an image set ('200' iPhone / '300' iPad). */
 export const filesFor = (g: Guide, set: '200' | '300'): string[] =>

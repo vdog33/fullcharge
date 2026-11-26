@@ -19,6 +19,7 @@ export type Candidate = {
   exact?: boolean;       // from a VIN decode: the car is known, so no likelihood is shown
   vehicleId?: string;  // FULLCHARGE page
   guides: Guide[];     // NHTSA cut sheets on this phone (or listed, if the pack isn't downloaded)
+  yearsLoose?: boolean; // no sheet for these exact years — closest years shown, crew must check
 };
 export type IdResult = { candidates: Candidate[]; notes: string; attemptId?: string; feedbackToken?: string };
 
@@ -44,7 +45,7 @@ export function toCandidates(raw: RawGuess[]): Candidate[] {
       const m = matchGuess(g, seed, guideIndex());
       return {
         label: guessLabel(g), guess: g, confidence: g.confidence, cues: (g.cues ?? []).slice(0, 6),
-        checks: (g.checks ?? []).slice(0, 5), photo: g.photo ?? null, vehicleId: m.vehicleId, guides: m.guides,
+        checks: (g.checks ?? []).slice(0, 5), photo: g.photo ?? null, vehicleId: m.vehicleId, guides: m.guides, yearsLoose: m.yearsLoose,
       };
     });
 }

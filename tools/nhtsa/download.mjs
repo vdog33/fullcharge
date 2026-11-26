@@ -41,6 +41,23 @@ if (existsSync('out/review-fixed.csv')) {
   console.log(`Applied ${n} review fixes.`);
 }
 
+// Vehicles NHTSA doesn't list (older or discontinued, e.g. BMW i3 2014–2022): add a row to extra-guides.csv with the
+// manufacturer's OWN rescue sheet / ERG PDF link. They ship exactly like NHTSA sheets.
+if (existsSync('extra-guides.csv')) {
+  const extra = parseCsv(readFileSync('extra-guides.csv', 'utf8')).filter((r) => r.make && r.model && /^https?:/.test(r.sourceUrl ?? ''));
+  for (const r of extra) {
+    const ys = (r.years.match(/(19|20)\d{2}/g) ?? []).map(Number);
+    const key = 'x' + createHash('sha1').update(`${r.make}|${r.model}|${r.years}|${r.docType}|${r.sourceUrl}`).digest('hex').slice(0, 11);
+    if (guides.some((g) => g.key === key)) continue;
+    guides.push({
+      key, fileId: key, make: r.make, model: r.model, years: r.years, yearFrom: ys.length ? Math.min(...ys) : null,
+      yearTo: /present|current|\+/i.test(r.years) ? null : ys.length ? Math.max(...ys) : null,
+      powertrain: r.powertrain || 'BEV', docType: r.docType === 'erg' ? 'erg' : 'rescue_sheet', sourceUrl: r.sourceUrl, extra: true,
+    });
+  }
+  if (extra.length) console.log(`Added ${extra.length} vehicle(s) from extra-guides.csv.`);
+}
+
 const live = guides.filter((g) => !g.deleted);
 // One download per file; every vehicle row on that file gets its size + hash.
 const byFile = new Map();
