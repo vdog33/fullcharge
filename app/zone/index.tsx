@@ -48,7 +48,7 @@ export default function ZoneHome() {
       <H2 sub="Info only — no approach instructions. Scenes clear after 6 hours.">Live scenes</H2>
       {!inc.length && <Muted>{groups.length ? 'No active scenes in your zones.' : 'Join or create a zone group below.'}</Muted>}
       {inc.map((i) => (
-        <CardBtn key={i.id} onPress={() => r.push(`/zone/${i.id}`)}>
+        <CardBtn key={i.id} onPress={() => r.push(`/command?incident=${i.id}`)}>
           <Text style={[st.label, { color: C.redText }]}>{gName(i.group_id)} · {ago(i.created_at)}</Text>
           <Text style={[st.body, { fontWeight: '700', fontSize: 20 }]}>{i.vehicle || 'Vehicle not set'}</Text>
           <Text style={st.body}>{[i.unit, i.place].filter(Boolean).join(' · ')}</Text>

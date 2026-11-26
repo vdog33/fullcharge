@@ -5,6 +5,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, TabBar, st } from '../src/components/ui';
 import { VerifyPicture } from '../src/components/VerifyPicture';
 import { SheetItems } from '../src/components/SheetItems';
+import { ShareToZoneBtn } from '../src/components/ShareToZoneBtn';
 import { ChemistryPanel, ContactsPanel, TabKey, TowPanel, vehicleTabs } from '../src/components/VehicleTabs';
 import { EV_FIRST_MOVES } from '../src/data/content';
 import { getVehicle } from '../src/data/catalog';
@@ -50,6 +51,7 @@ export default function GuidePage() {
         <H1>{name}</H1>
         {g0 && <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{g0.years}{g0.powertrain ? ` · ${g0.powertrain}` : ''}</Text>}
       </View>
+      <ShareToZoneBtn vehicleRef={`guide:${keys}`} title={name} />
 
       <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
@@ -84,7 +86,6 @@ export default function GuidePage() {
 
       {linked && getVehicle(linked) && <Btn label="FULLCHARGE page — cut loop, 12V, tow" onPress={() => r.push(`/vehicle/${linked}`)} />}
       <Btn tone="red" icon="pin" label="Isolation zones + map" onPress={() => r.push('/zones')} />
-      <Btn tone="outline" icon="share" label="Share to zone" onPress={() => r.push(`/zone/share?ref=${encodeURIComponent(`guide:${keys}`)}&title=${encodeURIComponent(name)}`)} />
       <Btn tone="outline" icon="book" label={`All sheets (${guides.length})`} onPress={() => setTab('Sheets')} />
       </>}
 

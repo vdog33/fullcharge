@@ -41,7 +41,7 @@ begin
   select jsonb_agg(jsonb_build_object(
       'to', t.token, 'title', title, 'body', body, 'sound', 'default',
       'priority', 'high', 'interruptionLevel', 'time-sensitive',
-      'data', jsonb_build_object('url', '/zone/' || new.id::text)))
+      'data', jsonb_build_object('url', '/command?incident=' || new.id::text)))
     into msgs
   from push_tokens t
   where t.zone_alerts

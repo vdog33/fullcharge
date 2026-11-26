@@ -11,7 +11,7 @@ import { COMPASS, Compass, compassDeg } from '../../src/lib/geo';
 import { S } from '../../src/theme';
 
 export default function ShareToZone() {
-  const { ref = '', title = '' } = useLocalSearchParams<{ ref?: string; title?: string }>();
+  const { ref = '', title = '', next } = useLocalSearchParams<{ ref?: string; title?: string; next?: string }>();
   const r = useRouter();
   const { user } = useAuth();
   const [groups, setGroups] = useState<(ZoneGroup & { unit: string })[]>([]);
@@ -57,7 +57,7 @@ export default function ShareToZone() {
             try {
               const i = await shareIncident({ group_id: g, unit: unit.trim(), vehicle: vehicle.trim(), vehicle_ref: ref || null, place: place.trim(),
                 lat: fix?.lat ?? null, lng: fix?.lng ?? null, wind_from_deg: wind === 'Not set' ? null : compassDeg(wind) });
-              r.replace(`/zone/${i.id}`);
+              r.replace(next === 'command' ? `/command?incident=${i.id}` : `/zone/${i.id}`);
             } catch (e) { setErr((e as Error).message); setBusy(false); }
           }} />
       </View>

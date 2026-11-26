@@ -26,7 +26,7 @@ export default function PickVehicle() {
     }
     return [...by.entries()].slice(0, 20);
   }, [q, index.length]);
-  const go = (ref: string, title: string) => r.replace(`/zone/share?ref=${encodeURIComponent(ref)}&title=${encodeURIComponent(title)}`);
+  const go = (ref: string, title: string) => r.replace(`/zone/share?ref=${encodeURIComponent(ref)}&title=${encodeURIComponent(title)}&next=command`);
 
   return (
     <Screen>
