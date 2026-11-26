@@ -2,9 +2,9 @@ import React, { useEffect, useReducer, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, st } from '../src/components/ui';
+import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, TabBar, st } from '../src/components/ui';
 import { VerifyPicture } from '../src/components/VerifyPicture';
-import { ChemistryPanel, ContactsPanel, TabKey, VehicleTabs } from '../src/components/VehicleTabs';
+import { ChemistryPanel, ContactsPanel, TabKey, TowPanel, vehicleTabs } from '../src/components/VehicleTabs';
 import { EV_FIRST_MOVES } from '../src/data/content';
 import { getVehicle } from '../src/data/catalog';
 import { guideLabel } from '../src/lib/match-core';
@@ -12,6 +12,8 @@ import { ergFor, ERG_GUIDE_PDF } from '../src/lib/chem-guide';
 import { downloadGuides, getGuide, guideOnPhone, loadPacks, subscribe } from '../src/lib/packs';
 import { logView } from '../src/lib/history';
 import { C, S } from '../src/theme';
+
+const TABS = vehicleTabs(['Cut', 'Chemistry', 'Tow', 'Contacts', 'Sheets']);
 
 /** Page for any NHTSA vehicle — the cut sheets themselves, plus the shared on-scene tools. */
 export default function GuidePage() {
@@ -48,13 +50,19 @@ export default function GuidePage() {
         {g0 && <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{g0.years}{g0.powertrain ? ` · ${g0.powertrain}` : ''}</Text>}
       </View>
 
-      <VehicleTabs tabs={['Cut', 'Chemistry', 'Contacts'] as const} value={tab} onChange={setTab} />
+      <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === 'Chemistry' && (
         <ChemistryPanel powertrain={guides.find((g) => /FCEV/i.test(g.powertrain ?? ''))?.powertrain ?? g0?.powertrain}
           onHazmat={() => r.push('/hazmat')} />
       )}
       {tab === 'Contacts' && <ContactsPanel guides={guides} />}
+      {tab === 'Tow' && (() => {
+        const lv = linked ? getVehicle(linked) : undefined;
+        const erg = guides.find((x) => x.docType !== 'rescue_sheet') ?? g0;
+        return <TowPanel tow={lv?.tow} release={lv?.release}
+          onSheet={erg ? () => r.push(erg.images ? `/sheet?key=${erg.key}` : `/erg-pdf?kind=guide&id=${erg.key}`) : undefined} />;
+      })()}
 
       {tab === 'Cut' && <>
       {/* Which ERG guide: hydrogen and hybrids are not plain Guide 147. */}
@@ -71,6 +79,12 @@ export default function GuidePage() {
         <Notice tone="info" icon="warn">More than one model matches — check the badge and pick the sheet for that exact model.</Notice>
       )}
 
+      {linked && getVehicle(linked) && <Btn label="FULLCHARGE page — cut loop, 12V, tow" onPress={() => r.push(`/vehicle/${linked}`)} />}
+      <Btn tone="red" icon="pin" label="Isolation zones + map" onPress={() => r.push('/zones')} />
+      <Btn tone="outline" icon="book" label={`All sheets (${guides.length})`} onPress={() => setTab('Sheets')} />
+      </>}
+
+      {tab === 'Sheets' && <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
         <H2>Sheets (PDF)</H2>
         {missing.length > 0 && (
@@ -97,9 +111,6 @@ export default function GuidePage() {
         );
       })}
       {!guides.length && <Notice tone="info">Cut sheet not found on this phone. Update the rescue-sheet pack in Downloads.</Notice>}
-
-      {linked && getVehicle(linked) && <Btn label="FULLCHARGE page — cut loop, 12V, tow" onPress={() => r.push(`/vehicle/${linked}`)} />}
-      <Btn tone="red" icon="pin" label="Isolation zones + map" onPress={() => r.push('/zones')} />
 
       <Disclose title="EV first moves" count={`${EV_FIRST_MOVES.length} steps`}>
         <Steps items={EV_FIRST_MOVES} />

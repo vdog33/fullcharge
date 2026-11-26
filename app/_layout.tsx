@@ -58,6 +58,7 @@ export default function Root() {
           <Stack.Screen name="zones" options={{ title: 'Isolation Zones' }} />
           <Stack.Screen name="quick" options={{ title: 'Quick Sheet' }} />
           <Stack.Screen name="recents" options={{ title: 'Recents' }} />
+          <Stack.Screen name="test" options={{ title: 'Test vehicles' }} />
           <Stack.Screen name="history" options={{ title: 'ID History' }} />
           <Stack.Screen name="settings/downloads" options={{ title: 'Downloads' }} />
           <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />

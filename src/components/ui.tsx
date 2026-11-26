@@ -36,11 +36,15 @@ export const Screen = forwardRef<ScrollView, { children: React.ReactNode; pad?: 
   { children, pad = true, footer = true }, ref,
 ) {
   const insets = useSafeAreaInsets();
+  // A <TabBar> anywhere in the page stays pinned to the top while you scroll.
+  const kids = React.Children.toArray(children);
+  const at = kids.findIndex((k) => React.isValidElement(k) && k.type === TabBar);
+  const sticky = at < 0 ? undefined : [at + (USE_MOCKS ? 1 : 0)];
   return (
-    <ScrollView ref={ref} style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={ref} style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" stickyHeaderIndices={sticky}
       contentContainerStyle={{ padding: pad ? S.lg : 0, paddingBottom: insets.bottom + 40, width: '100%', maxWidth: 760, alignSelf: 'center', gap: S.block }}>
       {USE_MOCKS && <Text style={st.mock}>MOCK DATA MODE</Text>}
-      {children}
+      {kids}
       {footer && <Footer />}
     </ScrollView>
   );
@@ -255,6 +259,28 @@ export function Seg<T extends string>({ options, value, onChange, label, render 
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/** Page tabs: up to 5, glove-size, icon + word, selected = solid white. Pinned to the top by <Screen>. */
+export function TabBar<T extends string>({ tabs, value, onChange, label = 'Section' }: {
+  tabs: readonly { key: T; label: string; icon: IconName }[]; value: T; onChange: (v: T) => void; label?: string;
+}) {
+  return (
+    <View style={{ backgroundColor: C.bg, paddingVertical: 4 }}>
+      <View style={st.seg} accessibilityRole="tablist" accessibilityLabel={label}>
+        {tabs.map((t) => {
+          const on = t.key === value;
+          return (
+            <Pressable key={t.key} onPress={() => onChange(t.key)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t.label}
+              style={({ pressed }) => [st.segBtn, { flexDirection: 'column', minHeight: 64, gap: 2 }, on ? { backgroundColor: '#FFF' } : pressed && { backgroundColor: C.surface2 }]}>
+              <Icon name={t.icon} size={22} color={on ? C.hazmatText : C.text} />
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[st.segText, { fontSize: 14 }, on && { color: C.hazmatText }]}>{t.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }

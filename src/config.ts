@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 // IMPORTANT: Expo only bakes EXPO_PUBLIC_* values into the app when they are read EXACTLY as
 // `process.env.EXPO_PUBLIC_NAME`. Reading them through an alias (const env = process.env) leaves them
 // undefined in a real build — which silently put TestFlight build 1 in mock mode. Keep these literal.
@@ -20,3 +21,6 @@ export const BACKEND_READY = !USE_MOCKS && !!SUPABASE_URL && !!SUPABASE_ANON_KEY
 export const DISCLAIMER = 'Responder aid — NOT a replacement for the manufacturer ERG.';
 export const CONFIRM = 'Check the manufacturer rescue sheet';
 export const NHTSA_PORTAL = 'https://www.nhtsa.gov/emergency-response-guides';
+
+/** Beta = app version 0.x (TestFlight). Shows the Test list on the home page. */
+export const BETA = (Constants.expoConfig?.version ?? '0').startsWith('0.');

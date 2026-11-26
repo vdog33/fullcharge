@@ -279,3 +279,17 @@ test('Mercedes division names + year fallback (EQE / EQS)', async () => {
   assert.ok(r2.guides.length >= 1);
   assert.ok(!r2.yearsLoose);
 });
+
+import { isTestMatch, TEST_VEHICLES } from '../src/data/test-vehicles.ts';
+test('Test list matches the right cut sheets', () => {
+  const t = (make: string, model: string) => TEST_VEHICLES.find((v) => v.make === make && v.model === model)!;
+  assert.equal(TEST_VEHICLES.length, 20);
+  assert.ok(isTestMatch(t('Chevrolet', 'Bolt'), { make: 'Chevrolet', model: 'Bolt EUV' }));
+  assert.ok(isTestMatch(t('Kia', 'EV6'), { make: 'Kia', model: 'EV6 GT' }));
+  assert.ok(!isTestMatch(t('Kia', 'EV6'), { make: 'Kia', model: 'EV9' }));
+  assert.ok(!isTestMatch(t('BMW', 'iX'), { make: 'BMW', model: 'iX3' }));
+  assert.ok(isTestMatch(t('BMW', 'iX'), { make: 'BMW', model: 'iX xDrive50' }));
+  assert.ok(isTestMatch(t('Volkswagen', 'ID.4'), { make: 'Volkswagen', model: 'ID.4 AWD' }));
+  assert.ok(isTestMatch(t('Ford', 'F-150 Lightning'), { make: 'Ford', model: 'F-150 LIGHTNING' }));
+  assert.ok(!isTestMatch(t('Tesla', 'Model 3'), { make: 'Tesla', model: 'Model S' }));
+});
