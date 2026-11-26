@@ -5,7 +5,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Card, Chips, H1, Muted, Notice, Screen, st } from '../../src/components/ui';
 import { ZoneMap } from '../../src/components/ZoneMap';
 import { useAuth } from '../../src/lib/auth';
-import { ago, Incident, updateIncident, watchIncidents } from '../../src/lib/zone-share';
+import { ago, Incident, OPEN_ZONE_ID, updateIncident, watchIncidents } from '../../src/lib/zone-share';
 import { supabase } from '../../src/lib/supabase';
 import { COMPASS, Compass, compassDeg, toCompass } from '../../src/lib/geo';
 import { ZONES } from '../../src/data/catalog';
@@ -23,7 +23,7 @@ export default function IncidentView() {
     return watchIncidents((x) => { if (x.id === id) setI(x); });
   }, [id]);
   if (!i) return <Screen>{err ? <Notice tone="warn">{err}</Notice> : <Muted>Loading…</Muted>}</Screen>;
-  const mine = user?.id === i.created_by;
+  const mine = i.group_id === OPEN_ZONE_ID || (!!user && user.id === i.created_by); // open test zone: anyone can update
   const wind = i.wind_from_deg != null ? toCompass(i.wind_from_deg) : null;
   const open = i.vehicle_ref?.startsWith('vehicle:') ? `/vehicle/${i.vehicle_ref.slice(8)}` : i.vehicle_ref?.startsWith('guide:') ? `/guide?keys=${i.vehicle_ref.slice(6)}&title=${encodeURIComponent(i.vehicle)}` : null;
 
@@ -49,7 +49,7 @@ export default function IncidentView() {
       {open && <Btn tone="red" icon="book" label="Open the cut sheet" onPress={() => r.push(open)} />}
       {mine && i.status === 'active' && (
         <View style={{ gap: S.sm }}>
-          <Text style={st.label}>Update wind (sends to the zone)</Text>
+          <Text style={st.label}>Update wind (sends to everyone viewing)</Text>
           <Chips label="Wind from" square options={COMPASS.map((c) => ({ key: c, label: c }))} value={wind ?? undefined}
             onChange={(c) => updateIncident(i.id, { wind_from_deg: compassDeg(c as Compass) }).catch((e) => setErr(e.message))} />
           <Btn tone="outline" icon="check" label="Clear this scene" onPress={() => updateIncident(i.id, { status: 'cleared' }).catch((e) => setErr(e.message))} />

@@ -1,11 +1,21 @@
 // Zone sharing: invite-only groups of nearby departments. A unit shares an incident card — unit, vehicle,
 // where, when, wind — and every member's phone gets it live. Info only: never approach instructions.
 // Needs sign-in (Settings) and signal. Scenes clear on their own after 6 hours.
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { BETA } from '../config';
+
+/** BETA: one open test zone — no sign-in, no code; everyone on the beta sees and can update every scene in it.
+ *  (supabase/migrations/0007_open_test_zone.sql). Invite-only groups still work alongside it for signed-in users. */
+export const OPEN_ZONE = BETA;
+export const OPEN_ZONE_ID = '00000000-0000-0000-0000-0000000000be';
+const UNIT_KEY = 'fullcharge.zoneUnit';
+export const getMyUnit = async () => (await AsyncStorage.getItem(UNIT_KEY).catch(() => null)) ?? '';
+export const setMyUnit = (u: string) => AsyncStorage.setItem(UNIT_KEY, u.trim()).catch(() => {});
 
 export type ZoneGroup = { id: string; name: string; invite_code: string; created_by: string };
 export type Incident = {
-  id: string; group_id: string; created_by: string; unit: string; vehicle: string; vehicle_ref: string | null;
+  id: string; group_id: string; created_by: string | null; unit: string; vehicle: string; vehicle_ref: string | null;
   place: string; lat: number | null; lng: number | null; wind_from_deg: number | null;
   status: 'active' | 'cleared'; created_at: string; updated_at: string; expires_at: string;
 };
@@ -15,11 +25,13 @@ const msg = (e: { message?: string } | null) => { if (e) throw new Error(e.messa
 
 export async function myGroups(): Promise<(ZoneGroup & { unit: string })[]> {
   const sb = need();
+  const open = OPEN_ZONE ? [{ id: OPEN_ZONE_ID, name: 'Beta test zone (open)', invite_code: '', created_by: '', unit: await getMyUnit() }] : [];
   const { data: u } = await sb.auth.getUser();
-  if (!u.user) return [];
+  if (!u.user) return open;
   const { data, error } = await sb.from('zone_members').select('unit, zone_groups(id, name, invite_code, created_by)').eq('user_id', u.user.id);
   msg(error);
-  return (data ?? []).map((r: { unit: string; zone_groups: ZoneGroup | ZoneGroup[] }) => ({ ...(Array.isArray(r.zone_groups) ? r.zone_groups[0] : r.zone_groups), unit: r.unit }));
+  return [...open, ...(data ?? []).map((r: { unit: string; zone_groups: ZoneGroup | ZoneGroup[] }) => ({ ...(Array.isArray(r.zone_groups) ? r.zone_groups[0] : r.zone_groups), unit: r.unit }))
+    .filter((g) => g.id !== OPEN_ZONE_ID)];
 }
 export async function createZone(name: string, unit: string) {
   const { data, error } = await need().rpc('create_zone', { p_name: name, p_unit: unit }); msg(error);
@@ -40,8 +52,9 @@ export async function liveIncidents(groupIds: string[]): Promise<Incident[]> {
 }
 export async function shareIncident(p: Pick<Incident, 'group_id' | 'unit' | 'vehicle' | 'vehicle_ref' | 'place' | 'lat' | 'lng' | 'wind_from_deg'>) {
   const sb = need(); const { data: u } = await sb.auth.getUser();
-  if (!u.user) throw new Error('Sign in first (Settings).');
-  const { data, error } = await sb.from('zone_incidents').insert({ ...p, created_by: u.user.id }).select('*').single(); msg(error);
+  if (!u.user && p.group_id !== OPEN_ZONE_ID) throw new Error('Sign in first (Settings).');
+  if (p.unit) setMyUnit(p.unit);
+  const { data, error } = await sb.from('zone_incidents').insert({ ...p, created_by: u.user?.id ?? null }).select('*').single(); msg(error);
   return data as Incident;
 }
 export async function updateIncident(id: string, p: Partial<Pick<Incident, 'wind_from_deg' | 'place' | 'lat' | 'lng' | 'status'>>) {

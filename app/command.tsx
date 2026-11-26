@@ -18,7 +18,7 @@ import { lastFix, quickFix } from '../src/lib/here';
 import { getScene } from '../src/lib/scene';
 import { compassDeg, LatLng } from '../src/lib/geo';
 import { useAuth } from '../src/lib/auth';
-import { ago, Incident, liveIncidents, myGroups, watchIncidents } from '../src/lib/zone-share';
+import { ago, Incident, liveIncidents, myGroups, OPEN_ZONE, watchIncidents } from '../src/lib/zone-share';
 import { C, F, R, S } from '../src/theme';
 
 type Focus = { label: string; guides: Guide[]; at: LatLng | null; windFrom: number | null; incident?: string };
@@ -53,8 +53,8 @@ export default function Command() {
     });
     quickFix().then((p) => { if (p && p !== 'denied') setFocus((f) => (f.incident || f.at ? f : { ...f, at: p })); });
   }, []));
-  const loadInc = useCallback(() => { if (user) myGroups().then((g) => liveIncidents(g.map((x) => x.id))).then(setInc).catch(() => {}); }, [user?.id]);
-  useEffect(() => { loadInc(); return user ? watchIncidents((i) => { loadInc(); setFocus((f) => (f.incident === i.id ? { ...f, windFrom: i.wind_from_deg } : f)); }) : undefined; }, [user?.id]);
+  const loadInc = useCallback(() => { if (user || OPEN_ZONE) myGroups().then((g) => liveIncidents(g.map((x) => x.id))).then(setInc).catch(() => {}); }, [user?.id]);
+  useEffect(() => { loadInc(); return user || OPEN_ZONE ? watchIncidents((i) => { loadInc(); setFocus((f) => (f.incident === i.id ? { ...f, windFrom: i.wind_from_deg } : f)); }) : undefined; }, [user?.id]);
 
   const pick = (i: Incident) => setFocus({ label: `${i.unit} · ${i.vehicle}`, guides: guidesForRef(i.vehicle_ref), at: i.lat != null && i.lng != null ? { lat: i.lat, lng: i.lng } : null, windFrom: i.wind_from_deg, incident: i.id });
 
@@ -62,7 +62,7 @@ export default function Command() {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: S.lg, paddingVertical: 8 }}>
       <Chip on={!focus.incident} title="My scene" sub={focus.incident ? 'Back to mine' : focus.label} onPress={() => setFocus({ label: 'Your location', guides: [], at: lastFix(), windFrom: null })} />
       {inc.map((i) => <Chip key={i.id} on={focus.incident === i.id} title={i.unit || 'Zone scene'} sub={`${i.vehicle} · ${ago(i.created_at)}`} onPress={() => pick(i)} />)}
-      {!user && <Chip on={false} title="Zone scenes" sub="Sign in to see them" onPress={() => r.push('/zone')} />}
+      {!user && !OPEN_ZONE && <Chip on={false} title="Zone scenes" sub="Sign in to see them" onPress={() => r.push('/zone')} />}
     </ScrollView>
   );
 
