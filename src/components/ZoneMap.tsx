@@ -41,6 +41,8 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const local = offline && mapType === 'satellite' && hasOfflineTiles();
 
   const plume = plumePolygon(fire, plumeHeading, plumeHalfDeg, plumeLenM).map(ll);
+  // Apple Maps doesn't redraw a circle when its centre changes — a new key forces the rings to move with the fire.
+  const k = `${fire.lat.toFixed(6)},${fire.lng.toFixed(6)},${Math.round(plumeHeading)},${plumeLenM}`;
 
   return (
     <View style={{ height, borderRadius: 10, overflow: 'hidden' }}>
@@ -59,11 +61,11 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         onLongPress={(e) => { const c = e.nativeEvent.coordinate; onMoveFire({ lat: c.latitude, lng: c.longitude }); }}
       >
         {local && <LocalTile pathTemplate={TILE_PATH_TEMPLATE} tileSize={256} zIndex={-1} />}
-        <Polygon coordinates={plume} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />
-        <Circle center={ll(fire)} radius={ZONES.cold_m} strokeColor={C.cold} strokeWidth={2.5} fillColor="rgba(0,0,0,0)" />
-        <Circle center={ll(fire)} radius={ZONES.warm_m} strokeColor={C.warm} strokeWidth={2.5} fillColor={rgba(C.warm, 0.08)} />
-        <Circle center={ll(fire)} radius={ZONES.hot_m} strokeColor={C.hot} strokeWidth={3} fillColor={rgba(C.hot, 0.15)} />
-        <Circle center={ll(fire)} radius={ZONES.quarantine_m} strokeColor={C.gold} strokeWidth={2} lineDashPattern={[6, 5]} fillColor="rgba(0,0,0,0)" />
+        <Polygon key={`p${k}`} coordinates={plume} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />
+        <Circle key={`cold-${k}`} center={ll(fire)} radius={ZONES.cold_m} strokeColor={C.cold} strokeWidth={2.5} fillColor="rgba(0,0,0,0)" />
+        <Circle key={`warm-${k}`} center={ll(fire)} radius={ZONES.warm_m} strokeColor={C.warm} strokeWidth={2.5} fillColor={rgba(C.warm, 0.08)} />
+        <Circle key={`hot-${k}`} center={ll(fire)} radius={ZONES.hot_m} strokeColor={C.hot} strokeWidth={3} fillColor={rgba(C.hot, 0.15)} />
+        <Circle key={`quarantine-${k}`} center={ll(fire)} radius={ZONES.quarantine_m} strokeColor={C.gold} strokeWidth={2} lineDashPattern={[6, 5]} fillColor="rgba(0,0,0,0)" />
 
         <Marker
           coordinate={ll(fire)} draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}

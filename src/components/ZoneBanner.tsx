@@ -17,7 +17,7 @@ export function ZoneBanner() {
   if (!inc.length) return null;
   const top = inc[0];
   return (
-    <Pressable onPress={() => r.push(inc.length === 1 ? `/zone/${top.id}` : '/zone')} accessibilityRole="button"
+    <Pressable onPress={() => r.push(inc.length === 1 ? `/command?incident=${top.id}` : '/zone')} accessibilityRole="button"
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, padding: 12, borderRadius: R.card, borderWidth: 2, borderColor: C.redText, backgroundColor: pressed ? C.surface2 : '#2A0B08' })}>
       <Icon name="users" size={26} color={C.redText} />
       <View style={{ flex: 1 }}>

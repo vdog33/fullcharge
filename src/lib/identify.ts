@@ -50,12 +50,10 @@ export function toCandidates(raw: RawGuess[]): Candidate[] {
     });
 }
 
-/** After the crew accepts: straight to the rescue sheet itself. Then the cut-sheet page, then the FULLCHARGE page. */
+/** After the crew accepts: the same page a manual lookup opens (picture-first cut sheet page with tabs), not the bare sheet. */
 export function destination(c: Candidate): { href: string; id: string } | null {
-  const sheet = c.guides.find((g) => g.docType === 'rescue_sheet' && g.images) ?? c.guides.find((g) => g.docType === 'rescue_sheet');
-  if (sheet) return { href: sheet.images ? `/sheet?key=${sheet.key}` : `/erg-pdf?kind=guide&id=${sheet.key}`, id: c.vehicleId ?? `guide:${sheet.key}` };
+  if (c.guides.length) return { href: `/guide?keys=${c.guides.map((g) => g.key).join(',')}&title=${encodeURIComponent(c.label)}`, id: c.vehicleId ?? `guide:${c.guides[0].key}` };
   if (c.vehicleId) return { href: `/vehicle/${c.vehicleId}`, id: c.vehicleId };
-  if (c.guides.length) return { href: `/guide?keys=${c.guides.map((g) => g.key).join(',')}&title=${encodeURIComponent(c.label)}`, id: `guide:${c.guides[0].key}` };
   return null;
 }
 

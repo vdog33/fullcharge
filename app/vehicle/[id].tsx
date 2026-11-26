@@ -6,6 +6,7 @@ import { ChemistryPanel, ContactsPanel, TabKey, TowPanel, vehicleTabs } from '..
 import { guideIndex } from '../../src/lib/packs';
 import { VerifyPicture } from '../../src/components/VerifyPicture';
 import { SheetItems } from '../../src/components/SheetItems';
+import { ShareToZoneBtn } from '../../src/components/ShareToZoneBtn';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
 import { sendFeedback } from '../../src/lib/identify';
@@ -28,6 +29,7 @@ export default function VehicleScreen() {
         <H1>{v.make} {v.model}</H1>
         <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{v.years} · {v.type}</Text>
       </View>
+      <ShareToZoneBtn vehicleRef={`vehicle:${v.id}`} title={`${v.make} ${v.model}`} />
       <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === 'Cut' && (
@@ -38,7 +40,6 @@ export default function VehicleScreen() {
           <VerifyPicture vehicleId={v.id} hero />
           <Btn tone="red" icon="book" label="Manufacturer cut sheet (PDF)" onPress={() => r.push(`/erg-pdf?kind=vehicle&id=${v.id}`)} />
           <Btn icon="pin" label="Isolation zones + map" onPress={() => r.push(`/zones?kind=vehicle&id=${v.id}`)} />
-          <Btn tone="outline" icon="share" label="Share to zone" onPress={() => r.push(`/zone/share?ref=${encodeURIComponent(`vehicle:${v.id}`)}&title=${encodeURIComponent(`${v.make} ${v.model}`)}`)} />
           <Btn tone="outline" size="sm" label="Quick sheet — offline" onPress={() => r.push(`/quick?kind=vehicle&id=${v.id}`)} />
         </>
       )}

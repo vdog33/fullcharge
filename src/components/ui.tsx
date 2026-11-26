@@ -446,9 +446,9 @@ export function PageTabs({ kind, id }: { kind: 'vehicle' | 'bess'; id: string })
 /** 48px Back with the word Back (header left). */
 export function BackBtn() {
   const r = useRouter();
-  if (!r.canGoBack()) return null;
+  // Opened from a notification or after a replace there may be no history — then Back goes Home, never does nothing.
   return (
-    <Pressable onPress={() => r.back()} accessibilityRole="button" accessibilityLabel="Back" hitSlop={6}
+    <Pressable onPress={() => (r.canGoBack() ? r.back() : r.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" hitSlop={14}
       style={({ pressed }) => [st.back, pressed && { backgroundColor: C.surface2 }]}>
       <Icon name="back" size={22} />
       <Text style={{ color: C.text, fontWeight: '700', fontSize: 17 }}>Back</Text>
