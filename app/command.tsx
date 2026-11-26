@@ -5,12 +5,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Btn, Bullets, Chips, Label, Muted, Seg, st } from '../src/components/ui';
+import { Btn, Bullets, Chips, Input, Label, Muted, Seg, st } from '../src/components/ui';
 import { Icon } from '../src/components/Icon';
 import { ZoneMap } from '../src/components/ZoneMap';
 import { SheetItems } from '../src/components/SheetItems';
 import { SheetZoom } from '../src/components/SheetZoom';
 import { getWeather, Weather } from '../src/lib/weather';
+import { Checkin, checkIn, CheckStatus, deviceId, listCheckins, watchCheckins } from '../src/lib/checkins';
 import { ShareToZoneBtn } from '../src/components/ShareToZoneBtn';
 import { GUIDE_147_SECTIONS } from '../src/data/content';
 import { ZONES } from '../src/data/catalog';
@@ -23,7 +24,7 @@ import { getScene } from '../src/lib/scene';
 import { COMPASS, Compass, compassDeg, LatLng, toCompass } from '../src/lib/geo';
 import { useAuth } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
-import { ago, Incident, liveIncidents, myGroups, OPEN_ZONE, OPEN_ZONE_ID, updateIncident, watchIncidents } from '../src/lib/zone-share';
+import { ago, getMyUnit, setMyUnit, Incident, liveIncidents, myGroups, OPEN_ZONE, OPEN_ZONE_ID, updateIncident, watchIncidents } from '../src/lib/zone-share';
 import { C, F, R, S } from '../src/theme';
 
 type Focus = { label: string; guides: Guide[]; at: LatLng | null; windFrom: number | null; ref?: string; incident?: Incident };
@@ -52,6 +53,11 @@ export default function Command() {
   const [rightH, setRightH] = useState(0);
   const [wx, setWx] = useState<Weather | null>(null);
   const [windOpen, setWindOpen] = useState(false);
+  const [checks, setChecks] = useState<Checkin[]>([]);
+  const [me, setMe] = useState<string>('');
+  const [myUnit, setUnitState] = useState('');
+  const [showWho, setShowWho] = useState(false);
+  useEffect(() => { deviceId().then(setMe); getMyUnit().then(setUnitState); }, []);
   const [err, setErr] = useState('');
   const [, tick] = useState(0);
   const [focus, setFocus] = useState<Focus>({ label: 'Your location', guides: [], at: lastFix(), windFrom: null });
@@ -108,6 +114,23 @@ export default function Command() {
     });
   }, [focus.at ? Math.round(focus.at.lat * 100) : null, focus.at ? Math.round(focus.at.lng * 100) : null, live?.id]);
 
+  // Who's on this scene — live.
+  useEffect(() => {
+    if (!live?.id) { setChecks([]); return; }
+    const load = () => listCheckins(live.id).then(setChecks).catch(() => {});
+    load();
+    return watchCheckins(live.id, load);
+  }, [live?.id]);
+  const mine = checks.find((c) => c.device_id === me);
+  const responding = checks.filter((c) => c.status === 'responding');
+  const watching = checks.filter((c) => c.status === 'watching').length;
+  async function choose(st: CheckStatus) {
+    if (!live) return;
+    if (st === 'responding' && !myUnit.trim()) return setErr('Type your unit first so the officer on scene knows who you are.');
+    if (myUnit.trim()) setMyUnit(myUnit);
+    try { await checkIn(live.id, st, myUnit); setChecks(await listCheckins(live.id)); setErr(''); } catch (e) { setErr((e as Error).message); }
+  }
+
   function moveFire(p: LatLng) {
     setFocus((f) => ({ ...f, at: p }));
     if (canEdit) updateIncident(live!.id, { lat: p.lat, lng: p.lng }).catch((e) => setErr(e.message));
@@ -159,6 +182,40 @@ export default function Command() {
     </View>
   );
 
+  const who = live ? (
+    <View style={{ paddingHorizontal: S.md, paddingBottom: 8, gap: 6 }}>
+      {!mine ? (
+        // Opened a shared scene: are you responding or just watching?
+        <View style={{ borderWidth: 2, borderColor: C.hazmat, borderRadius: R.card, padding: 10, gap: 8, backgroundColor: C.warnBg }}>
+          <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18 }}>Are you responding or watching?</Text>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <View style={{ flexBasis: 180, flexGrow: 1 }}><Input label="Your unit" placeholder="e.g. Vista E151" value={myUnit} onChangeText={setUnitState} /></View>
+            <View style={{ flexBasis: 160, flexGrow: 1 }}><Btn tone="red" icon="nav" label="Responding" sub="Listed for the officer on scene" onPress={() => choose('responding')} /></View>
+            <View style={{ flexBasis: 160, flexGrow: 1 }}><Btn tone="outline" icon="eye" label="Watching" sub="Just checking — not listed" onPress={() => choose('watching')} /></View>
+          </View>
+        </View>
+      ) : null}
+      <Pressable onPress={() => setShowWho((x) => !x)} accessibilityRole="button" accessibilityState={{ expanded: showWho }}
+        style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <Text style={{ color: C.green, fontFamily: F.display, fontSize: 15 }}>RESPONDING {responding.length}</Text>
+        {responding.slice(0, showWho ? 99 : 8).map((c) => (
+          <View key={c.device_id} style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#0F2A1A', borderWidth: 1, borderColor: '#2F7A4D' }}>
+            <Text style={{ color: C.text, fontWeight: '700', fontSize: 15 }}>{c.unit || 'Unit not set'}{showWho ? ` · ${ago(c.updated_at)}` : ''}</Text>
+          </View>
+        ))}
+        {!showWho && responding.length > 8 && <Text style={{ color: C.muted }}>+{responding.length - 8}</Text>}
+        <Text style={{ color: C.muted, fontSize: 15 }}>· {watching} watching</Text>
+        {mine && (
+          <Pressable onPress={() => choose(mine.status === 'responding' ? 'watching' : 'responding')} accessibilityRole="button"
+            style={{ marginLeft: 6, paddingHorizontal: 10, minHeight: 36, justifyContent: 'center', borderRadius: 6, borderWidth: 1, borderColor: C.line }}>
+            <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>You: {mine.status === 'responding' ? 'Responding' : 'Watching'} · switch</Text>
+          </Pressable>
+        )}
+      </Pressable>
+      {showWho && <Muted>Self check-in, info only — Tablet Command / your MDC is the tracking system.</Muted>}
+    </View>
+  ) : null;
+
   const mapH = wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 260) : Math.min(460, height * 0.55);
   const map = focus.at ? (
     <View style={{ height: mapH }}>
@@ -193,6 +250,7 @@ export default function Command() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
       {status}
+      {who}
       {tiles}
       {!!err && <Text style={{ color: C.redText, paddingHorizontal: S.md }}>{err}</Text>}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.md, paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}>
@@ -208,6 +266,7 @@ export default function Command() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
       {status}
+      {who}
       {tiles}
       <View style={{ paddingHorizontal: S.md }}><Seg label="Show" options={['Map', 'Cut sheet', 'ERG 147'] as const} value={pane} onChange={setPane} /></View>
       <ScrollView contentContainerStyle={{ padding: S.md, paddingBottom: insets.bottom + 40, gap: S.block }}>
