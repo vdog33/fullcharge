@@ -3,12 +3,12 @@
 // scene updates every phone viewing it. On a phone the same parts stack with a switch.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Btn, Bullets, Chips, Input, Label, Muted, Seg, st } from '../src/components/ui';
 import { Icon } from '../src/components/Icon';
-import { ZoneMap } from '../src/components/ZoneMap';
+import { ZoneMap, ZoneMapHandle } from '../src/components/ZoneMap';
 import { SheetItems } from '../src/components/SheetItems';
 import { SheetZoom } from '../src/components/SheetZoom';
 import { getWeather, Weather } from '../src/lib/weather';
@@ -25,7 +25,7 @@ import { getScene } from '../src/lib/scene';
 import { COMPASS, Compass, compassDeg, LatLng, toCompass } from '../src/lib/geo';
 import { useAuth } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
-import { ago, getMyUnit, setMyUnit, Incident, liveIncidents, myGroups, OPEN_ZONE, OPEN_ZONE_ID, updateIncident, watchIncidents } from '../src/lib/zone-share';
+import { ago, endIncident, getMyUnit, isMine, setMyUnit, Incident, liveIncidents, myGroups, OPEN_ZONE, OPEN_ZONE_ID, updateIncident, watchIncidents } from '../src/lib/zone-share';
 import { C, F, R, S } from '../src/theme';
 
 type Focus = { label: string; guides: Guide[]; at: LatLng | null; windFrom: number | null; ref?: string; incident?: Incident };
@@ -41,6 +41,10 @@ const fromIncident = (i: Incident): Focus => ({
   at: i.lat != null && i.lng != null ? { lat: i.lat, lng: i.lng } : null, windFrom: i.wind_from_deg, incident: i,
 });
 
+// How many command screens are open per incident (finding the vehicle stacks a second one on top).
+// Only leaving the last one ends the incident.
+const openCount = new Map<string, number>();
+
 export default function Command() {
   const r = useRouter();
   const { incident: incidentId } = useLocalSearchParams<{ incident?: string }>();
@@ -49,7 +53,6 @@ export default function Command() {
   const { user } = useAuth();
   const wide = width >= 700 && width > height;
   const [pane, setPane] = useState<'Cut sheet' | 'ERG 147' | 'Map'>(wide ? 'Cut sheet' : 'Map');
-  const [inc, setInc] = useState<Incident[]>([]);
   const [paneH, setPaneH] = useState(0);
   const [rightH, setRightH] = useState(0);
   const [wx, setWx] = useState<Weather | null>(null);
@@ -57,14 +60,13 @@ export default function Command() {
   // Draggable middle: how much of the width the map gets (0.25–0.75). Remembered on this device.
   const [split, setSplit] = useState(0.5);
   const rowW = useRef(1);
-  const splitAtStart = useRef(0.5);
   const splitNow = useRef(0.5);
   splitNow.current = split; // the drag handler is made once, so it reads the current split from here
   useEffect(() => { AsyncStorage.getItem('fullcharge.commandSplit').then((v) => { const n = Number(v); if (n >= 0.25 && n <= 0.75) setSplit(n); }).catch(() => {}); }, []);
   const clampSplit = (x: number) => Math.min(0.75, Math.max(0.25, x));
-  const dragSplit = (dx: number, start: boolean) => { if (start) splitAtStart.current = splitNow.current; setSplit(clampSplit(splitAtStart.current + dx / Math.max(1, rowW.current))); };
   const saveSplit = (x: number) => { setSplit(x); AsyncStorage.setItem('fullcharge.commandSplit', String(x)).catch(() => {}); };
-  const endSplit = () => setSplit((x) => { AsyncStorage.setItem('fullcharge.commandSplit', String(x)).catch(() => {}); return x; });
+  // The bar follows your finger; the panes resize once you let go (keeps a zoomed cut sheet from jumping).
+  const commitSplit = (dx: number) => saveSplit(clampSplit(splitNow.current + dx / Math.max(1, rowW.current)));
   const [checks, setChecks] = useState<Checkin[]>([]);
   const [me, setMe] = useState<string>('');
   const [myUnit, setUnitState] = useState('');
@@ -78,6 +80,38 @@ export default function Command() {
   const canEdit = !!live && live.status === 'active' && (live.group_id === OPEN_ZONE_ID || (!!user && user.id === live.created_by));
 
   const [openedAt] = useState(Date.now());
+  const [mineInc, setMineInc] = useState(false); // this unit started it
+  useEffect(() => { if (live?.id) isMine(live.id).then(setMineInc); }, [live?.id]);
+  const runningMine = mineInc && live?.status === 'active';
+  const [sureEnd, setSureEnd] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const mapRef = useRef<ZoneMapHandle>(null);
+  const nav = useNavigation();
+  const ending = useRef(false);
+  async function doEnd() {
+    if (!live) return;
+    try { ending.current = true; await endIncident(live.id); r.replace('/'); } catch (e) { ending.current = false; setErr((e as Error).message); }
+  }
+  useEffect(() => {
+    if (!live?.id) return;
+    const id = live.id;
+    openCount.set(id, (openCount.get(id) ?? 0) + 1);
+    return () => { openCount.set(id, Math.max(0, (openCount.get(id) ?? 1) - 1)); };
+  }, [live?.id]);
+  // Backing out of your own running incident ends it — say so first.
+  useEffect(() => {
+    if (!runningMine) return;
+    return nav.addListener('beforeRemove', (e: { preventDefault: () => void; data: { action: unknown } }) => {
+      if (ending.current || (openCount.get(live!.id) ?? 0) > 1) return;
+      e.preventDefault();
+      Alert.alert('End this incident?', 'Leaving ends your incident for everyone in the zone.', [
+        { text: 'Stay', style: 'cancel' },
+        { text: 'End incident', style: 'destructive', onPress: async () => {
+          try { ending.current = true; await endIncident(live!.id); nav.dispatch(e.data.action as never); } catch (x) { ending.current = false; setErr((x as Error).message); }
+        } },
+      ]);
+    });
+  }, [runningMine, live?.id]);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []); // scene clock
 
   // Opened for a shared scene (from Share to zone, a notification or the zone list).
@@ -103,12 +137,12 @@ export default function Command() {
     quickFix().then((p) => { if (p && p !== 'denied') setFocus((f) => (f.incident || f.at ? f : { ...f, at: p })); });
   }, [incidentId]));
 
-  const loadInc = useCallback(() => { if (user || OPEN_ZONE) myGroups().then((g) => liveIncidents(g.map((x) => x.id))).then(setInc).catch(() => {}); }, [user?.id]);
-  // Live: someone moved the fire or changed the wind → my map follows.
-  useEffect(() => {
-    loadInc();
-    return user || OPEN_ZONE ? watchIncidents((i) => { loadInc(); setFocus((f) => (f.incident?.id === i.id ? { ...fromIncident(i), guides: f.guides.length ? f.guides : fromIncident(i).guides } : f)); }) : undefined;
-  }, [user?.id]);
+  // Live: someone moved the fire, changed the wind, added the vehicle or ended it → my screen follows.
+  useEffect(() => (user || OPEN_ZONE ? watchIncidents((i) => setFocus((f) => {
+    if (f.incident?.id !== i.id) return f;
+    const n = fromIncident(i);
+    return { ...n, guides: n.guides.length ? n.guides : f.guides };
+  })) : undefined), [user?.id]);
 
   // Weather at the fire: shown on the map, and fills the wind when nobody has set it.
   useEffect(() => {
@@ -152,23 +186,24 @@ export default function Command() {
     if (canEdit) updateIncident(live!.id, { wind_from_deg: deg }).catch((e) => setErr(e.message));
   }
 
-  const strip = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: S.md, paddingVertical: 8, alignItems: 'center' }}>
-      <Chip on={!live} title="My scene" sub={live ? 'Back to mine' : 'Not shared'} onPress={() => (live ? r.replace('/command') : undefined)} />
-      {inc.map((i) => <Chip key={i.id} on={live?.id === i.id} title={i.unit || 'Zone scene'} sub={`${i.vehicle} · ${ago(i.created_at)}`} onPress={() => setFocus(fromIncident(i))} />)}
-    </ScrollView>
-  );
-
   // Status bar for the scene: what, who, how long, wind, and whether everyone sees my changes.
   const status = (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, paddingHorizontal: S.md, paddingBottom: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: live ? '#2A0B08' : C.surface }}>
         <Icon name={live ? 'users' : 'pin'} size={18} color={live ? C.redText : C.muted} />
-        <Text style={{ color: live ? C.redText : C.muted, fontFamily: F.display, fontSize: 15 }}>{live ? 'SHARED — LIVE' : 'MY SCENE — NOT SHARED'}</Text>
+        <Text style={{ color: live ? C.redText : C.muted, fontFamily: F.display, fontSize: 15 }}>{!live ? 'MY SCENE — NOT SHARED' : live.status === 'active' ? 'SHARED — LIVE' : 'ENDED'}</Text>
       </View>
       <Text style={{ color: C.text, fontWeight: '700', fontSize: 17 }} numberOfLines={1}>{focus.label}</Text>
       {live && <Text style={{ color: C.muted, fontSize: 15 }}>shared {ago(live.created_at)}{live.updated_at !== live.created_at ? ` · updated ${ago(live.updated_at)}` : ''}</Text>}
-      {live && !canEdit && <Text style={{ color: C.muted, fontSize: 15 }}>· view only</Text>}
+      {live && !canEdit && <Text style={{ color: C.muted, fontSize: 15 }}>· {live.status === 'active' ? 'view only' : 'ended'}</Text>}
+      {live && canEdit && (
+        <Pressable onPress={() => (sureEnd ? doEnd() : (setSureEnd(true), setTimeout(() => setSureEnd(false), 4000)))} accessibilityRole="button"
+          style={({ pressed }) => ({ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 8,
+            borderWidth: 2, borderColor: C.redText, backgroundColor: sureEnd ? C.red : pressed ? C.surface2 : 'transparent' })}>
+          <Icon name="x" size={18} color={sureEnd ? '#FFF' : C.redText} />
+          <Text style={{ color: sureEnd ? '#FFF' : C.redText, fontFamily: F.display, fontSize: 16 }}>{sureEnd ? 'TAP AGAIN TO END' : 'END INCIDENT'}</Text>
+        </Pressable>
+      )}
     </View>
   );
 
@@ -176,13 +211,12 @@ export default function Command() {
   const since = live ? Date.parse(live.created_at) : openedAt;
   const secs = Math.max(0, Math.floor((Date.now() - since) / 1000));
   const clock = `${Math.floor(secs / 3600) ? `${Math.floor(secs / 3600)}:` : ''}${String(Math.floor((secs % 3600) / 60)).padStart(Math.floor(secs / 3600) ? 2 : 1, '0')}:${String(secs % 60).padStart(2, '0')}`;
-  const wxAge = wx ? Math.max(0, Math.round((Date.now() - wx.observedAt) / 60000)) : 0;
   const editWind = !live || canEdit;
   const tiles = (
-    <View style={{ gap: 6, paddingHorizontal: S.md, paddingBottom: 8 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <Tile label="Temp" value={wx?.tempF != null ? `${wx.tempF}°F` : '—'} sub={wx ? `${wx.source.replace('Open-Meteo model', 'Model')} · ${wxAge < 1 ? 'now' : `${wxAge} min`}` : 'No weather yet'} />
-        <Tile label="Wind from" value={focus.windFrom != null ? toCompass(focus.windFrom) : 'Set'} sub={editWind ? (windOpen ? 'Tap to close' : 'Tap to change') : 'View only'}
+    <View style={{ gap: 6, paddingHorizontal: S.md, paddingBottom: 6 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        <Tile label="Temp" value={wx?.tempF != null ? `${wx.tempF}°F` : '—'} />
+        <Tile label={editWind ? 'Wind from ▾' : 'Wind from'} value={focus.windFrom != null ? toCompass(focus.windFrom) : 'Set'}
           on={windOpen} onPress={editWind ? () => setWindOpen((x) => !x) : undefined} />
         <Tile label="Speed" value={wx?.windMph != null ? `${wx.windMph}` : '—'} unit="mph" />
         <Tile label="Gusts" value={wx?.gustMph != null ? `${wx.gustMph}` : '—'} unit="mph" />
@@ -229,12 +263,31 @@ export default function Command() {
   const mapH = wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 260) : Math.min(460, height * 0.55);
   const map = focus.at ? (
     <View style={{ height: mapH }}>
-      <ZoneMap key={live?.id ?? 'mine'} fire={focus.at} you={lastFix()} mapType="satellite" height={mapH}
+      <ZoneMap ref={mapRef} key={live?.id ?? 'mine'} fire={focus.at} you={lastFix()} mapType="satellite" height={mapH}
         plumeHeading={((focus.windFrom ?? 0) + 180) % 360} plumeHalfDeg={focus.windFrom != null ? ZONES.plume_day_spread_deg : 0}
-        plumeLenM={focus.windFrom != null ? ZONES.plume_day_m : 0} onMoveFire={moveFire} />
-      <View pointerEvents="none" style={{ position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
-        <Text style={{ color: '#fff', fontSize: 13 }}>{!live || canEdit ? `Drag the fire — zones follow${live ? ' on every phone' : ''}` : 'View only'}</Text>
+        plumeLenM={focus.windFrom != null ? ZONES.plume_day_m : 0} onMoveFire={moveFire} tapToPlace={placing} />
+      {/* Map buttons: move the fire (tap where it is) and jump back to the scene. */}
+      <View style={{ position: 'absolute', left: 8, bottom: 8, flexDirection: 'row', gap: 8 }} pointerEvents="box-none">
+        {(!live || canEdit) && (
+          <Pressable onPress={() => setPlacing((x) => !x)} accessibilityRole="button" accessibilityState={{ selected: placing }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, paddingHorizontal: 12, borderRadius: 8, backgroundColor: placing ? '#FFF' : 'rgba(0,0,0,0.8)', borderWidth: 2, borderColor: placing ? '#FFF' : C.hazmat }}>
+            <Icon name={placing ? 'check' : 'fire'} size={18} color={placing ? C.hazmatText : C.hazmat} />
+            <Text style={{ color: placing ? C.hazmatText : C.text, fontWeight: '700', fontSize: 16 }}>{placing ? 'Done' : 'Move fire'}</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={() => mapRef.current?.frame(ZONES.warm_m)} accessibilityRole="button" accessibilityLabel="Back to the scene"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, paddingHorizontal: 12, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.8)', borderWidth: 2, borderColor: C.line }}>
+          <Icon name="target" size={18} />
+          <Text style={{ color: C.text, fontWeight: '700', fontSize: 16 }}>Back to scene</Text>
+        </Pressable>
       </View>
+      {placing && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 8, left: 8, right: 8, alignItems: 'center' }}>
+          <Text style={{ color: C.hazmatText, backgroundColor: C.hazmat, fontWeight: '700', fontSize: 16, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, overflow: 'hidden' }}>
+            Tap the map where the fire is{live ? ' — everyone sees it' : ''}
+          </Text>
+        </View>
+      )}
     </View>
   ) : <Muted>Waiting for your location…</Muted>;
 
@@ -250,15 +303,15 @@ export default function Command() {
   );
   const erg = (
     <View style={{ gap: S.block }}>
+      <Btn tone="hazmat" icon="book" label="Guide 147 PDF" sub="Official ERG page" onPress={() => r.push('/pdf?guide=147')} />
       <Text style={{ color: C.text, fontFamily: F.display, fontSize: 24 }}>ERG Guide 147 — lithium-ion</Text>
       {GUIDE_147_SECTIONS.slice(0, 4).map((g) => <View key={g.h} style={{ gap: 4 }}><Label>{g.h}</Label><Bullets items={g.lines} size={17} /></View>)}
-      <Btn tone="hazmat" icon="book" label="Full Guide 147" onPress={() => r.push('/hazmat')} />
+      <Btn tone="outline" icon="book" label="All of Guide 147 (text)" onPress={() => r.push('/guide147')} />
     </View>
   );
 
   if (wide) return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      {strip}
       {status}
       {who}
       {tiles}
@@ -266,7 +319,7 @@ export default function Command() {
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}
         onLayout={(e) => { rowW.current = e.nativeEvent.layout.width; }}>
         <View style={{ flex: split, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
-        <Divider onDrag={dragSplit} onEnd={endSplit} onReset={() => saveSplit(0.5)} />
+        <Divider onCommit={commitSplit} onReset={() => saveSplit(0.5)} />
         <View style={{ flex: 1 - split, minWidth: 0, gap: S.sm }} onLayout={(e) => setRightH(Math.round(e.nativeEvent.layout.height))}>
           <Seg label="Right side" options={['Cut sheet', 'ERG 147'] as const} value={pane === 'Map' ? 'Cut sheet' : pane} onChange={setPane} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40, gap: S.block }}>{pane === 'ERG 147' ? erg : sheet}</ScrollView>
@@ -276,7 +329,6 @@ export default function Command() {
   );
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      {strip}
       {status}
       {who}
       {tiles}
@@ -289,35 +341,25 @@ export default function Command() {
   );
 }
 
-function Chip({ on, title, sub, onPress }: { on: boolean; title: string; sub: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: on }}
-      style={({ pressed }) => ({ height: 60, minWidth: 150, maxWidth: 260, paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.card, borderWidth: 2,
-        borderColor: on ? '#FFF' : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.surface, justifyContent: 'center' })}>
-      <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.text, fontFamily: F.display, fontSize: 16 }}>{title}</Text>
-      <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.muted, fontSize: 14 }}>{sub}</Text>
-    </Pressable>
-  );
-}
-
-function Tile({ label, value, unit, sub, on, mono, onPress }: { label: string; value: string; unit?: string; sub?: string; on?: boolean; mono?: boolean; onPress?: () => void }) {
+/** Small weather tile: label and value on one line, so the map keeps the room. */
+function Tile({ label, value, unit, on, mono, onPress }: { label: string; value: string; unit?: string; on?: boolean; mono?: boolean; onPress?: () => void }) {
   const fg = on ? C.hazmatText : C.text;
   return (
-    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : 'text'} accessibilityLabel={`${label} ${value} ${unit ?? ''}. ${sub ?? ''}`}
-      style={({ pressed }) => ({ flexGrow: 1, flexBasis: 110, minHeight: 72, paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.card, borderWidth: 2,
-        borderColor: on ? '#FFF' : onPress ? C.hazmat : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.warnBg, justifyContent: 'center' })}>
-      <Text style={{ color: on ? C.hazmatText : C.hazmat, fontFamily: F.display, fontSize: 13, letterSpacing: 0.8 }} numberOfLines={1}>{label.toUpperCase()}</Text>
-      <Text style={{ color: fg, fontFamily: F.black, fontSize: 28, lineHeight: 32, fontVariant: mono ? ['tabular-nums'] : undefined }} numberOfLines={1} adjustsFontSizeToFit>
-        {value}{unit && value !== '—' ? <Text style={{ fontSize: 15, fontFamily: F.display }}> {unit}</Text> : null}
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : 'text'} accessibilityLabel={`${label} ${value} ${unit ?? ''}`}
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: 100, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1.5,
+        borderColor: on ? '#FFF' : onPress ? C.hazmat : C.border, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.warnBg })}>
+      <Text style={{ color: on ? C.hazmatText : C.hazmat, fontFamily: F.display, fontSize: 12, letterSpacing: 0.6 }} numberOfLines={1}>{label.toUpperCase()}</Text>
+      <Text style={{ color: fg, fontFamily: F.black, fontSize: 20, fontVariant: mono ? ['tabular-nums'] : undefined }} numberOfLines={1} adjustsFontSizeToFit>
+        {value}{unit && value !== '—' ? <Text style={{ fontSize: 13, fontFamily: F.display }}> {unit}</Text> : null}
       </Text>
-      {!!sub && <Text style={{ color: on ? C.hazmatText : C.muted, fontSize: 13 }} numberOfLines={1}>{sub}</Text>}
     </Pressable>
   );
 }
 
-/** The middle bar between map and cut sheet: drag left / right to resize; double-tap for 50/50. Wide grab area for gloves. */
-function Divider({ onDrag, onEnd, onReset }: { onDrag: (dx: number, start: boolean) => void; onEnd: () => void; onReset: () => void }) {
+/** The middle bar between map and cut sheet: drag left / right, the panes resize when you let go; double-tap = 50/50. */
+function Divider({ onCommit, onReset }: { onCommit: (dx: number) => void; onReset: () => void }) {
   const lastTap = useRef(0);
+  const [dx, setDx] = useState(0);
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -325,18 +367,17 @@ function Divider({ onDrag, onEnd, onReset }: { onDrag: (dx: number, start: boole
       const now = Date.now();
       if (now - lastTap.current < 300) onReset();
       lastTap.current = now;
-      onDrag(0, true);
     },
-    onPanResponderMove: (_e, g) => onDrag(g.dx, false),
-    onPanResponderRelease: onEnd,
-    onPanResponderTerminate: onEnd,
+    onPanResponderMove: (_e, g) => setDx(g.dx),
+    onPanResponderRelease: (_e, g) => { setDx(0); if (Math.abs(g.dx) > 4) onCommit(g.dx); },
+    onPanResponderTerminate: () => setDx(0),
   })).current;
   return (
     <View {...pan.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Divider between map and cut sheet. Drag to resize, double-tap for half and half."
-      style={{ width: 32, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 4, flex: 1, maxHeight: '100%', borderRadius: 2, backgroundColor: C.line }} />
-      <View style={{ position: 'absolute', width: 28, height: 64, borderRadius: 14, backgroundColor: C.surface2, borderWidth: 2, borderColor: C.text, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        {[0, 1, 2].map((i) => <View key={i} style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: C.text }} />)}
+      style={{ width: 32, alignItems: 'center', justifyContent: 'center', zIndex: 5, transform: [{ translateX: dx }] }}>
+      <View style={{ width: dx ? 6 : 4, flex: 1, borderRadius: 3, backgroundColor: dx ? C.hazmat : C.line }} />
+      <View style={{ position: 'absolute', width: 28, height: 64, borderRadius: 14, backgroundColor: dx ? C.hazmat : C.surface2, borderWidth: 2, borderColor: C.text, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        {[0, 1, 2].map((i) => <View key={i} style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: dx ? C.hazmatText : C.text }} />)}
       </View>
     </View>
   );

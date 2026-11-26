@@ -20,6 +20,8 @@ type Props = {
   plumeLenM: number;
   height: number;
   onMoveFire: (p: LatLng) => void;
+  /** On: one tap on the map puts the fire there (easier than dragging with gloves). */
+  tapToPlace?: boolean;
 };
 
 const rgba = (hex: string, a: number) => {
@@ -29,7 +31,7 @@ const rgba = (hex: string, a: number) => {
 const ll = (p: LatLng) => ({ latitude: p.lat, longitude: p.lng });
 
 export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
-  { fire, you, mapType, plumeHeading, plumeHalfDeg, plumeLenM, height, onMoveFire }, ref,
+  { fire, you, mapType, plumeHeading, plumeHalfDeg, plumeLenM, height, onMoveFire, tapToPlace }, ref,
 ) {
   const map = useRef<MapView>(null);
   useImperativeHandle(ref, () => ({
@@ -59,6 +61,7 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         showsPointsOfInterest={false}
         userInterfaceStyle="dark"
         onLongPress={(e) => { const c = e.nativeEvent.coordinate; onMoveFire({ lat: c.latitude, lng: c.longitude }); }}
+        onPress={tapToPlace ? (e) => { const c = e.nativeEvent.coordinate; if (c) onMoveFire({ lat: c.latitude, lng: c.longitude }); } : undefined}
       >
         {local && <LocalTile pathTemplate={TILE_PATH_TEMPLATE} tileSize={256} zIndex={-1} />}
         <Polygon key={`p${k}`} coordinates={plume} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />

@@ -13,7 +13,7 @@ export function SheetZoom({ guides, height }: { guides: Guide[]; height: number 
   if (!sheet) return <Text style={{ color: C.muted, fontSize: 16 }}>No picture of this cut sheet on the phone — open the full page for the PDF.</Text>;
   return (
     <View style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' }} onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}>
-      <ScrollView maximumZoomScale={6} minimumZoomScale={1} bouncesZoom pinchGestureEnabled centerContent
+      <ScrollView key={`z${W}`} maximumZoomScale={6} minimumZoomScale={1} bouncesZoom pinchGestureEnabled centerContent
         contentContainerStyle={{ gap: S.sm }} accessibilityLabel="Rescue sheet — pinch to zoom">
         {W > 0 && pages.map((p) => <Image key={p.uri} source={{ uri: p.uri }} style={{ width: W, height: (W * p.h) / p.w }} resizeMode="contain" />)}
       </ScrollView>

@@ -6,7 +6,7 @@ import { C } from '../theme';
 export type IconName =
   | 'chev' | 'back' | 'cam' | 'img' | 'search' | 'batt' | 'warn' | 'cloud' | 'signal' | 'dl' | 'book' | 'pin'
   | 'clock' | 'id' | 'gear' | 'x' | 'loc' | 'nav' | 'arrow' | 'ext' | 'check' | 'expand' | 'bolt' | 'phone' | 'menu' | 'flask'
-  | 'cut' | 'truck' | 'fire' | 'power' | 'eye' | 'doc' | 'share' | 'users';
+  | 'cut' | 'truck' | 'fire' | 'power' | 'eye' | 'doc' | 'share' | 'users' | 'plus' | 'target';
 
 export function Icon({ name, size = 24, color = C.text }: { name: IconName; size?: number; color?: string }) {
   const s = { stroke: color, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -41,6 +41,8 @@ export function Icon({ name, size = 24, color = C.text }: { name: IconName; size
       case 'eye': return <><Path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z" {...s} strokeWidth={2.2} /><Circle cx={12} cy={12} r={3} {...s} strokeWidth={2.2} /></>;
       case 'doc': return <><Path d="M6 3h8l4 4v14H6z" {...s} strokeWidth={2.2} /><Path d="M14 3v4h4M9 12h6M9 16h6" {...s} strokeWidth={2.2} /></>;
       case 'share': return <><Path d="M12 15V3M7.5 7.5L12 3l4.5 4.5" {...s} strokeWidth={2.4} /><Path d="M5 12v8h14v-8" {...s} strokeWidth={2.2} /></>;
+      case 'plus': return <Path d="M12 5v14M5 12h14" {...s} strokeWidth={2.8} />;
+      case 'target': return <><Circle cx={12} cy={12} r={7} {...s} strokeWidth={2.2} /><Circle cx={12} cy={12} r={2} {...s} strokeWidth={2.4} /><Path d="M12 2v3M12 19v3M2 12h3M19 12h3" {...s} strokeWidth={2.2} /></>;
       case 'users': return <><Circle cx={9} cy={8} r={3.2} {...s} strokeWidth={2.2} /><Path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 5a3 3 0 010 6M18 14c2 .8 3 2.8 3 6" {...s} strokeWidth={2.2} /></>;
       case 'menu': return <Path d="M4 7h16M4 12h16M4 17h16" {...s} strokeWidth={2.6} />;
       case 'flask': return <Path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 001.3 2h12.4a1.5 1.5 0 001.3-2L14 9V3M7.5 14h9" {...s} strokeWidth={2.2} />;

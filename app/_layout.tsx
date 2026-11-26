@@ -67,7 +67,8 @@ export default function Root() {
           <Stack.Screen name="zone/share" options={{ title: 'Share to zone' }} />
           <Stack.Screen name="zone/pick" options={{ title: 'Which vehicle?' }} />
           <Stack.Screen name="zone/[id]" options={{ title: 'Shared scene' }} />
-          <Stack.Screen name="command" options={{ title: 'Command view' }} />
+          <Stack.Screen name="command" options={{ title: 'Command' }} />
+          <Stack.Screen name="pdf" options={{ title: 'ERG Guide' }} />
           <Stack.Screen name="history" options={{ title: 'ID History' }} />
           <Stack.Screen name="settings/downloads" options={{ title: 'Downloads' }} />
           <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />

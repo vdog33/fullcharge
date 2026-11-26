@@ -58,9 +58,10 @@ export async function shareIncident(p: Pick<Incident, 'group_id' | 'unit' | 'veh
   if (p.unit) setMyUnit(p.unit);
   const { data, error } = await sb.from('zone_incidents').insert({ ...p, created_by: u.user?.id ?? null, sender_token: myPushToken() }).select('*').single(); msg(error);
   checkIn((data as Incident).id, 'responding', p.unit).catch(() => {}); // the unit that shares is on it
+  await rememberMyIncident((data as Incident).id);
   return data as Incident;
 }
-export async function updateIncident(id: string, p: Partial<Pick<Incident, 'wind_from_deg' | 'place' | 'lat' | 'lng' | 'status'>>) {
+export async function updateIncident(id: string, p: Partial<Pick<Incident, 'wind_from_deg' | 'place' | 'lat' | 'lng' | 'status' | 'vehicle' | 'vehicle_ref'>>) {
   const { error } = await need().from('zone_incidents').update(p).eq('id', id); msg(error);
 }
 
@@ -78,4 +79,32 @@ export function watchIncidents(onChange: (i: Incident, kind: 'new' | 'update') =
 export function ago(iso: string, now = Date.now()) {
   const m = Math.max(0, Math.round((now - Date.parse(iso)) / 60000));
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h ${m % 60} min ago`;
+}
+
+/** Completed scenes (ended, or timed out) in my zones — last 7 days. */
+export async function pastIncidents(groupIds: string[]): Promise<Incident[]> {
+  if (!groupIds.length) return [];
+  const now = new Date().toISOString();
+  const { data, error } = await need().from('zone_incidents').select('*').in('group_id', groupIds)
+    .or(`status.eq.cleared,expires_at.lt.${now}`).gt('created_at', new Date(Date.now() - 7 * 86400_000).toISOString())
+    .order('created_at', { ascending: false }).limit(40);
+  msg(error);
+  return (data ?? []) as Incident[];
+}
+
+// ---- My incident: a unit runs one incident at a time ----
+const MINE_KEY = 'fullcharge.myIncident';
+export async function getMyIncident(): Promise<Incident | null> {
+  const id = await AsyncStorage.getItem(MINE_KEY).catch(() => null);
+  if (!id || !supabase) return null;
+  const { data } = await supabase.from('zone_incidents').select('*').eq('id', id).maybeSingle();
+  const i = data as Incident | null;
+  if (!i || i.status !== 'active' || Date.parse(i.expires_at) < Date.now()) { await AsyncStorage.removeItem(MINE_KEY).catch(() => {}); return null; }
+  return i;
+}
+export const rememberMyIncident = (id: string) => AsyncStorage.setItem(MINE_KEY, id).catch(() => {});
+export const isMine = async (id: string) => (await AsyncStorage.getItem(MINE_KEY).catch(() => null)) === id;
+export async function endIncident(id: string) {
+  await updateIncident(id, { status: 'cleared' });
+  if (await isMine(id)) await AsyncStorage.removeItem(MINE_KEY).catch(() => {});
 }
