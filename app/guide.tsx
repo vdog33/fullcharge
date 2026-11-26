@@ -71,7 +71,7 @@ export default function GuidePage() {
       {/* Which ERG guide: hydrogen and hybrids are not plain Guide 147. */}
       {erg.tone !== 'none' && (
         <Notice tone={erg.tone} title={erg.title}
-          action={<Btn size="sm" tone="outline" icon="ext" label={`Guide ${erg.guides[0]} PDF (needs signal)`} onPress={() => Linking.openURL(ERG_GUIDE_PDF(erg.guides[0]))} />}>
+          action={<Btn size="sm" tone="outline" icon="book" label={`Guide ${erg.guides[0]} PDF`} onPress={() => r.push(`/pdf?guide=${erg.guides[0]}`)} />}>
           {erg.text}
         </Notice>
       )}

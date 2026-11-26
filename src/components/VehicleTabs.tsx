@@ -1,5 +1,6 @@
 // Vehicle pages broken into tabs, so each part is one big tap away and never a long scroll on scene:
 //   Cut · Chemistry · Contacts (· Notes on FULLCHARGE pages)
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 import { Btn, Card, Field, Muted, Notice, st } from './ui';
@@ -34,7 +35,7 @@ export function ChemistryPanel({ powertrain, chemistry, verified, onHazmat }: {
       {e.tone !== 'none' && <Notice tone={e.tone} title={e.title}>{e.text}</Notice>}
       {e.guides.includes('147') && <Btn tone="hazmat" icon="book" label="Guide 147 — distances, fire, map" onPress={onHazmat} />}
       {e.guides.filter((x) => x !== '147').map((x) => (
-        <Btn key={x} tone="outline" icon="ext" label={`Guide ${x} PDF (needs signal)`} onPress={() => Linking.openURL(ERG_GUIDE_PDF(x))} />
+        <Btn key={x} tone="outline" icon="book" label={`Guide ${x} PDF`} onPress={() => router.push(`/pdf?guide=${x}`)} />
       ))}
       <Card>
         <Text style={st.label}>Battery</Text>

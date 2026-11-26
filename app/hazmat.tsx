@@ -95,7 +95,8 @@ export default function Hazmat() {
 
       <LinkRow icon="book" title="Guide 147 PDF" sub="Official ERG page" onPress={() => r.push('/pdf?guide=147')} />
       <LinkRow icon="book" title="More — full Guide 147 text" sub={`${GUIDE_147_SECTIONS.length} sections · works offline`} onPress={() => r.push('/guide147')} />
-      <LinkRow icon="ext" title="Official PDFs" sub="3 links · need signal" onPress={() => r.push('/guide147?to=pdfs')} />
+      <LinkRow icon="book" title="Full ERG 2024" sub="Whole book, on the phone" onPress={() => r.push('/pdf?doc=full')} />
+      <LinkRow icon="book" title="All ERG guide PDFs" sub="147, 138, 171, 154, 115, 125 — work offline" onPress={() => r.push('/guide147?to=pdfs')} />
     </Screen>
   );
 }
