@@ -16,6 +16,7 @@ export type SetupState = {
   role?: Role;
   commandView?: boolean;
   readyAt?: number;                 // last airplane-mode test that passed
+  setupDoneAt?: number;             // pressed Finish
   checks?: Record<string, boolean>; // sheets / vin / maps
 };
 const KEY = 'fullcharge.setup.v1';
