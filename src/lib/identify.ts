@@ -82,13 +82,19 @@ export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean }):
     return { candidates: toCandidates(MOCK_RAW), notes: 'MOCK result. No match is certain from one photo — confirm with badge / ERG.', attemptId: 'mock-attempt', feedbackToken: 'mock' };
   }
   if (!BACKEND_READY) throw new Error(NO_SIGNAL_MSG);
-  const img = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1280 } }], {
-    compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true,
+  // 1024 px / q0.65 ≈ half the upload of 1280 / q0.75 — the slowest part on one bar of LTE. Badges still read fine.
+  const t0 = Date.now();
+  const img = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1024 } }], {
+    compress: 0.65, format: ImageManipulator.SaveFormat.JPEG, base64: true,
   });
   try {
-    const r = await callFunction<{ guesses: RawGuess[]; notes: string; attemptId?: string; feedbackToken?: string }>('identify-vehicle', {
+    const t1 = Date.now();
+    const r = await callFunction<{ guesses: RawGuess[]; notes: string; attemptId?: string; feedbackToken?: string; timing?: { geminiMs: number; serverMs: number; imageKB: number } }>('identify-vehicle', {
       action: 'identify', imageBase64: img.base64, mimeType: 'image/jpeg', sharePhoto: opts.sharePhoto,
     }, 45000);
+    const t2 = Date.now();
+    // Where the time went: phone resize · network (upload + reply) · Gemini · total.
+    console.log(`[ID timing] resize ${t1 - t0} ms · network ${t2 - t1 - (r.timing?.serverMs ?? 0)} ms · Gemini ${r.timing?.geminiMs ?? '?'} ms · total ${t2 - t0} ms · ${r.timing?.imageKB ?? '?'} KB`);
     return { candidates: toCandidates(r.guesses), notes: r.notes, attemptId: r.attemptId, feedbackToken: r.feedbackToken };
   } catch (e) {
     throw new Error(idError(e));

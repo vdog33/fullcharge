@@ -39,11 +39,11 @@ function clean(list: RawGuess[]): RawGuess[] {
       yearFrom: Number(g.yearFrom) || null, yearTo: Number(g.yearTo) || null,
       powertrain: String(g.powertrain ?? 'unknown').toUpperCase(), trim: g.trim ? String(g.trim).slice(0, 40) : undefined,
       confidence: Math.max(0, Math.min(100, Math.round(Number(g.confidence) || 0))),
-      cues: (g.cues ?? []).map(String).slice(0, 6),
-      checks: (g.checks ?? []).map((c) => String(c).slice(0, 90)).slice(0, 5),
+      cues: (g.cues ?? []).map(String).slice(0, 4),
+      checks: (g.checks ?? []).map((c) => String(c).slice(0, 90)).slice(0, 4),
     }))
     .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 5);
+    .slice(0, 3);
 }
 
 async function userId(req: Request): Promise<string | null> {
@@ -61,15 +61,17 @@ async function gemini(imageBase64: string, mimeType: string) {
 Identify the vehicle in the photo from your own knowledge of vehicles: make, model (official name, e.g. "Mustang Mach-E", "Model Y", "F-150 Lightning"),
 likely model-year range, and powertrain: BEV, PHEV, HEV, FCEV, ICE or UNKNOWN. Look for EV cues: charge-port door, no exhaust, closed grille, EV badges
 ("e-tron", "EQ", "Lightning", "4xe", "Prime", "Recharge", "Hybrid").
-Return up to 5 guesses, most likely first, each with confidence 0-100 and up to 6 short visible cues you used.
-For each guess also give "checks": 3 to 5 short features a firefighter can look at on the car in seconds to confirm it is
+Return up to 3 guesses, most likely first, each with confidence 0-100 and up to 4 short visible cues you used.
+For the FIRST TWO guesses only, also give "checks": 3 to 4 short features a firefighter can look at on the car in seconds to confirm it is
 THIS model and not a look-alike (badge text and where it is, light shape, door handles, charge-port side, roofline, grille).
+For any other guess, "checks" is an empty list.
 Only features that are true for that model and year range; plain words, max 10 words each.
 Similar-looking vehicles that differ in powertrain (e.g. F-150 vs F-150 Lightning, Wrangler vs Wrangler 4xe) MUST be separate guesses.
-In "notes", say what limits certainty (damage, angle, lighting, missing badge). Never claim certainty from one photo.`;
+In "notes", one short sentence on what limits certainty (damage, angle, lighting, missing badge). Never claim certainty from one photo.`;
   const body = {
     contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, { text: prompt }] }],
     generationConfig: {
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM', // fewer image tokens = faster; still reads badges at 1024 px
       responseMimeType: 'application/json',
       responseSchema: {
         type: 'OBJECT',
@@ -103,9 +105,12 @@ async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL): 
   const gc = (body.generationConfig ?? {}) as Record<string, unknown>;
   let res = await send({ ...body, generationConfig: { ...gc, thinkingConfig: { thinkingLevel: 'low' } } });
   if (res.status === 400) {
+    // A model that doesn't take one of the speed settings: send it again without them.
     const t = await res.text();
-    if (/thinking/i.test(t)) res = await send(body);
-    else throw new Error(`Gemini 400 (${model}): ${t.slice(0, 300)}`);
+    if (/thinking|media.?resolution/i.test(t)) {
+      const { mediaResolution: _m, ...plain } = gc;
+      res = await send({ ...body, generationConfig: plain });
+    } else throw new Error(`Gemini 400 (${model}): ${t.slice(0, 300)}`);
   }
   // Model not available on this account (not found / not allowed / no quota on this plan): use 3.5 Flash instead.
   if (!res.ok && [403, 404, 429].includes(res.status) && model !== FALLBACK_MODEL) {
@@ -230,6 +235,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // identify
+    const t0 = Date.now();
     const { imageBase64, mimeType = 'image/jpeg', sharePhoto = false } = body;
     if (!/^image\/(jpeg|png)$/.test(mimeType)) return json({ error: 'JPEG or PNG only' }, 400);
     if (!imageBase64 || imageBase64.length > 8_000_000) return json({ error: 'image missing or too large' }, 400);
@@ -240,24 +246,34 @@ Deno.serve(async (req: Request) => {
           { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'], checks: ['Pony badge on the nose', 'Tri-bar tail lights'] },
         ], notes: 'SERVER MOCK — no Gemini key set.' }
       : await gemini(imageBase64, mimeType);
+    const tGemini = Date.now() - t0;
     const guesses = withPhotos(clean(raw.guesses));
     const top = guesses[0] ? `${guesses[0].yearFrom ?? ''} ${guesses[0].make} ${guesses[0].model}`.trim() : null;
 
-    const uid = await userId(req).catch(() => null);
+    // Reply first; log the attempt (sign-in check, database row, optional photo) after the crew has the answer.
+    const attemptId = crypto.randomUUID();
     const token = crypto.randomUUID() + crypto.randomUUID();
-    const { data: row } = await admin.from('id_attempts').insert({
-      user_id: uid, source: 'camera', model: MOCK ? 'mock' : GEMINI_MODEL, top_match: top,
-      candidates: guesses, notes: raw.notes, feedback_token_hash: await sha256(token),
-    }).select('id').single();
+    const log = (async () => {
+      const uid = await userId(req).catch(() => null);
+      const { error } = await admin.from('id_attempts').insert({
+        id: attemptId, user_id: uid, source: 'camera', model: MOCK ? 'mock' : GEMINI_MODEL, top_match: top,
+        candidates: guesses, notes: raw.notes, feedback_token_hash: await sha256(token),
+      });
+      if (error) { console.error('id_attempts insert', error.message); return; }
+      if (sharePhoto) {
+        const path = `${uid ?? 'anon'}/${attemptId}.${mimeType === 'image/png' ? 'png' : 'jpg'}`;
+        const bytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
+        const up = await admin.storage.from('id-photos').upload(path, bytes, { contentType: mimeType });
+        if (!up.error) await admin.from('id_attempts').update({ photo_path: path }).eq('id', attemptId);
+      }
+    })().catch((e) => console.error('log attempt', e));
+    // deno-lint-ignore no-explicit-any
+    const rt = (globalThis as any).EdgeRuntime;
+    if (rt?.waitUntil) rt.waitUntil(log); else await log;
 
-    if (sharePhoto && row?.id) {
-      const path = `${uid ?? 'anon'}/${row.id}.${mimeType === 'image/png' ? 'png' : 'jpg'}`;
-      const bytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
-      const up = await admin.storage.from('id-photos').upload(path, bytes, { contentType: mimeType });
-      if (!up.error) await admin.from('id_attempts').update({ photo_path: path }).eq('id', row.id);
-    }
-
-    return json({ guesses, notes: raw.notes, attemptId: row?.id, feedbackToken: token });
+    const timing = { geminiMs: tGemini, serverMs: Date.now() - t0, imageKB: Math.round((imageBase64.length * 3) / 4 / 1024), model: MOCK ? 'mock' : GEMINI_MODEL };
+    console.log('identify timing', JSON.stringify(timing));
+    return json({ guesses, notes: raw.notes, attemptId, feedbackToken: token, timing });
   } catch (e) {
     console.error(e);
     // Say what failed (no secrets in these messages) so the phone can show it instead of "no signal".
