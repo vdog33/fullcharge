@@ -58,7 +58,8 @@
           "cameraPermission": "FULLCHARGE uses the camera to photograph a vehicle or scan its VIN barcode.",
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": false
