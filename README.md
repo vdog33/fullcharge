@@ -20,7 +20,7 @@ sign-in code `123456`, simulated pack downloads.
 
 1. Create a Supabase project. Run `supabase/migrations/0001_init.sql` (SQL editor or `supabase db push`).
 2. Seed: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run seed`
-3. Secrets: `supabase secrets set GEMINI_API_KEY=… GEMINI_MODEL=gemini-3.8-flash`
+3. Secrets: `supabase secrets set GEMINI_API_KEY=… GEMINI_MODEL=gemini-3.5-flash`
 4. Deploy: `supabase functions deploy identify-vehicle`
 5. `.env`: `EXPO_PUBLIC_USE_MOCKS=false`, URL + anon key. Auth → Email → enable OTP (code, 6 digits).
 

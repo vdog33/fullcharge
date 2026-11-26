@@ -4,7 +4,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { cors, json } from '../_shared/cors.ts';
 
 const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
+// gemini-3.5-flash works on every plan; 3.8 Flash can be refused on some accounts (free tier).
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.5-flash';
+const FALLBACK_MODEL = 'gemini-3.5-flash';
 const MOCK = Deno.env.get('IDENTIFY_MOCK') === 'true' || !GEMINI_KEY;
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 // Server key: a SERVICE_KEY secret if you set one, else the legacy service_role key, else the project's new secret key.
@@ -94,8 +96,8 @@ In "notes", say what limits certainty (damage, angle, lighting, missing badge). 
 const withPhotos = (gs: RawGuess[]) => gs.map((g) => ({ ...g, photo: null }));
 
 /** One Gemini call. Low thinking keeps photo ID fast (~2–5 s); if a model rejects the thinking setting, retry without it. */
-async function callGemini(body: Record<string, unknown>): Promise<string> {
-  const send = (b: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL): Promise<string> {
+  const send = (b: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(b),
   });
   const gc = (body.generationConfig ?? {}) as Record<string, unknown>;
@@ -103,9 +105,14 @@ async function callGemini(body: Record<string, unknown>): Promise<string> {
   if (res.status === 400) {
     const t = await res.text();
     if (/thinking/i.test(t)) res = await send(body);
-    else throw new Error(`Gemini 400: ${t.slice(0, 300)}`);
+    else throw new Error(`Gemini 400 (${model}): ${t.slice(0, 300)}`);
   }
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  // Model not available on this account (not found / not allowed / no quota on this plan): use 3.5 Flash instead.
+  if (!res.ok && [403, 404, 429].includes(res.status) && model !== FALLBACK_MODEL) {
+    console.warn(`Gemini ${res.status} on ${model} — falling back to ${FALLBACK_MODEL}: ${(await res.text()).slice(0, 200)}`);
+    return callGemini(body, FALLBACK_MODEL);
+  }
+  if (!res.ok) throw new Error(`Gemini ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`);
   const out = await res.json();
   const parts = (out?.candidates?.[0]?.content?.parts ?? []) as { text?: string; thought?: boolean }[];
   const text = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('').trim();
