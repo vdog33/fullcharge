@@ -34,7 +34,8 @@ export default function Zones() {
   const [windFrom, setWindFrom] = useState<Compass>(sc0.windFrom);
   const [windMph, setWindMph] = useState(sc0.windMph);
   const [windDeg, setWindDeg] = useState<number | null>(sc0.windDeg); // set by "Face the wind" → Mark
-  const [windMode, setWindMode] = useState<'Manual' | 'Face the wind'>(sc0.windDeg !== null ? 'Face the wind' : 'Manual');
+  // Face the wind is the standard way to set wind; Manual is the backup (no compass, or hands full).
+  const [windMode, setWindMode] = useState<'Manual' | 'Face the wind'>('Face the wind');
   const [markedAt, setMarkedAt] = useState<number | null>(null);
   const [markMsg, setMarkMsg] = useState('');
   useEffect(() => { setScene({ night, windFrom, windDeg, windMph }); }, [night, windFrom, windDeg, windMph]);
@@ -42,9 +43,16 @@ export default function Zones() {
   // Location
   const [you, setYou] = useState<(LatLng & { acc?: number }) | null>(null);
   const [gpsMsg, setGpsMsg] = useState('');
-  const [label, setLabel] = useState('');
+  // Fire point: your location by default; an address when responding to a call.
+  const [addr, setAddr] = useState('');
+  const [addrMsg, setAddrMsg] = useState('');
+  const [atAddr, setAtAddr] = useState<string | null>(null); // the address the fire marker is on, if any
   const [fire, setFire] = useState<LatLng>(VIRTUAL_ORIGIN);
-  const fireReal = !!you;
+  const [placed, setPlaced] = useState(false); // fire is on a real point (GPS or address)
+  const fireReal = placed;
+  const [nudge, setNudge] = useState(false);
+  const atAddrRef = useRef<string | null>(null);
+  atAddrRef.current = atAddr;
 
   // Map
   const [mode, setMode] = useState<Mode>('Satellite');
@@ -65,16 +73,36 @@ export default function Zones() {
       }
       if (!pos) return setGpsMsg('No fix in 15 s. Zones still correct around the fire marker.');
       const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy ?? undefined };
-      if (!you) setFire({ lat: p.lat, lng: p.lng }); // marker starts on the user
+      // Marker starts on you — unless an address is in use.
+      if (!atAddrRef.current && !placed) { setFire({ lat: p.lat, lng: p.lng }); setPlaced(true); }
       setYou(p); setGpsMsg('');
     } catch { setGpsMsg('No fix. Zones still correct around the fire marker.'); }
   }
   useEffect(() => { locate(); }, []);
 
+  /** Responding to a call: put the fire on an address (Apple's geocoder — needs signal). */
+  async function findAddress() {
+    const q = addr.trim();
+    if (!q) return;
+    setAddrMsg('Finding…');
+    try {
+      const hits = await Location.geocodeAsync(q);
+      if (!hits.length) return setAddrMsg('Address not found — check it, or drag the fire on the map.');
+      const p = { lat: hits[0].latitude, lng: hits[0].longitude };
+      setFire(p); setPlaced(true); setAtAddr(q); setAddrMsg('');
+      setTimeout(() => mapRef.current?.frame(ZONES.warm_m), 80);
+    } catch { setAddrMsg('Address lookup needs signal. Zones still work around your location.'); }
+  }
+  function backToMe() {
+    setAtAddr(null); setAddr(''); setAddrMsg('');
+    if (you) { setFire({ lat: you.lat, lng: you.lng }); setPlaced(true); setTimeout(() => mapRef.current?.frame(ZONES.warm_m), 50); }
+    else locate();
+  }
+
   const offline = net.isConnected === false || net.isInternetReachable === false;
   const live = mode !== 'Diagram' && fireReal && !offline;
   const note = mode !== 'Diagram' && !live
-    ? (!fireReal ? 'No GPS fix — showing the zone diagram. The map needs a fix.' : 'No signal — showing the zone diagram. The map needs signal.')
+    ? (!fireReal ? 'No GPS fix yet — showing the zone diagram. Enter an address or wait for a fix.' : 'No signal — showing the zone diagram. The map needs signal.')
     : '';
 
   const plumeM = night ? ZONES.plume_night_m : ZONES.plume_day_m;
@@ -86,6 +114,7 @@ export default function Zones() {
   const step = (e: number, n: number) => setFire((f) => offsetM(f, e, n));
   const distFt = you && fireReal ? distanceM(you, fire) * M_TO_FT : null;
   const brg = you && fireReal ? bearingDeg(you, fire) : null;
+  const far = distFt !== null && distFt > 150; // fire isn't where you're standing (address or moved)
   // Phone compass: which way the responder is facing. Face into the wind, tap once, and "Wind from" is set.
   const [facing, setFacing] = useState<{ deg: number; acc: number } | null>(null);
   const lastDeg = useRef(-999);
@@ -138,6 +167,31 @@ export default function Zones() {
 
       {/* One card: map type, map, zoom, wind, speed, light, legend, caveat — change wind, watch the plume move (F33). */}
       <View style={s.card}>
+        {/* Where: your location by default. Responding to a call? Type the address. */}
+        <View style={{ gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Icon name="loc" size={20} color={atAddr ? C.hazmat : C.green} />
+            <Text style={[st.body, { flex: 1, fontSize: 17, fontWeight: '700' }]} numberOfLines={2}>
+              {atAddr ? `Fire at ${atAddr}` : you ? `Fire at your location${you.acc ? ` (±${Math.round(you.acc)} m)` : ''}` : gpsMsg || 'Finding your location…'}
+            </Text>
+            {(atAddr || (you && far)) && <Btn size="sm" icon="pin" label="Back to me" onPress={backToMe} />}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Input label="Responding to a call? Address" placeholder="e.g. 400 Main St" value={addr} onChangeText={setAddr}
+                returnKeyType="search" onSubmitEditing={findAddress} autoCorrect={false} />
+            </View>
+            <Btn size="sm" tone="hazmat" icon="search" label="Go" disabled={!addr.trim()} onPress={findAddress} />
+          </View>
+          {!!addrMsg && <Muted>{addrMsg}</Muted>}
+          {fireReal && far && distFt !== null && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[s.coord, { flex: 1 }]}>{distFt >= 5280 ? `${(distFt / 5280).toFixed(1)} mi` : `${Math.round(distFt)} ft`} from you · {toCompass(brg!)}</Text>
+              <Btn size="sm" icon="nav" label="Directions" onPress={() => Linking.openURL(`http://maps.apple.com/?daddr=${fire.lat},${fire.lng}`)} />
+            </View>
+          )}
+        </View>
+
         <Seg label="Map type" options={['Satellite', 'Map', 'Diagram'] as const} value={mode} onChange={setMode} />
         {!!note && <Muted>{note}</Muted>}
 
@@ -158,6 +212,21 @@ export default function Zones() {
               <Icon name="warn" size={16} color={C.hazmatText} /><Text style={[s.badgeText, { color: C.hazmatText }]}>Planning estimate</Text>
             </Pressable>
           </View>
+          {/* Nudge lives on the map: tap Move, then the arrows (25 m a tap). */}
+          <View style={s.moveWrap} pointerEvents="box-none">
+            {nudge && (
+              <View style={s.pad}>
+                <View style={s.padRow}><View style={s.padGap} /><Nudge l="N" onPress={() => step(0, 25)} /><View style={s.padGap} /></View>
+                <View style={s.padRow}><Nudge l="W" onPress={() => step(-25, 0)} /><View style={[s.padGap, { alignItems: 'center', justifyContent: 'center' }]}><Text style={s.padHint}>25 m</Text></View><Nudge l="E" onPress={() => step(25, 0)} /></View>
+                <View style={s.padRow}><View style={s.padGap} /><Nudge l="S" onPress={() => step(0, -25)} /><View style={s.padGap} /></View>
+              </View>
+            )}
+            <Pressable onPress={() => setNudge((x) => !x)} accessibilityRole="button" accessibilityState={{ expanded: nudge }}
+              accessibilityLabel={nudge ? 'Done moving the fire' : 'Move the fire marker'} style={[s.moveBtn, nudge && { backgroundColor: '#FFF' }]}>
+              <Icon name={nudge ? 'check' : 'pin'} size={16} color={nudge ? C.hazmatText : '#FFF'} />
+              <Text style={[s.zoomText, nudge && { color: C.hazmatText }]}>{nudge ? 'Done' : 'Move fire'}</Text>
+            </Pressable>
+          </View>
           <View style={s.zoom} accessibilityRole="radiogroup" accessibilityLabel="Zoom map to">
             {(['Hot', 'Warm', 'Cold'] as Zoom[]).map((z) => {
               const on = zoom === z;
@@ -171,7 +240,7 @@ export default function Zones() {
             })}
           </View>
         </View>
-        <Muted style={{ paddingHorizontal: 4 }}>{live ? 'Drag FIRE or long-press to move it.' : 'Drag or tap to move the fire.'}</Muted>
+        <Muted style={{ paddingHorizontal: 4 }}>{live ? 'Drag FIRE, long-press, or tap Move fire.' : 'Drag or tap to move the fire, or tap Move fire.'}</Muted>
 
         <Seg label="Set wind by" options={['Manual', 'Face the wind'] as const} value={windMode} onChange={setWindMode} />
 
@@ -258,36 +327,14 @@ export default function Zones() {
         </View>
       </View>
 
-      <H2>Location</H2>
-      <Btn icon="loc" label="Use my location" onPress={locate} />
-      {!!gpsMsg && <Muted>{gpsMsg}</Muted>}
-      {you && <Text style={s.coord}><Text style={{ fontFamily: F.display }}>You</Text> {you.lat.toFixed(5)}, {you.lng.toFixed(5)}{you.acc ? ` ±${Math.round(you.acc)} m` : ''}</Text>}
-      <Input label="Address / landmark (label only)" placeholder="e.g. 400 Main St" value={label} onChangeText={setLabel} />
-      <Text style={s.coord}>
-        <Text style={{ fontFamily: F.display }}>Fire</Text> {fireReal ? `${fire.lat.toFixed(5)}, ${fire.lng.toFixed(5)}` : 'relative to marker (no fix)'}
-        {distFt !== null ? ` · ${Math.round(distFt)} ft · ${Math.round(brg!)}°` : ''}
-      </Text>
-      <Label>Nudge fire marker</Label>
-      <View style={s.dpad}>
-        <View style={s.dpadRow}><View style={s.dpadCell} /><Nudge l="N" onPress={() => step(0, 25)} /><View style={s.dpadCell} /></View>
-        <View style={s.dpadRow}>
-          <Nudge l="W" onPress={() => step(-25, 0)} />
-          <View style={[s.dpadCell, { alignItems: 'center', justifyContent: 'center' }]}><Text style={[st.muted, { textAlign: 'center', lineHeight: 18 }]}>25 m{'\n'}per tap</Text></View>
-          <Nudge l="E" onPress={() => step(25, 0)} />
-        </View>
-        <View style={s.dpadRow}><View style={s.dpadCell} /><Nudge l="S" onPress={() => step(0, -25)} /><View style={s.dpadCell} /></View>
-      </View>
-      <Btn icon="pin" label="Reset marker to me" disabled={!you} reason="Needs a GPS fix — tap Use my location."
-        onPress={() => { if (you) { setFire({ lat: you.lat, lng: you.lng }); setTimeout(() => mapRef.current?.frame(ZONES.warm_m), 50); } }} />
-      {fireReal && <Btn icon="nav" label="Directions in Apple Maps" onPress={() => Linking.openURL(`http://maps.apple.com/?daddr=${fire.lat},${fire.lng}`)} />}
     </Screen>
   );
 }
 
 const Nudge = ({ l, onPress }: { l: string; onPress: () => void }) => (
   <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Move fire 25 metres ${l}`}
-    style={({ pressed }) => [s.dpadCell, s.dpadBtn, pressed && { backgroundColor: C.surface2 }]}>
-    <Text style={{ color: C.text, fontWeight: '700', fontSize: 17 }}>{l}</Text>
+    style={({ pressed }) => [s.padBtn, pressed && { backgroundColor: '#FFF' }]}>
+    {({ pressed }) => <Text style={{ color: pressed ? C.hazmatText : '#FFF', fontFamily: F.display, fontSize: 18 }}>{l}</Text>}
   </Pressable>
 );
 
@@ -316,6 +363,13 @@ const s = StyleSheet.create({
   badgeText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
   pe: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.hazmat, borderRadius: 9, paddingHorizontal: 12, minHeight: TARGET.min },
   zoom: { position: 'absolute', left: 8, right: 8, bottom: 8, flexDirection: 'row', gap: 6 },
+  moveWrap: { position: 'absolute', right: 8, bottom: 8 + TARGET.min + 8, alignItems: 'flex-end', gap: 6 },
+  moveBtn: { minHeight: TARGET.min, paddingHorizontal: 12, borderRadius: R.inner, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', backgroundColor: 'rgba(0,0,0,0.8)', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pad: { gap: 4, padding: 4, borderRadius: R.inner, backgroundColor: 'rgba(0,0,0,0.55)' },
+  padRow: { flexDirection: 'row', gap: 4 },
+  padGap: { width: 52, height: 52 },
+  padBtn: { width: 52, height: 52, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' },
+  padHint: { color: '#FFF', fontSize: 13, fontWeight: '700' },
   zoomBtn: { flex: 1, minHeight: TARGET.min, borderRadius: R.inner, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', backgroundColor: 'rgba(0,0,0,0.8)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   zoomText: { color: '#FFF', fontFamily: F.display, fontSize: 16 },
   compass: { width: 3 * 48 + 2 * 5, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },

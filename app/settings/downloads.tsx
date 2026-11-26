@@ -2,7 +2,7 @@ import React, { useEffect, useReducer, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Btn, H1, Muted, Notice, Pill, Screen, Toggle, st } from '../../src/components/ui';
 import {
-  IMAGE_SET, allReady, checkRemote, coreReady, deletePack, freeSpace, getPackState, installedManifest, loadPacks, PackDef, PACKS,
+  IMAGE_SET, allReady, checkRemote, coreReady, deletePack, freeSpace, getPackState, incomplete, installedManifest, loadPacks, PackDef, PACKS,
   packSize, pause, pendingBytes, remoteManifest, startOrResume, subscribe, transferRate, updateAvailable, usedBytes,
 } from '../../src/lib/packs';
 import { getSettings, setSettings } from '../../src/lib/history';
@@ -92,9 +92,12 @@ function PackRow({ p, free }: { p: PackDef; free: number }) {
     <View style={box}>
       {head}
       <Text style={[st.body, { fontSize: 17 }]}>{p.blurb}</Text>
-      {m && size && <Muted>{size.files} PDFs · list updated {fmtVersion(m.version)}</Muted>}
+      {m && size && <Muted>{size.files} files · list updated {fmtVersion(m.version)}</Muted>}
       {nhtsa && !m && <Muted>Connect once to load the cut-sheet list.</Muted>}
       {s.status === 'done' && <Text style={[st.muted, { color: C.green }]}>On this device · {s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : ''}</Text>}
+      {incomplete(p.id) && !updateAvailable(p.id) && pend && (
+        <Text style={[st.body, { color: C.hazmat, fontSize: 17 }]}>{pend.files} file(s) missing from this device ({fmtBytes(pend.bytes)}).</Text>
+      )}
       {updateAvailable(p.id) && <Text style={[st.body, { color: C.hazmat, fontSize: 17 }]}>Update available{pend ? ` — ${pend.files} new / changed (${fmtBytes(pend.bytes)})` : ''}.</Text>}
       {(s.status === 'downloading' || s.status === 'paused') && (
         <>
@@ -120,6 +123,7 @@ function PackRow({ p, free }: { p: PackDef; free: number }) {
         {s.status === 'downloading' && <Btn size="sm" label="Pause" onPress={() => pause(p.id)} />}
         {s.status === 'paused' && <Btn tone="hazmat" size="sm" icon="dl" label="Resume" onPress={go} />}
         {(updateAvailable(p.id) || (s.status === 'done' && !!s.error)) && <Btn tone="hazmat" size="sm" icon="dl" label="Update" onPress={go} />}
+        {incomplete(p.id) && !updateAvailable(p.id) && !s.error && <Btn tone="hazmat" size="sm" icon="dl" label="Download missing files" onPress={go} />}
         {s.status === 'done' && <Btn tone="danger" size="sm" label="Delete from this device" onPress={() => deletePack(p.id)} />}
       </View>
     </View>

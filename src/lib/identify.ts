@@ -65,6 +65,16 @@ const MOCK_RAW: RawGuess[] = [
   { make: 'Tesla', model: 'Model X', yearFrom: 2016, yearTo: 2024, powertrain: 'BEV', confidence: 15, cues: ['Tesla front fascia'] },
 ];
 
+/** Tell the crew WHY photo ID failed — "no signal" for everything hid server problems (#18). */
+function idError(e: unknown): string {
+  const m = String((e as Error)?.message ?? '');
+  if ((e as Error)?.name === 'AbortError' || /abort/i.test(m)) return 'Photo ID took too long (weak signal?). Search manually below — downloaded cut sheets work offline.';
+  if (/network request failed|failed to fetch|network/i.test(m)) return NO_SIGNAL_MSG;
+  if (/HTTP 40[13]|JWT|apikey|unauthor/i.test(m)) return `Photo ID couldn't sign in to the server (${m.slice(0, 80)}). Search manually below.`;
+  if (/HTTP 404|not found/i.test(m)) return 'Photo ID server not found — the identify-vehicle function may not be deployed. Search manually below.';
+  return `Photo ID failed on the server: ${m.slice(0, 140)}. Search manually below.`;
+}
+
 export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean }): Promise<IdResult> {
   await loadPacks();
   if (USE_MOCKS) {
@@ -78,10 +88,10 @@ export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean }):
   try {
     const r = await callFunction<{ guesses: RawGuess[]; notes: string; attemptId?: string; feedbackToken?: string }>('identify-vehicle', {
       action: 'identify', imageBase64: img.base64, mimeType: 'image/jpeg', sharePhoto: opts.sharePhoto,
-    });
+    }, 45000);
     return { candidates: toCandidates(r.guesses), notes: r.notes, attemptId: r.attemptId, feedbackToken: r.feedbackToken };
-  } catch {
-    throw new Error(NO_SIGNAL_MSG);
+  } catch (e) {
+    throw new Error(idError(e));
   }
 }
 

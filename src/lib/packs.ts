@@ -12,7 +12,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { BACKEND_READY, SUPABASE_URL, USE_MOCKS } from '../config';
 import { DATA_VERSION, pdfUrl, VEHICLES } from '../data/catalog';
 import { getSettings } from './history';
-import { filesFor, Guide, PageImage, parseYears, resolveLocal } from './match-core';
+import { filesFor, Guide, PageImage, parseYears, rescuePackGuides, resolveLocal } from './match-core';
 import { Bundle, bundleKey, planDownload } from './bundle-core';
 
 export type PackId = 'core' | 'nhtsa-rescue' | 'nhtsa-erg' | 'maps';
@@ -44,7 +44,7 @@ export type Manifest = {
 
 export const PACKS: PackDef[] = [
   { id: 'core', name: 'Core', required: true, blurb: 'The 20 FULLCHARGE vehicles\' manufacturer cut sheets. Small — get this first.' },
-  { id: 'nhtsa-rescue', name: 'All rescue sheets (NHTSA)', required: false, blurb: 'Every cut sheet on the NHTSA portal — cut points, HV, 12V, airbags. Stored on this device; opens with no signal. Recommended.' },
+  { id: 'nhtsa-rescue', name: 'All rescue sheets (NHTSA)', required: false, blurb: 'Every cut sheet on the NHTSA portal — cut points, HV, 12V, airbags — plus the full guide for vehicles that have no cut sheet (trucks, buses), and vehicle photos. Stored on this device; opens with no signal. Recommended.' },
   { id: 'nhtsa-erg', name: 'All full ERGs (NHTSA)', required: false, blurb: 'Every full emergency response guide — the long manuals. Optional. Wi-Fi.' },
   { id: 'maps', name: 'Offline maps', required: false, blurb: 'Satellite / map tiles by region. Not published yet — zone diagram works offline today.' },
 ];
@@ -59,7 +59,9 @@ const localPath = (id: PackId, file: string) => `${packDir(id)}${file.replace(/\
 const STORAGE = `${SUPABASE_URL}/storage/v1/object/public/packs/nhtsa`;
 export const storageUrl = (file: string) => `${STORAGE}/${file}`;
 
-const EMPTY: PackState = { status: 'none', bytesDone: 0, bytesTotal: 0, fileIndex: 0, files: {} };
+// A fresh object every time. (One shared EMPTY object used to hand the SAME files map to both NHTSA packs, so
+// finishing "All rescue sheets" deleted the "All full ERGs" files — issue #17.)
+const empty = (): PackState => ({ status: 'none', bytesDone: 0, bytesTotal: 0, fileIndex: 0, files: {} });
 let state: Record<string, PackState> = {};
 let manifest: Manifest | null = null;  // installed index
 let prev: Manifest | null = null;      // index before the last update — fallback while a pack catches up
@@ -68,7 +70,7 @@ let loaded = false;
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
 export const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
-export const getPackState = (id: PackId) => state[id] ?? EMPTY;
+export const getPackState = (id: PackId): PackState => (state[id] ??= empty());
 
 async function readJson<T>(uri: string): Promise<T | null> {
   try { return (await FS.getInfoAsync(uri)).exists ? (JSON.parse(await FS.readAsStringAsync(uri)) as T) : null; } catch { return null; }
@@ -77,6 +79,11 @@ export async function loadPacks() {
   if (loaded) return;
   try { state = JSON.parse((await AsyncStorage.getItem(KEY)) ?? '{}'); } catch { state = {}; }
   for (const k of Object.keys(state)) if (state[k].status === 'downloading') state[k] = { ...state[k], status: 'paused', interrupted: true };
+  // Repair phones hit by the shared-map bug: a pack only owns files inside its own folder.
+  for (const id of NHTSA) {
+    const f = state[id]?.files;
+    if (f) for (const k of Object.keys(f)) if (!f[k].uri.startsWith(packDir(id))) delete f[k];
+  }
   manifest = await readJson<Manifest>(MANIFEST_FILE);
   // iOS suspends downloads when the app leaves the screen: pause cleanly, then pick up again on return.
   // Bundles keep downloading in iOS's background downloader when the app leaves the screen.
@@ -107,7 +114,9 @@ function setQuiet(id: PackId, p: Partial<PackState>) {
 
 export const coreReady = () => getPackState('core').status === 'done';
 /** The cut sheets crews need on scene = the rescue-sheet pack. */
-export const allReady = () => getPackState('nhtsa-rescue').status === 'done';
+export const allReady = () => getPackState('nhtsa-rescue').status === 'done' && !(pendingBytes('nhtsa-rescue')?.files);
+/** Marked done, but files are missing (deleted by the old bug, or a failed file): offer to fetch the rest. */
+export const incomplete = (id: PackId) => getPackState(id).status === 'done' && !!pendingBytes(id)?.files;
 
 /** Offline cut-sheet index. Empty until a pack is downloaded once. */
 export const guideIndex = (): Guide[] => manifest?.guides ?? [];
@@ -118,18 +127,23 @@ export const remoteManifest = () => remote;
 /** Files a guide needs on this device. */
 export const guideFiles = (g: Guide): string[] => filesFor(g, IMAGE_SET);
 const has = (id: PackId, file: string) => !!getPackState(id).files[file];
+/** Which pack holds a file (a vehicle with no rescue sheet has its ERG in both packs). */
+const owner = (file: string, prefer?: NhtsaPack): NhtsaPack | null =>
+  prefer && has(prefer, file) ? prefer : NHTSA.find((id) => has(id, file)) ?? null;
+const hasAny = (file: string) => !!owner(file);
 
 /** A guide's local copy — or, mid-update, the previous version's copy (never a gap). */
 function localGuide(g: Guide): Guide | null {
-  const id = packForDoc(g.docType);
-  return resolveLocal(g, prev?.guides, (f) => has(id, f), IMAGE_SET);
+  return resolveLocal(g, prev?.guides, hasAny, IMAGE_SET);
 }
 export const guideOnPhone = (g: Guide) => !!localGuide(g);
 
 export type SheetPage = PageImage & { uri: string; local: boolean };
 
 /** Turn a bundle slice into its own file the first time it's needed (~200 KB page: a few ms). */
-async function materialize(id: PackId, file: string): Promise<string | null> {
+async function materialize(prefer: NhtsaPack, file: string): Promise<string | null> {
+  const id = owner(file, prefer);
+  if (!id) return null;
   const rec = getPackState(id).files[file];
   if (!rec) return null;
   if (rec.offset === undefined) return existing(rec.uri);
@@ -168,6 +182,16 @@ export async function pictureFor(guides: Guide[]): Promise<Picture | null> {
   if (!src) return null;
   const uri = lg ? await materialize(packForDoc(g.docType), src.file) : null;
   return { ...src, uri: uri ?? storageUrl(src.file), local: !!uri, guideKey: g.key };
+}
+/** Real photo of the model, approved on the PC (never a web search). From the phone when downloaded, else streamed. */
+export type CarPhotoSrc = { uri: string; local: boolean; credit: string; w: number; h: number };
+export async function photoFor(guides: Guide[]): Promise<CarPhotoSrc | null> {
+  await loadPacks();
+  const p = guides.find((g) => g.photo)?.photo ?? guides.map((g) => getGuide(g.key)?.photo).find(Boolean);
+  if (!p) return null;
+  const uri = hasAny(p.file) ? await materialize('nhtsa-rescue', p.file) : null;
+  if (!uri && USE_MOCKS) return null;
+  return { uri: uri ?? storageUrl(p.file), local: !!uri, credit: p.credit, w: p.w, h: p.h };
 }
 export const pictureForVehicle = (vehicleId: string) =>
   pictureFor(guideIndex().filter((x) => x.vehicleId === vehicleId).sort((a, b) => (b.yearTo ?? 9999) - (a.yearTo ?? 9999)));
@@ -232,11 +256,13 @@ let lastIndexCheck = 0;
 /** Unique files a pack needs from a manifest, for this device. */
 function packFiles(id: NhtsaPack, m: Manifest): { file: string; bytes: number }[] {
   const u = new Map<string, number>();
-  for (const g of m.guides) {
-    if (g.docType !== DOC[id]) continue;
+  // Rescue pack = every rescue sheet + the ERG of any vehicle with no rescue sheet (Autocar etc.) + the vehicle photos.
+  const list = id === 'nhtsa-rescue' ? rescuePackGuides(m.guides) : m.guides.filter((g) => g.docType === DOC[id]);
+  for (const g of list) {
     if (g.images) g.images[IMAGE_SET].pages.forEach((p) => u.set(p.file, p.bytes));
     else if (g.file) u.set(g.file, g.bytes || 0);
   }
+  if (id === 'nhtsa-rescue') for (const g of m.guides) if (g.photo) u.set(g.photo.file, g.photo.bytes);
   return [...u.entries()].map(([file, bytes]) => ({ file, bytes }));
 }
 
@@ -494,7 +520,8 @@ export async function startOrResume(id: PackId) {
     const keep = new Set(packFiles(id, m).map((f) => f.file));
     for (const k of Object.keys(files)) {
       if (keep.has(k)) continue;
-      if (files[k].offset === undefined) await FS.deleteAsync(files[k].uri, { idempotent: true });
+      // Only ever delete inside this pack's own folder.
+      if (files[k].offset === undefined && files[k].uri.startsWith(packDir(id))) await FS.deleteAsync(files[k].uri, { idempotent: true });
       delete files[k];
     }
     await pruneBundles(id);
@@ -512,7 +539,8 @@ export async function downloadGuides(gs: Guide[], onProgress?: (done: number, to
   const jobs: { id: NhtsaPack; file: string }[] = [];
   for (const g of gs) {
     const id = packForDoc(g.docType);
-    for (const f of guideFiles(g)) if (!has(id, f) && !jobs.some((j) => j.file === f)) jobs.push({ id, file: f });
+    for (const f of guideFiles(g)) if (!hasAny(f) && !jobs.some((j) => j.file === f)) jobs.push({ id, file: f });
+    if (g.photo && !hasAny(g.photo.file) && !jobs.some((j) => j.file === g.photo!.file)) jobs.push({ id: 'nhtsa-rescue', file: g.photo.file });
   }
   let done = 0, failed = 0;
   onProgress?.(0, jobs.length);
@@ -569,7 +597,7 @@ export async function resumeInterrupted() {
 
 export async function deletePack(id: PackId) {
   await FS.deleteAsync(packDir(id), { idempotent: true }).catch(() => {});
-  state[id] = { ...EMPTY };
+  state[id] = empty();
   await save(); emit();
 }
 

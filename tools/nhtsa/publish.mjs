@@ -5,7 +5,7 @@
 //   npm run publish -- --dry-run      (build the manifest + print sizes, upload nothing)
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { matchGuess } from '../../src/lib/match-core.ts';
+import { matchGuess, photoKey, rescuePackGuides } from '../../src/lib/match-core.ts';
 import { groupForBundles, layout } from '../../src/lib/bundle-core.ts';
 
 const DRY = process.argv.includes('--dry-run');
@@ -31,11 +31,15 @@ const now = new Date();
 const version = now.toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{4})$/, '$1-$2');
 
 const localFile = new Map(); // storage path -> file on this PC
+// Approved vehicle photos from `npm run photos:build` (one per make + model + years). Optional.
+const photos = existsSync('out/photos.json') ? JSON.parse(readFileSync('out/photos.json', 'utf8')).photos : {};
+const photoOf = (g) => { const p = photos[photoKey(g)]; if (p) localFile.set(p.file, `out/${p.file}`); return p; };
 const items = ready.map((g) => {
   const r = comp[g.sha256];
   const base = {
     key: g.key, make: g.make, model: g.model, years: g.years || '', yearFrom: g.yearFrom ?? null, yearTo: g.yearTo ?? null,
     powertrain: g.powertrain || '', docType: g.docType, version: g.version, sourceUrl: g.sourceUrl, sha256: g.sha256,
+    photo: photoOf(g),
     vehicleId: matchGuess({ make: g.make, model: g.model, yearFrom: g.yearFrom, yearTo: g.yearTo, powertrain: g.powertrain }, seed, []).vehicleId,
   };
   if (r?.kind === 'images') {
@@ -71,7 +75,7 @@ function buildBundles(key, files) {
 }
 const setFiles = (pred, pick) => {
   const u = new Map();
-  for (const g of items.filter(pred)) for (const f of pick(g)) if (f.file && !u.has(f.file)) u.set(f.file, { file: f.file, bytes: f.bytes, local: localFile.get(f.file) });
+  for (const g of (typeof pred === 'function' ? items.filter(pred) : pred)) for (const f of pick(g)) if (f.file && !u.has(f.file)) u.set(f.file, { file: f.file, bytes: f.bytes, local: localFile.get(f.file) });
   const ok = [...u.values()].filter((f) => f.local && existsSync(f.local));
   const missing = u.size - ok.length;
   if (missing) console.log(`  ⚠ ${missing} file(s) not found on this PC — left out of bundles (phones fetch them one by one).`);
@@ -79,9 +83,15 @@ const setFiles = (pred, pick) => {
 };
 // A sheet listed as BOTH an ERG and a rescue sheet becomes page images, so either pack may hold images.
 const pickFiles = (dpi) => (g) => (g.images ? g.images[dpi].pages : [{ file: g.file, bytes: g.bytes }]);
+// Rescue pack = rescue sheets + the ERG of vehicles with no rescue sheet + vehicle photos (same rule as the app).
+const rescueItems = rescuePackGuides(items);
+const withPhoto = (pick) => (g) => [...pick(g), ...(g.photo ? [{ file: g.photo.file, bytes: g.photo.bytes }] : [])];
+const orphans = rescueItems.filter((g) => g.docType !== 'rescue_sheet');
+console.log(`  ${orphans.length} vehicle entries have no rescue sheet — their full ERG goes in the rescue pack too.`);
+console.log(`  ${items.filter((g) => g.photo).length} entries have an approved photo.`);
 const bundles = {
-  'rescue_sheet:200': buildBundles('rescue_sheet:200', setFiles((g) => g.docType === 'rescue_sheet', pickFiles('200'))),
-  'rescue_sheet:300': buildBundles('rescue_sheet:300', setFiles((g) => g.docType === 'rescue_sheet', pickFiles('300'))),
+  'rescue_sheet:200': buildBundles('rescue_sheet:200', setFiles(items.filter((g) => g.photo || rescueItems.includes(g)), (g) => (rescueItems.includes(g) ? withPhoto(pickFiles('200'))(g) : [g.photo]))),
+  'rescue_sheet:300': buildBundles('rescue_sheet:300', setFiles(items.filter((g) => g.photo || rescueItems.includes(g)), (g) => (rescueItems.includes(g) ? withPhoto(pickFiles('300'))(g) : [g.photo]))),
   erg: buildBundles('erg', setFiles((g) => g.docType !== 'rescue_sheet', pickFiles('200'))), // iPad fetches its few 300-dpi pages singly
 };
 

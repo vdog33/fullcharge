@@ -9,7 +9,12 @@
     "download": "node --experimental-strip-types download.mjs",
     "publish": "node --experimental-strip-types publish.mjs",
     "all": "npm run scrape && npm run download && npm run compress && npm run publish",
-    "compress": "node --experimental-strip-types compress.mjs"
+    "compress": "node --experimental-strip-types compress.mjs",
+    "photos:find": "node --experimental-strip-types photos-find.mjs",
+    "photos:build": "node --experimental-strip-types photos-build.mjs",
+    "logos:find": "node --experimental-strip-types logos.mjs find",
+    "logos:build": "node --experimental-strip-types logos.mjs build",
+    "pictures": "npm run logos:find && npm run photos:find"
   },
   "dependencies": {
     "playwright": "^1.49.0",

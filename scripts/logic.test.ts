@@ -232,3 +232,17 @@ test('ERG guide by powertrain', () => {
   assert.equal(ergFor('').tone, 'none');
   assert.equal(ergFor(undefined).tone, 'none');
 });
+
+test('rescue pack covers vehicles with no rescue sheet (#17)', async () => {
+  const { rescuePackGuides, photoKey } = await import('../src/lib/match-core.ts');
+  const g = (make: string, model: string, docType: string, yearFrom: number | null = 2022, yearTo: number | null = 2024) =>
+    ({ key: `${make}${model}${docType}${yearFrom}`, make, model, docType, yearFrom, yearTo });
+  const all = [
+    g('Tesla', 'Model Y', 'rescue_sheet'), g('Tesla', 'Model Y', 'erg'),
+    g('Autocar', 'E-ACX', 'erg'),                                   // trucks: ERG only
+    g('Ford', 'F-150 Lightning', 'rescue_sheet', 2022, 2023), g('Ford', 'F-150 Lightning', 'erg', 2025, null), // ERG for later years only
+  ];
+  const keys = rescuePackGuides(all).map((x) => `${x.make} ${x.docType} ${x.yearFrom}`);
+  assert.deepEqual(keys, ['Tesla rescue_sheet 2022', 'Autocar erg 2022', 'Ford rescue_sheet 2022', 'Ford erg 2025']);
+  assert.equal(photoKey({ make: 'Mercedes', model: 'EQB 300', years: '2022–present' }), 'mercedesbenz|eqb300|2022–present');
+});

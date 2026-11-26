@@ -21,7 +21,25 @@ export type Guide = {
   vehicleId?: string;     // FULLCHARGE seed page, if one exists
   pages?: number;
   images?: Record<'200' | '300', { bytes: number; pages: PageImage[] }>; // rescue sheets ship as page images
+  photo?: VehiclePhoto;   // approved real photo of this model (tools/nhtsa photos:*) — ships with the rescue-sheet pack
 };
+
+/** A real photo of the vehicle, picked and approved by a person on the PC. Never a live web lookup. */
+export type VehiclePhoto = { file: string; w: number; h: number; bytes: number; credit: string; license?: string };
+
+/** One photo per make + model + year range ("generation"). Shared by the PC tools and the publish step. */
+export const photoKey = (g: { make: string; model: string; years?: string }) => `${normMake(g.make)}|${norm(g.model)}|${g.years ?? ''}`;
+
+/** Guides that go in the "All rescue sheets" pack: every rescue sheet, PLUS the full ERG of any vehicle that has
+ *  no rescue sheet (trucks, buses — e.g. Autocar), so every NHTSA vehicle has its cut info on the phone. */
+export function rescuePackGuides<T extends Pick<Guide, 'make' | 'model' | 'docType' | 'yearFrom' | 'yearTo'>>(guides: T[]): T[] {
+  const sheets = guides.filter((g) => g.docType === 'rescue_sheet');
+  const byMake = new Map<string, T[]>();
+  for (const s of sheets) { const k = normMake(s.make); byMake.set(k, [...(byMake.get(k) ?? []), s]); }
+  const covered = (g: T) => (byMake.get(normMake(g.make)) ?? [])
+    .some((s) => norm(s.model) === norm(g.model) && yearsOverlap(g.yearFrom, g.yearTo, s.yearFrom, s.yearTo));
+  return guides.filter((g) => g.docType === 'rescue_sheet' || !covered(g));
+}
 
 export type Guess = {
   make: string;

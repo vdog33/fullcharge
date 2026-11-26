@@ -85,36 +85,33 @@ In "notes", say what limits certainty (damage, angle, lighting, missing badge). 
       },
     },
   };
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const out = await res.json();
-  const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
-  const parsed = JSON.parse(text);
+  const parsed = JSON.parse(await callGemini(body));
   return { guesses: parsed.guesses as RawGuess[], notes: String(parsed.notes ?? '') };
 }
 
-/** Reference photo of a model: the lead image of its Wikipedia article. Best effort — 2.5 s, never blocks the ID. */
-async function modelPhoto(make: string, model: string): Promise<Photo | null> {
-  const q = encodeURIComponent(`${make} ${model} automobile`);
-  const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${q}&gsrlimit=1` +
-    `&prop=pageimages|info&piprop=thumbnail&pithumbsize=800&inprop=url`;
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 2500);
-    const r = await fetch(url, { signal: ctl.signal, headers: { 'User-Agent': 'FULLCHARGE/1.0 (first-responder app; vehicle reference photos)' } });
-    clearTimeout(t);
-    if (!r.ok) return null;
-    const pages = Object.values((await r.json())?.query?.pages ?? {}) as { title?: string; fullurl?: string; thumbnail?: { source?: string } }[];
-    const p = pages[0];
-    if (!p?.thumbnail?.source || !p.title) return null;
-    // The article must actually be about this make — a search can drift to a different car.
-    if (!p.title.toLowerCase().includes(make.toLowerCase().split(' ')[0])) return null;
-    return { url: p.thumbnail.source, credit: `Wikipedia: ${p.title}`, page: p.fullurl ?? '' };
-  } catch { return null; }
+// No live photo lookup any more (#16): the old Wikipedia search often showed the wrong car.
+// Real, approved photos now ship on the phone with the rescue-sheet pack. `photo` stays null for older app builds.
+const withPhotos = (gs: RawGuess[]) => gs.map((g) => ({ ...g, photo: null }));
+
+/** One Gemini call. Low thinking keeps photo ID fast (~2–5 s); if a model rejects the thinking setting, retry without it. */
+async function callGemini(body: Record<string, unknown>): Promise<string> {
+  const send = (b: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(b),
+  });
+  const gc = (body.generationConfig ?? {}) as Record<string, unknown>;
+  let res = await send({ ...body, generationConfig: { ...gc, thinkingConfig: { thinkingLevel: 'low' } } });
+  if (res.status === 400) {
+    const t = await res.text();
+    if (/thinking/i.test(t)) res = await send(body);
+    else throw new Error(`Gemini 400: ${t.slice(0, 300)}`);
+  }
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = await res.json();
+  const parts = (out?.candidates?.[0]?.content?.parts ?? []) as { text?: string; thought?: boolean }[];
+  const text = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('').trim();
+  if (!text) throw new Error(`Gemini gave no answer (${out?.candidates?.[0]?.finishReason ?? out?.promptFeedback?.blockReason ?? 'empty'})`);
+  return text.replace(/^```(?:json)?\s*|\s*```$/g, '');
 }
-const withPhotos = (gs: RawGuess[]) => Promise.all(gs.map(async (g) => ({ ...g, photo: await modelPhoto(g.make, g.model) })));
 
 /** VIN path: the VIN already names the car — just get checks a crew can confirm on it. Text only, no photo sent. */
 async function geminiChecks(make: string, model: string, year: number | null, powertrain: string): Promise<string[]> {
@@ -122,17 +119,11 @@ async function geminiChecks(make: string, model: string, year: number | null, po
 Give 3 to 5 short features they can look at on the car in seconds to confirm it is THIS model and year range and not a look-alike
 (badge text and where it is, light shape, door handles, charge-port side, roofline, grille). Only features true for this model and year.
 Plain words, max 10 words each.`;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-    body: JSON.stringify({
+  try {
+    const text = await callGemini({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: { checks: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['checks'] } },
-    }),
-  });
-  if (!res.ok) return [];
-  const out = await res.json();
-  try {
-    const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
+    });
     return ((JSON.parse(text).checks ?? []) as unknown[]).map((c) => String(c).slice(0, 90)).slice(0, 5);
   } catch { return []; }
 }
@@ -164,13 +155,7 @@ In "notes", say what limits certainty (no label visible, glare, damage, cover cl
       },
     },
   };
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const out = await res.json();
-  const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
-  const parsed = JSON.parse(text);
+  const parsed = JSON.parse(await callGemini(body));
   const guesses = (parsed.guesses ?? []).slice(0, 3).map((g: Record<string, unknown>) => ({
     brand: String(g.brand ?? '').slice(0, 40), product: String(g.product ?? '').slice(0, 60),
     modelNumbers: ((g.modelNumbers as unknown[]) ?? []).map((m) => String(m).slice(0, 40)).slice(0, 8),
@@ -192,13 +177,7 @@ Copy the characters exactly as printed; do not guess hidden characters. If sever
       responseSchema: { type: 'OBJECT', properties: { vin: { type: 'STRING' }, candidates: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['vin'] },
     },
   };
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const out = await res.json();
-  const text = out?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '{}';
-  const parsed = JSON.parse(text);
+  const parsed = JSON.parse(await callGemini(body));
   const clean = (v: unknown) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return { vin: clean(parsed.vin), candidates: (parsed.candidates ?? []).map(clean).filter((v: string) => v.length >= 17).slice(0, 5) };
 }
@@ -231,9 +210,8 @@ Deno.serve(async (req: Request) => {
       const make = String(body.make ?? '').slice(0, 40), model = String(body.model ?? '').slice(0, 60);
       if (!make || !model) return json({ error: 'make and model required' }, 400);
       const year = Number(body.year) || null, powertrain = String(body.powertrain ?? '').slice(0, 20);
-      if (MOCK) return json({ photo: await modelPhoto(make, model), checks: ['SERVER MOCK — no Gemini key set.'] });
-      const [photo, checks] = await Promise.all([modelPhoto(make, model), geminiChecks(make, model, year, powertrain)]);
-      return json({ photo, checks });
+      if (MOCK) return json({ photo: null, checks: ['SERVER MOCK — no Gemini key set.'] });
+      return json({ photo: null, checks: await geminiChecks(make, model, year, powertrain) });
     }
 
     if (body.action === 'read_vin') {
@@ -255,10 +233,10 @@ Deno.serve(async (req: Request) => {
           { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'], checks: ['Pony badge on the nose', 'Tri-bar tail lights'] },
         ], notes: 'SERVER MOCK — no Gemini key set.' }
       : await gemini(imageBase64, mimeType);
-    const guesses = await withPhotos(clean(raw.guesses));
+    const guesses = withPhotos(clean(raw.guesses));
     const top = guesses[0] ? `${guesses[0].yearFrom ?? ''} ${guesses[0].make} ${guesses[0].model}`.trim() : null;
 
-    const uid = await userId(req);
+    const uid = await userId(req).catch(() => null);
     const token = crypto.randomUUID() + crypto.randomUUID();
     const { data: row } = await admin.from('id_attempts').insert({
       user_id: uid, source: 'camera', model: MOCK ? 'mock' : GEMINI_MODEL, top_match: top,
@@ -275,6 +253,7 @@ Deno.serve(async (req: Request) => {
     return json({ guesses, notes: raw.notes, attemptId: row?.id, feedbackToken: token });
   } catch (e) {
     console.error(e);
-    return json({ error: 'identify failed' }, 500);
+    // Say what failed (no secrets in these messages) so the phone can show it instead of "no signal".
+    return json({ error: `identify failed: ${String((e as Error)?.message ?? e).slice(0, 200)}` }, 500);
   }
 });

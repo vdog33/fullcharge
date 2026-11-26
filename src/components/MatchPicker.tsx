@@ -1,13 +1,13 @@
 // Pick → check → accept, shared by camera ID and VIN lookup.
 // 1) Cards: photo of the car it thinks it is, name, likelihood (or "VIN match"). 2) Tap: checks to look at on the car.
 // 3) Accept → caller opens the rescue sheet. Back from the sheet lands on the cards again.
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Btn, Bullets, Card, H1, Muted, Notice, st } from './ui';
 import { Candidate, destination } from '../lib/identify';
 import { ergFor } from '../lib/chem-guide';
-import { allReady, guideIndex } from '../lib/packs';
+import { allReady, CarPhotoSrc, guideIndex, photoFor } from '../lib/packs';
 import { C, F, S } from '../theme';
 
 export function MatchPicker({ candidates, accepted, onAccept, onNone, noneLabel = 'None of these — search', extra, note, title = 'Which car is it?' }: {
@@ -84,17 +84,21 @@ function Likely({ c }: { c: Candidate }) {
   return <View style={{ alignItems: 'flex-end' }}><Text style={[cs.pct, { color: col }]}>{c.confidence}%</Text><Text style={st.muted}>likely</Text></View>;
 }
 
-/** Reference photo of the model; a plain panel when there isn't one (no signal, or none found). */
+/** Real photo of the model, approved on the PC and stored with the rescue sheets (offline). Never a web search. */
 function CarPhoto({ c, h }: { c: Candidate; h: number }) {
   const [bad, setBad] = useState(false);
-  if (!c.photo || bad) {
-    return <View style={{ height: h * 0.6, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface2 }}><Text style={st.muted}>No photo for this model</Text></View>;
+  const [p, setP] = useState<CarPhotoSrc | null | undefined>(undefined);
+  const k = c.guides.map((g) => g.key).join(',');
+  useEffect(() => { let on = true; photoFor(c.guides).then((x) => on && setP(x)).catch(() => on && setP(null)); return () => { on = false; }; }, [k]);
+  if (p === undefined) return <View style={{ height: h * 0.6, backgroundColor: C.surface2 }} />;
+  if (!p || bad) {
+    return <View style={{ height: h * 0.6, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface2 }}><Text style={st.muted}>{p && bad ? 'Photo needs signal until downloaded' : 'No photo on file for this model yet'}</Text></View>;
   }
   return (
     <View>
-      <Image source={{ uri: c.photo.url }} onError={() => setBad(true)} style={{ width: '100%', height: h, backgroundColor: C.surface2 }} resizeMode="cover"
+      <Image source={{ uri: p.uri }} onError={() => setBad(true)} style={{ width: '100%', height: h, backgroundColor: C.surface2 }} resizeMode="cover"
         accessibilityLabel={`Example photo of a ${c.guess.make} ${c.guess.model}`} />
-      <Text style={cs.credit} numberOfLines={1}>{c.photo.credit}</Text>
+      <Text style={cs.credit} numberOfLines={1}>{p.credit}</Text>
     </View>
   );
 }

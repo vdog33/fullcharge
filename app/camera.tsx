@@ -106,7 +106,7 @@ export default function CameraId() {
       {phase === 'confirm' && res && (
         <MatchPicker candidates={res.candidates} accepted={accepted} onAccept={yes} onNone={manual}
           extra={<Btn tone="outline" icon="cam" label="Try another photo" onPress={() => setPhase('idle')} />}
-          note="Likelihood is the AI's estimate from one photo. Photos are examples of each model — years may differ." />
+          note="Likelihood is the AI's estimate from one photo. Photos show each model (approved, stored on the phone) — check the badge." />
       )}
 
       {phase === 'error' && (

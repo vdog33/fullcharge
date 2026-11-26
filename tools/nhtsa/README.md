@@ -38,6 +38,31 @@ npm run publish          # uploads only new / changed PDFs, then the manifest
 To update weekly (or whenever NHTSA adds sheets), run `npm run all`, which does all four steps. Phones download only what changed,
 and a sheet stays on the phone until its replacement has fully downloaded.
 
+## Vehicle photos (real photos, approved by you)
+The app shows a real photo of each model on the "Which car is it?" cards — from the phone, no signal needed. Nothing
+is looked up live any more (the old Wikipedia search picked wrong cars). You approve every photo:
+```powershell
+npm run photos:find      # finds candidate photos (Wikimedia Commons, free licences) → out\photos-review.html
+#   open it in Chrome, click the right photo per model (right model AND years) or "None fit", press Save approvals,
+#   move the downloaded photos-approved.json into out\
+npm run photos:build     # downloads + shrinks the approved ones (~60 KB each) → out\photos.json
+npm run publish          # ships them inside the "All rescue sheets" pack
+```
+Your own photos (department photos, ones you have rights to) beat Commons: name them with the model's code from
+`out\photos-codes.txt` and drop them in `out\photos-manual\` (optional `.txt` with the same name = the credit line).
+Re-running is safe: decisions are kept, only new models need a look.
+
+## Brand logos (manufacturer grid)
+```powershell
+npm run logos:find       # → out\logos-review.html: click the current logo per brand, Save approvals, move the file into out\
+npm run logos:build      # → assets\brands\*.png + src\data\brand-logos.ts. Commit both, then rebuild the app.
+```
+`npm run pictures` runs both "find" steps (logos + vehicle photos) in one go.
+
+## Vehicles with no rescue sheet
+Some NHTSA entries (Autocar and other trucks / buses) only have a full ERG. Those ERGs now go in the
+"All rescue sheets" pack too, so every vehicle has its cut info offline with just that one pack.
+
 ## Sheets NHTSA has broken
 Some files on NHTSA's server are empty or deleted. To fill one in, get the sheet from the manufacturer (or Euro NCAP),
 name it with the code `download` prints for it (e.g. `54f3a1dec7cf.pdf`), put it in `out\manual\`, and re-run `npm run download`.
