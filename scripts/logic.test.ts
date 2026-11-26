@@ -320,3 +320,13 @@ test('Offline VIN: patterns, year ranges, most specific wins, ties return both',
   assert.deepEqual(decodeOffline(db, '7SAYGDEE1PF000001', 2023)!.models.sort(), ['Model 3', 'Model Y']); // tie → both, crew picks
   assert.equal(decodeOffline(db, 'WVWZZZ1KZ6W000001', 2006), null);
 });
+
+import { boxKm, countTiles, lat2y, lon2x, tilesIn } from '../src/lib/tiles-core.ts';
+test('Map tiles: slippy-map maths and counts', () => {
+  assert.equal(lon2x(0, 1), 1); assert.equal(lat2y(0, 1), 1); assert.equal(lon2x(-180, 4), 0);
+  const b = { n: 33.25, s: 33.15, e: -117.25, w: -117.40 }; // Oceanside-ish, ~14 × 11 km
+  const n = countTiles(b);
+  assert.equal(n, [...tilesIn(b)].length);
+  assert.ok(n > 300 && n < 2000, String(n));
+  const k = boxKm(b); assert.ok(k.w > 13 && k.w < 15 && k.h > 10 && k.h < 12);
+});

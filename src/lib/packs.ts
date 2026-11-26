@@ -46,7 +46,7 @@ export const PACKS: PackDef[] = [
   { id: 'core', name: 'Core', required: true, blurb: 'The 20 FULLCHARGE vehicles\' manufacturer cut sheets. Small — get this first.' },
   { id: 'nhtsa-rescue', name: 'All rescue sheets (NHTSA)', required: false, blurb: 'Every cut sheet on the NHTSA portal — cut points, HV, 12V, airbags — plus the full guide for vehicles that have no cut sheet (trucks, buses), and vehicle photos. Stored on this device; opens with no signal. Recommended.' },
   { id: 'nhtsa-erg', name: 'All full ERGs (NHTSA)', required: false, blurb: 'Every full emergency response guide — the long manuals. Optional. Wi-Fi.' },
-  { id: 'maps', name: 'Offline maps', required: false, blurb: 'Satellite / map tiles by region. Not published yet — zone diagram works offline today.' },
+  { id: 'maps', name: 'Offline maps', required: false, blurb: 'Aerial map of your own areas — set up in Scene-ready setup (Home → badge).' },
 ];
 
 const KEY = 'fullcharge.packs.v3';

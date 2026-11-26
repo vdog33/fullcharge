@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useEffect, useReducer, useState } from 'react';
 import { VinDbRow } from '../../src/components/VinDbRow';
 import { Alert, Text, View } from 'react-native';
@@ -82,13 +83,13 @@ function PackRow({ p, free }: { p: PackDef; free: number }) {
   const head = (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
       <Text style={[st.label, { flexShrink: 1 }]}>{p.name}{rec ? ' · get first' : ''}</Text>
-      {p.id === 'maps' ? <Pill tone="sig" label="Not published yet" />
+      {p.id === 'maps' ? <Pill tone="sig" label="Your areas" />
         : <Text style={{ color: C.text, fontFamily: F.black, fontSize: 24 }}>{size ? fmtBytes(size.bytes) : 'Small'}</Text>}
     </View>
   );
   const box = { borderWidth: 2, borderColor: rec ? C.hazmat : C.line, borderRadius: 16, backgroundColor: C.surface, padding: 14, gap: 8 } as const;
 
-  if (p.id === 'maps') return <View style={box}>{head}<Text style={[st.body, { fontSize: 17 }]}>{p.blurb}</Text></View>;
+  if (p.id === 'maps') return <View style={box}>{head}<Text style={[st.body, { fontSize: 17 }]}>{p.blurb}</Text><Btn size="sm" icon="pin" label="Map areas — Scene-ready setup" onPress={() => router.push('/setup')} /></View>;
 
   return (
     <View style={box}>

@@ -2,12 +2,12 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BigNav, Btn, Icon, Notice, Screen, Wordmark } from '../src/components/ui';
+import { BigNav, Icon, Screen, Wordmark } from '../src/components/ui';
 import { IconName } from '../src/components/Icon';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
+import { SceneBadge } from '../src/components/SceneBadge';
 import { BESS } from '../src/data/catalog';
 import { BETA } from '../src/config';
-import { allReady, coreReady, loadPacks } from '../src/lib/packs';
 import { C, R } from '../src/theme';
 
 // Corner menu: things you set up at the station, not on scene.
@@ -18,10 +18,8 @@ const MENU: [string, string, IconName][] = [
 export default function Home() {
   const r = useRouter();
   const insets = useSafeAreaInsets();
-  const [core, setCore] = useState(true);
   const [menu, setMenu] = useState(false);
   useFocusEffect(useCallback(() => () => setMenu(false), []));
-  useFocusEffect(useCallback(() => { loadPacks().then(() => setCore(coreReady() && allReady())); }, []));
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
@@ -51,12 +49,8 @@ export default function Home() {
 
         <LastVehicleBar />
 
-        {!core && (
-          <Notice tone="warn" icon="cloud" title="Offline not ready"
-            action={<Btn tone="hazmat" size="sm" icon="dl" label="Download cut sheets" onPress={() => r.push('/settings/downloads')} />}>
-            Cut sheets not all on this phone yet — some need signal.
-          </Notice>
-        )}
+        {/* Scene-ready: green when this phone works with no signal; yellow when it needs a re-check. */}
+        <SceneBadge />
 
         {/* The four things a crew needs, nothing else to read first. */}
         <BigNav tone="red" icon="cam" title="Identify by camera" sub="Photograph the non-damaged side" onPress={() => r.push('/camera')} />
