@@ -4,7 +4,7 @@ import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Card, Chips, H1, Input, Muted, Notice, Screen, st } from '../../src/components/ui';
 import { useAuth } from '../../src/lib/auth';
-import { myGroups, shareIncident, ZoneGroup } from '../../src/lib/zone-share';
+import { myGroups, OPEN_ZONE, shareIncident, ZoneGroup } from '../../src/lib/zone-share';
 import { quickFix, lastFix } from '../../src/lib/here';
 import { getScene } from '../../src/lib/scene';
 import { COMPASS, Compass, compassDeg } from '../../src/lib/geo';
@@ -23,7 +23,7 @@ export default function ShareToZone() {
   const [fix, setFix] = useState(lastFix());
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (user) myGroups().then((x) => { setGroups(x); if (x[0]) { setG(x[0].id); setUnit(x[0].unit); } }).catch((e) => setErr(e.message));
+    if (user || OPEN_ZONE) myGroups().then((x) => { setGroups(x); if (x[0]) { setG(x[0].id); setUnit(x[0].unit); } }).catch((e) => setErr(e.message));
     quickFix().then((x) => { if (x && x !== 'denied') setFix(x); });
     const sc = getScene(); if (sc.windDeg != null || sc.windFrom) setWind(sc.windFrom);
   }, [user?.id]);

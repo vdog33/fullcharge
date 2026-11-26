@@ -25,6 +25,8 @@ sign-in code `123456`, simulated pack downloads.
 5. `.env`: `EXPO_PUBLIC_USE_MOCKS=false`, URL + anon key. Auth → Email → enable OTP (code, 6 digits).
 6. Zone sharing: run `supabase/migrations/0006_zone_sharing.sql` (or `supabase db push`). It turns on Realtime for
    `zone_incidents`; check Database → Publications → supabase_realtime lists it.
+   Beta test: also run `0007_open_test_zone.sql` — one open zone, no sign-in, everyone on the beta sees and updates it.
+   **Close it before launch** (lines at the bottom of that file).
 
 ### Testing functions locally through ngrok
 ```bash

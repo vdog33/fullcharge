@@ -4,7 +4,7 @@ import { Text, View, Vibration } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Btn, Card, CardBtn, H1, H2, Input, Muted, Notice, Pill, Screen, st } from '../../src/components/ui';
 import { useAuth } from '../../src/lib/auth';
-import { ago, createZone, Incident, joinZone, leaveZone, liveIncidents, myGroups, watchIncidents, ZoneGroup } from '../../src/lib/zone-share';
+import { ago, createZone, getMyUnit, Incident, joinZone, leaveZone, liveIncidents, myGroups, OPEN_ZONE, OPEN_ZONE_ID, setMyUnit, watchIncidents, ZoneGroup } from '../../src/lib/zone-share';
 import { toCompass } from '../../src/lib/geo';
 import { C, S } from '../../src/theme';
 
@@ -20,14 +20,15 @@ export default function ZoneHome() {
   const [sure, setSure] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user && !OPEN_ZONE) return;
     try { const g = await myGroups(); setGroups(g); setInc(await liveIncidents(g.map((x) => x.id))); setErr(''); }
     catch (e) { setErr((e as Error).message); }
   }, [user?.id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  useEffect(() => (user ? watchIncidents((_i, kind) => { if (kind === 'new') Vibration.vibrate(400); load(); }) : undefined), [user?.id]);
+  useEffect(() => { getMyUnit().then(setUnit); }, []);
+  useEffect(() => (user || OPEN_ZONE ? watchIncidents((_i, kind) => { if (kind === 'new') Vibration.vibrate(400); load(); }) : undefined), [user?.id]);
 
-  if (!user) return (
+  if (!user && !OPEN_ZONE) return (
     <Screen>
       <H1>Zone sharing</H1>
       <Text style={st.body}>Share a scene with the departments in your zone — unit, vehicle, where, wind — and see theirs live.</Text>
@@ -56,8 +57,16 @@ export default function ZoneHome() {
         </CardBtn>
       ))}
 
-      <H2>My zone groups</H2>
-      {groups.map((g) => (
+      {OPEN_ZONE && (
+        <Card>
+          <Text style={[st.body, { fontWeight: '700' }]}>Beta test zone — open</Text>
+          <Muted>Everyone on the beta sees and can update every scene here. No sign-in. Don't put patient info in it.</Muted>
+          <Input label="Your unit (shows on what you share)" placeholder="e.g. Vista E151" value={unit} onChangeText={(t) => { setUnit(t); setMyUnit(t); }} />
+        </Card>
+      )}
+
+      {!!user && <H2>My zone groups</H2>}
+      {groups.filter((g) => g.id !== OPEN_ZONE_ID).map((g) => (
         <Card key={g.id}>
           <Text style={[st.body, { fontWeight: '700' }]}>{g.name}</Text>
           <Muted>{g.unit ? `You: ${g.unit} · ` : ''}Invite code {g.invite_code}</Muted>
@@ -67,7 +76,8 @@ export default function ZoneHome() {
       ))}
       {made && <Notice tone="ok" title={`Invite code: ${made}`}>Give this code only to departments in your zone. They join with it here.</Notice>}
 
-      {mode === 'none' && (
+      {!user && <Muted>Invite-only zone groups (for after the test): sign in from Settings.</Muted>}
+      {!!user && mode === 'none' && (
         <View style={{ flexDirection: 'row', gap: S.sm }}>
           <View style={{ flex: 1 }}><Btn icon="users" label="Join with code" onPress={() => setMode('join')} /></View>
           <View style={{ flex: 1 }}><Btn tone="outline" label="Create group" onPress={() => setMode('create')} /></View>

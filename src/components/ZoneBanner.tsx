@@ -4,16 +4,16 @@ import { Pressable, Text, View, Vibration } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Icon } from './Icon';
 import { useAuth } from '../lib/auth';
-import { Incident, liveIncidents, myGroups, watchIncidents } from '../lib/zone-share';
+import { Incident, liveIncidents, myGroups, OPEN_ZONE, watchIncidents } from '../lib/zone-share';
 import { C, F, R } from '../theme';
 
 export function ZoneBanner() {
   const r = useRouter();
   const { user } = useAuth();
   const [inc, setInc] = useState<Incident[]>([]);
-  const load = useCallback(() => { if (user) myGroups().then((g) => liveIncidents(g.map((x) => x.id))).then(setInc).catch(() => {}); }, [user?.id]);
+  const load = useCallback(() => { if (user || OPEN_ZONE) myGroups().then((g) => liveIncidents(g.map((x) => x.id))).then(setInc).catch(() => {}); }, [user?.id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  useEffect(() => (user ? watchIncidents((_i, kind) => { if (kind === 'new') Vibration.vibrate(400); load(); }) : undefined), [user?.id]);
+  useEffect(() => (user || OPEN_ZONE ? watchIncidents((_i, kind) => { if (kind === 'new') Vibration.vibrate(400); load(); }) : undefined), [user?.id]);
   if (!inc.length) return null;
   const top = inc[0];
   return (
