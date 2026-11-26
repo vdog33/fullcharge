@@ -35,7 +35,7 @@ export default function Command() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const wide = width >= 900;
+  const wide = width >= 700 && width > height; // landscape iPad (or big phone) → split screen
   const [pane, setPane] = useState<'Cut sheet' | 'ERG 147' | 'Map'>(wide ? 'Cut sheet' : 'Map');
   const [inc, setInc] = useState<Incident[]>([]);
   const [focus, setFocus] = useState<Focus>({ label: 'Your location', guides: [], at: lastFix(), windFrom: null });
@@ -59,7 +59,7 @@ export default function Command() {
   const pick = (i: Incident) => setFocus({ label: `${i.unit} · ${i.vehicle}`, guides: guidesForRef(i.vehicle_ref), at: i.lat != null && i.lng != null ? { lat: i.lat, lng: i.lng } : null, windFrom: i.wind_from_deg, incident: i.id });
 
   const strip = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: S.lg, paddingVertical: 8 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: S.lg, paddingVertical: 8, alignItems: 'center' }}>
       <Chip on={!focus.incident} title="My scene" sub={focus.incident ? 'Back to mine' : focus.label} onPress={() => setFocus({ label: 'Your location', guides: [], at: lastFix(), windFrom: null })} />
       {inc.map((i) => <Chip key={i.id} on={focus.incident === i.id} title={i.unit || 'Zone scene'} sub={`${i.vehicle} · ${ago(i.created_at)}`} onPress={() => pick(i)} />)}
       {!user && !OPEN_ZONE && <Chip on={false} title="Zone scenes" sub="Sign in to see them" onPress={() => r.push('/zone')} />}
@@ -67,7 +67,7 @@ export default function Command() {
   );
 
   const map = focus.at
-    ? <ZoneMap fire={focus.at} you={lastFix()} mapType="satellite" height={wide ? height - insets.bottom - 150 : Math.min(460, height * 0.55)}
+    ? <ZoneMap fire={focus.at} you={lastFix()} mapType="satellite" height={wide ? Math.max(300, height - insets.top - insets.bottom - 150) : Math.min(460, height * 0.55)}
         plumeHeading={((focus.windFrom ?? 0) + 180) % 360} plumeHalfDeg={focus.windFrom != null ? ZONES.plume_day_spread_deg : 0}
         plumeLenM={focus.windFrom != null ? ZONES.plume_day_m : 0} onMoveFire={(p) => setFocus((f) => ({ ...f, at: p }))} />
     : <Muted>Waiting for your location…</Muted>;
@@ -92,9 +92,9 @@ export default function Command() {
   if (wide) return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
-      <View style={{ flex: 1, flexDirection: 'row', gap: S.lg, paddingHorizontal: S.lg, paddingBottom: insets.bottom + 8 }}>
-        <View style={{ flex: 1.15 }}>{map}</View>
-        <View style={{ flex: 1, gap: S.sm }}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.lg, paddingHorizontal: S.lg, paddingBottom: insets.bottom + 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>{map}</View>
+        <View style={{ flex: 1, minWidth: 0, gap: S.sm }}>
           <Seg label="Right side" options={['Cut sheet', 'ERG 147'] as const} value={pane === 'Map' ? 'Cut sheet' : pane} onChange={setPane} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>{pane === 'ERG 147' ? erg : sheet}</ScrollView>
         </View>
@@ -115,7 +115,7 @@ export default function Command() {
 function Chip({ on, title, sub, onPress }: { on: boolean; title: string; sub: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: on }}
-      style={({ pressed }) => ({ minHeight: 56, minWidth: 150, maxWidth: 260, paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.card, borderWidth: 2,
+      style={({ pressed }) => ({ height: 60, minWidth: 150, maxWidth: 260, paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.card, borderWidth: 2,
         borderColor: on ? '#FFF' : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.surface, justifyContent: 'center' })}>
       <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.text, fontFamily: F.display, fontSize: 16 }}>{title}</Text>
       <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.muted, fontSize: 14 }}>{sub}</Text>

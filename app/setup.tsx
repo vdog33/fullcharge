@@ -60,7 +60,10 @@ export default function Setup() {
 
       <View style={{ flexDirection: 'row', gap: S.sm }}>
         {step > 0 && <View style={{ flex: 1 }}><Btn tone="outline" icon="back" label="Back" onPress={() => go(step - 1)} /></View>}
-        {step < STEPS.length - 1 && <View style={{ flex: 2 }}><Btn tone="red" label="Next" icon="chev" onPress={() => go(step + 1)} /></View>}
+        {step < STEPS.length - 1
+          ? <View style={{ flex: 2 }}><Btn tone="red" label="Next" icon="chev" onPress={() => go(step + 1)} /></View>
+          : <View style={{ flex: 2 }}><Btn tone={s.readyAt ? 'red' : 'neutral'} icon="check" label="Finish setup"
+              sub={s.readyAt ? 'Scene-ready' : 'Saved — badge stays yellow until the test passes'} onPress={async () => { await setSetup({ setupDoneAt: Date.now() }); r.replace('/'); }} /></View>}
       </View>
       <Muted>Text size follows your iPhone: Settings → Display & Brightness → Text Size.</Muted>
     </Screen>
