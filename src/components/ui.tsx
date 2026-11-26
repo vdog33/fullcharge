@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 // 18px body / 15px floor, 48px minimum targets (56 standard), selection = solid white + check, never colour alone.
 import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import {
-  Image, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle,
+  Image, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle, useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,13 +36,16 @@ export const Screen = forwardRef<ScrollView, { children: React.ReactNode; pad?: 
   { children, pad = true, footer = true }, ref,
 ) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  // iPad: use the screen. Phones are narrower than this anyway.
+  const maxW = width >= 1000 ? 1180 : width >= 700 ? 960 : 760;
   // A <TabBar> anywhere in the page stays pinned to the top while you scroll.
   const kids = React.Children.toArray(children);
   const at = kids.findIndex((k) => React.isValidElement(k) && k.type === TabBar);
   const sticky = at < 0 ? undefined : [at + (USE_MOCKS ? 1 : 0)];
   return (
     <ScrollView ref={ref} style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" stickyHeaderIndices={sticky}
-      contentContainerStyle={{ padding: pad ? S.lg : 0, paddingBottom: insets.bottom + 40, width: '100%', maxWidth: 760, alignSelf: 'center', gap: S.block }}>
+      contentContainerStyle={{ padding: pad ? S.lg : 0, paddingBottom: insets.bottom + 40, width: '100%', maxWidth: maxW, alignSelf: 'center', gap: S.block }}>
       {USE_MOCKS && <Text style={st.mock}>MOCK DATA MODE</Text>}
       {kids}
       {footer && <Footer />}
@@ -214,15 +217,18 @@ export function Btn({ label, onPress, tone = 'neutral', size = 'md', big, sub, i
 /** Home-screen entries: icon, title, one-line subtitle, chevron. 76px. */
 export function BigNav({ title, sub, icon, tone = 'neutral', onPress }: { title: string; sub?: string; icon: IconName; tone?: 'red' | 'neutral'; onPress: () => void }) {
   const red = tone === 'red';
+  const { width } = useWindowDimensions();
+  const tablet = width >= 700;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={sub ? `${title}. ${sub}` : title}
-      style={({ pressed }) => [st.big, red && { backgroundColor: C.red, borderColor: C.red }, pressed && { opacity: 0.85 }]}>
-      <Icon name={icon} size={32} />
-      <View style={{ flex: 1 }}>
-        <Text style={st.bigTitle}>{title}</Text>
-        {!!sub && <Text style={[st.bigSub, red && { color: '#FFF' }]}>{sub}</Text>}
+      style={({ pressed }) => [st.big, tablet && { flex: 1, minHeight: 140, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 12, padding: 24 },
+        red && { backgroundColor: C.red, borderColor: C.red }, pressed && { opacity: 0.85 }]}>
+      <Icon name={icon} size={tablet ? 56 : 32} />
+      <View style={tablet ? undefined : { flex: 1 }}>
+        <Text style={[st.bigTitle, tablet && { fontSize: 32, lineHeight: 36 }]}>{title}</Text>
+        {!!sub && <Text style={[st.bigSub, tablet && { fontSize: 19 }, red && { color: '#FFF' }]}>{sub}</Text>}
       </View>
-      <Icon name="chev" size={24} />
+      {!tablet && <Icon name="chev" size={24} />}
     </Pressable>
   );
 }
@@ -281,6 +287,21 @@ export function TabBar<T extends string>({ tabs, value, onChange, label = 'Secti
           );
         })}
       </View>
+    </View>
+  );
+}
+
+/** iPad / landscape: lay children out as a grid of equal tiles (2 across). Phones: a plain column. */
+export function Grid({ children, min = 700, gap = S.block, fillH }: { children: React.ReactNode; min?: number; gap?: number; fillH?: number }) {
+  const { width } = useWindowDimensions();
+  const kids = React.Children.toArray(children).filter(Boolean);
+  if (width < min) return <View style={{ gap }}>{kids}</View>;
+  const rows = Math.ceil(kids.length / 2);
+  // fillH: split this much height between the rows so the tiles fill the page.
+  const tileH = fillH ? Math.max(140, (fillH - gap * (rows - 1)) / rows) : undefined;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+      {kids.map((k, i) => <View key={i} style={{ flexBasis: '48%', flexGrow: 1, height: tileH }}>{k}</View>)}
     </View>
   );
 }

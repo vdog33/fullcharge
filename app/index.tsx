@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BigNav, Icon, Screen, Wordmark } from '../src/components/ui';
+import { BigNav, Grid, Icon, Screen, Wordmark } from '../src/components/ui';
 import { IconName } from '../src/components/Icon';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { SceneBadge } from '../src/components/SceneBadge';
@@ -22,6 +22,9 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const [menu, setMenu] = useState(false);
   const [cmd, setCmd] = useState(false);
+  const { width: W, height: H } = useWindowDimensions();
+  // iPad: the big buttons share the screen below the logo and badges.
+  const tilesH = W >= 700 ? H - 330 : undefined;
   useFocusEffect(useCallback(() => { getSetup().then((x) => setCmd(commandOn(x))); }, []));
   useFocusEffect(useCallback(() => () => setMenu(false), []));
 
@@ -58,13 +61,14 @@ export default function Home() {
         <ZoneBanner />
 
         {/* The four things a crew needs, nothing else to read first. */}
-        <BigNav tone="red" icon="cam" title="Identify by camera" sub="Photograph the non-damaged side" onPress={() => r.push('/camera')} />
-        <BigNav icon="search" title="Search a vehicle" sub="Make / model · VIN" onPress={() => r.push('/search')} />
-        <BigNav icon="batt" title="BESS" sub={`${BESS.length} home battery systems`} onPress={() => r.push('/bess')} />
-        <BigNav icon="pin" title="Isolation zones + map" sub="Starts on your location" onPress={() => r.push('/zones')} />
-        {cmd && <BigNav icon="users" title="Command view" sub="Map + cut sheet / ERG · zone scenes" onPress={() => r.push('/command')} />}
-
-        {BETA && <BigNav icon="flask" title="Test" sub="Beta: 20 vehicles — cut sheets broken down" onPress={() => r.push('/test')} />}
+        <Grid fillH={tilesH}>
+          <BigNav tone="red" icon="cam" title="Identify by camera" sub="Photograph the non-damaged side" onPress={() => r.push('/camera')} />
+          <BigNav icon="search" title="Search a vehicle" sub="Make / model · VIN" onPress={() => r.push('/search')} />
+          <BigNav icon="batt" title="BESS" sub={`${BESS.length} home battery systems`} onPress={() => r.push('/bess')} />
+          <BigNav icon="pin" title="Isolation zones + map" sub="Starts on your location" onPress={() => r.push('/zones')} />
+          {cmd && <BigNav icon="users" title="Command view" sub="Map + cut sheet / ERG · zone scenes" onPress={() => r.push('/command')} />}
+          {BETA && <BigNav icon="flask" title="Test" sub="Beta: 20 vehicles — cut sheets broken down" onPress={() => r.push('/test')} />}
+        </Grid>
 
         {/* Small link — Recents can matter on scene, but it isn't one of the big four. */}
         <Pressable onPress={() => r.push('/recents')} accessibilityRole="button"
