@@ -27,10 +27,10 @@ export default function Home() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   useEffect(() => (user || OPEN_ZONE ? watchIncidents(() => load()) : undefined), [user?.id]);
   // The three buttons share the screen below the logo.
-  const btnH = Math.max(110, (height - insets.top - insets.bottom - 170) / 3);
+  const btnH = Math.max(110, (height - insets.top - insets.bottom - 130) / 3);
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top, paddingBottom: insets.bottom + 12, paddingHorizontal: 16, gap: 12 }}>
+    <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top + 4, paddingBottom: insets.bottom + 12, paddingHorizontal: 16, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ flex: 1, alignItems: 'center' }}><Wordmark fill /></View>
         <Pressable onPress={() => setMenu(!menu)} accessibilityRole="button" accessibilityState={{ expanded: menu }} accessibilityLabel="Menu"
