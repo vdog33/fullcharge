@@ -10,7 +10,6 @@ import { Icon } from '../src/components/Icon';
 import { ZoneMap } from '../src/components/ZoneMap';
 import { SheetItems } from '../src/components/SheetItems';
 import { SheetZoom } from '../src/components/SheetZoom';
-import { WeatherChip } from '../src/components/WeatherChip';
 import { getWeather, Weather } from '../src/lib/weather';
 import { ShareToZoneBtn } from '../src/components/ShareToZoneBtn';
 import { GUIDE_147_SECTIONS } from '../src/data/content';
@@ -60,7 +59,8 @@ export default function Command() {
   // Open beta zone: anyone can update. Invite-only zones: the unit that shared it.
   const canEdit = !!live && live.status === 'active' && (live.group_id === OPEN_ZONE_ID || (!!user && user.id === live.created_by));
 
-  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []); // keeps "12 min" fresh
+  const [openedAt] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []); // scene clock
 
   // Opened for a shared scene (from Share to zone, a notification or the zone list).
   useEffect(() => {
@@ -138,29 +138,33 @@ export default function Command() {
     </View>
   );
 
-  const mapH = wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 160) : Math.min(460, height * 0.55);
+  // Dashboard tiles (option 5): temp · wind from · speed · gusts · scene clock. Wind tile opens the compass.
+  const since = live ? Date.parse(live.created_at) : openedAt;
+  const secs = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  const clock = `${Math.floor(secs / 3600) ? `${Math.floor(secs / 3600)}:` : ''}${String(Math.floor((secs % 3600) / 60)).padStart(Math.floor(secs / 3600) ? 2 : 1, '0')}:${String(secs % 60).padStart(2, '0')}`;
+  const wxAge = wx ? Math.max(0, Math.round((Date.now() - wx.observedAt) / 60000)) : 0;
+  const editWind = !live || canEdit;
+  const tiles = (
+    <View style={{ gap: 6, paddingHorizontal: S.md, paddingBottom: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <Tile label="Temp" value={wx?.tempF != null ? `${wx.tempF}°F` : '—'} sub={wx ? `${wx.source.replace('Open-Meteo model', 'Model')} · ${wxAge < 1 ? 'now' : `${wxAge} min`}` : 'No weather yet'} />
+        <Tile label="Wind from" value={focus.windFrom != null ? toCompass(focus.windFrom) : 'Set'} sub={editWind ? (windOpen ? 'Tap to close' : 'Tap to change') : 'View only'}
+          on={windOpen} onPress={editWind ? () => setWindOpen((x) => !x) : undefined} />
+        <Tile label="Speed" value={wx?.windMph != null ? `${wx.windMph}` : '—'} unit="mph" />
+        <Tile label="Gusts" value={wx?.gustMph != null ? `${wx.gustMph}` : '—'} unit="mph" />
+        <Tile label={live ? 'Since shared' : 'Scene clock'} value={clock} mono />
+      </View>
+      {windOpen && <Chips label="Wind from" square options={COMPASS.map((c) => ({ key: c, label: c }))} value={focus.windFrom != null ? toCompass(focus.windFrom) : undefined}
+        onChange={(c) => { setWind(c as Compass); setWindOpen(false); }} />}
+    </View>
+  );
+
+  const mapH = wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 260) : Math.min(460, height * 0.55);
   const map = focus.at ? (
     <View style={{ height: mapH }}>
       <ZoneMap key={live?.id ?? 'mine'} fire={focus.at} you={lastFix()} mapType="satellite" height={mapH}
         plumeHeading={((focus.windFrom ?? 0) + 180) % 360} plumeHalfDeg={focus.windFrom != null ? ZONES.plume_day_spread_deg : 0}
         plumeLenM={focus.windFrom != null ? ZONES.plume_day_m : 0} onMoveFire={moveFire} />
-      {/* Over the map: weather + wind, so the map keeps the whole height. */}
-      <View style={{ position: 'absolute', top: 8, left: 8, right: 60, gap: 6 }} pointerEvents="box-none">
-        {wx && <WeatherChip w={wx} using compact />}
-        <Pressable onPress={() => (!live || canEdit ? setWindOpen((x) => !x) : undefined)} accessibilityRole="button"
-          style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, borderRadius: 8, backgroundColor: windOpen ? '#FFF' : 'rgba(0,0,0,0.75)' }}>
-          <Icon name="nav" size={18} color={windOpen ? C.hazmatText : C.text} />
-          <Text style={{ color: windOpen ? C.hazmatText : C.text, fontWeight: '700', fontSize: 16 }}>
-            Wind from {focus.windFrom != null ? toCompass(focus.windFrom) : '— set'}{!live || canEdit ? (windOpen ? ' · close' : ' · change') : ''}
-          </Text>
-        </Pressable>
-        {windOpen && (
-          <View style={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 8, padding: 6 }}>
-            <Chips label="Wind from" square options={COMPASS.map((c) => ({ key: c, label: c }))} value={focus.windFrom != null ? toCompass(focus.windFrom) : undefined}
-              onChange={(c) => { setWind(c as Compass); setWindOpen(false); }} />
-          </View>
-        )}
-      </View>
       <View pointerEvents="none" style={{ position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
         <Text style={{ color: '#fff', fontSize: 13 }}>{!live || canEdit ? `Drag the fire — zones follow${live ? ' on every phone' : ''}` : 'View only'}</Text>
       </View>
@@ -189,6 +193,7 @@ export default function Command() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
       {status}
+      {tiles}
       {!!err && <Text style={{ color: C.redText, paddingHorizontal: S.md }}>{err}</Text>}
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.md, paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}>
         <View style={{ flex: 1, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
@@ -203,6 +208,7 @@ export default function Command() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
       {status}
+      {tiles}
       <View style={{ paddingHorizontal: S.md }}><Seg label="Show" options={['Map', 'Cut sheet', 'ERG 147'] as const} value={pane} onChange={setPane} /></View>
       <ScrollView contentContainerStyle={{ padding: S.md, paddingBottom: insets.bottom + 40, gap: S.block }}>
         {!!err && <Text style={{ color: C.redText }}>{err}</Text>}
@@ -219,6 +225,21 @@ function Chip({ on, title, sub, onPress }: { on: boolean; title: string; sub: st
         borderColor: on ? '#FFF' : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.surface, justifyContent: 'center' })}>
       <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.text, fontFamily: F.display, fontSize: 16 }}>{title}</Text>
       <Text numberOfLines={1} style={{ color: on ? C.hazmatText : C.muted, fontSize: 14 }}>{sub}</Text>
+    </Pressable>
+  );
+}
+
+function Tile({ label, value, unit, sub, on, mono, onPress }: { label: string; value: string; unit?: string; sub?: string; on?: boolean; mono?: boolean; onPress?: () => void }) {
+  const fg = on ? C.hazmatText : C.text;
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : 'text'} accessibilityLabel={`${label} ${value} ${unit ?? ''}. ${sub ?? ''}`}
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: 110, minHeight: 72, paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.card, borderWidth: 2,
+        borderColor: on ? '#FFF' : onPress ? C.hazmat : C.line, backgroundColor: on ? '#FFF' : pressed ? C.surface2 : C.warnBg, justifyContent: 'center' })}>
+      <Text style={{ color: on ? C.hazmatText : C.hazmat, fontFamily: F.display, fontSize: 13, letterSpacing: 0.8 }} numberOfLines={1}>{label.toUpperCase()}</Text>
+      <Text style={{ color: fg, fontFamily: F.black, fontSize: 28, lineHeight: 32, fontVariant: mono ? ['tabular-nums'] : undefined }} numberOfLines={1} adjustsFontSizeToFit>
+        {value}{unit && value !== '—' ? <Text style={{ fontSize: 15, fontFamily: F.display }}> {unit}</Text> : null}
+      </Text>
+      {!!sub && <Text style={{ color: on ? C.hazmatText : C.muted, fontSize: 13 }} numberOfLines={1}>{sub}</Text>}
     </Pressable>
   );
 }
