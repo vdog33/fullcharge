@@ -93,6 +93,7 @@ export default function Hazmat() {
       {showNmc && <Chem k="NMC / NCA" v={vent.nmc_nca} />}
       {showLfp && <Chem k="LFP" v={vent.lfp} />}
 
+      <LinkRow icon="book" title="Guide 147 PDF" sub="Official ERG page" onPress={() => r.push('/pdf?guide=147')} />
       <LinkRow icon="book" title="More — full Guide 147 text" sub={`${GUIDE_147_SECTIONS.length} sections · works offline`} onPress={() => r.push('/guide147')} />
       <LinkRow icon="ext" title="Official PDFs" sub="3 links · need signal" onPress={() => r.push('/guide147?to=pdfs')} />
     </Screen>
