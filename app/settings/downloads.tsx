@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { Btn, H1, Muted, Notice, Pill, Screen, Toggle, st } from '../../src/components/ui';
 import {
   IMAGE_SET, allReady, checkRemote, coreReady, deletePack, freeSpace, getPackState, incomplete, installedManifest, loadPacks, PackDef, PACKS,
@@ -124,7 +124,12 @@ function PackRow({ p, free }: { p: PackDef; free: number }) {
         {s.status === 'paused' && <Btn tone="hazmat" size="sm" icon="dl" label="Resume" onPress={go} />}
         {(updateAvailable(p.id) || (s.status === 'done' && !!s.error)) && <Btn tone="hazmat" size="sm" icon="dl" label="Update" onPress={go} />}
         {incomplete(p.id) && !updateAvailable(p.id) && !s.error && <Btn tone="hazmat" size="sm" icon="dl" label="Download missing files" onPress={go} />}
-        {s.status === 'done' && <Btn tone="danger" size="sm" label="Delete from this device" onPress={() => deletePack(p.id)} />}
+        {s.status === 'done' && <Btn tone="danger" size="sm" label="Delete from this device" onPress={() =>
+          // A stray tap must never wipe the offline sheets: ask first.
+          Alert.alert(`Delete ${p.name}?`, 'These sheets will need signal until you download them again.', [
+            { text: 'Keep', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => deletePack(p.id) },
+          ])} />}
       </View>
     </View>
   );

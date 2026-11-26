@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Btn, Bullets, Card, Disclose, Field, H1, H2, Input, Muted, Notice, PageTabs, Screen, st } from '../../src/components/ui';
+import { Btn, Bullets, Card, Field, H1, Input, Muted, Notice, Screen, st } from '../../src/components/ui';
+import { ChemistryPanel, ContactsPanel, TabKey, VehicleTabs } from '../../src/components/VehicleTabs';
+import { guideIndex } from '../../src/lib/packs';
 import { VerifyPicture } from '../../src/components/VerifyPicture';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
@@ -12,6 +14,7 @@ export default function VehicleScreen() {
   const { id, idAt } = useLocalSearchParams<{ id: string; idAt?: string }>();
   const r = useRouter();
   const v = getVehicle(id);
+  const [tab, setTab] = useState<TabKey>('Cut');
   useEffect(() => { if (v) logView('vehicle', v.id); }, [v?.id]);
   if (!v) return <Screen><H1>Not found</H1><Btn icon="search" label="Search" onPress={() => r.replace('/search')} /></Screen>;
 
@@ -22,30 +25,42 @@ export default function VehicleScreen() {
         <H1>{v.make} {v.model}</H1>
         <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{v.years} · {v.type}</Text>
       </View>
-      {/* Picture first: the manufacturer rescue sheet shows cut zones, HV and 12V on the car itself. */}
-      {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
-      <VerifyPicture vehicleId={v.id} hero />
-      <PageTabs kind="vehicle" id={v.id} />
+      <VehicleTabs tabs={['Cut', 'Chemistry', 'Contacts', 'Notes'] as const} value={tab} onChange={setTab} />
 
-      <Disclose title="Written notes" count="not yet verified">
-        <Field label="Cut loop" value={v.cut_loop} />
-        <Field label="12V" value={v.lv_location} />
-        <Field label="No-cut" value={v.no_cut_zones} />
-        <Field label="Airbag / HV" value={v.airbag_hv} />
-        <Field label="Pack" value={v.pack} />
-        <Field label="Chemistry" value={v.chemistry} />
-        <Field label="Tow" value={v.tow} />
-        <Field label="Release" value={v.release} />
-        <Text style={st.label}>ID cues</Text>
-        <Bullets items={v.id_cues} />
-        {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}
-      </Disclose>
+      {tab === 'Cut' && (
+        <>
+          {/* Picture first: the manufacturer rescue sheet shows cut zones, HV and 12V on the car itself. */}
+          {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
+          <VerifyPicture vehicleId={v.id} hero />
+          <Btn tone="red" icon="book" label="Manufacturer cut sheet (PDF)" onPress={() => r.push(`/erg-pdf?kind=vehicle&id=${v.id}`)} />
+          <Btn icon="pin" label="Isolation zones + map" onPress={() => r.push(`/zones?kind=vehicle&id=${v.id}`)} />
+          <Btn tone="outline" size="sm" label="Quick sheet — offline" onPress={() => r.push(`/quick?kind=vehicle&id=${v.id}`)} />
+        </>
+      )}
 
-      <Disclose title="Details" count="source + checks">
-        <Field label="ERG source" value={v.erg_pdf_label} />
-        <Muted>Link check: {v.erg_verified_note}</Muted>
-        <Muted>Chemistry verified: {v.chemistry_verified === true ? 'yes' : v.chemistry_verified === 'partial' ? 'partly' : 'no'}</Muted>
-      </Disclose>
+      {tab === 'Chemistry' && (
+        <ChemistryPanel powertrain={v.type} chemistry={[v.chemistry, v.pack].filter(Boolean).join(' · ')} verified={v.chemistry_verified}
+          onHazmat={() => r.push(`/hazmat?kind=vehicle&id=${v.id}`)} />
+      )}
+
+      {tab === 'Contacts' && <ContactsPanel guides={guideIndex().filter((g) => g.vehicleId === v.id)} />}
+
+      {tab === 'Notes' && (
+        <>
+          <Notice tone="info">Written notes — not yet verified against the manufacturer guide. The cut sheet wins.</Notice>
+          <Field label="Cut loop" value={v.cut_loop} />
+          <Field label="12V" value={v.lv_location} />
+          <Field label="No-cut" value={v.no_cut_zones} />
+          <Field label="Airbag / HV" value={v.airbag_hv} />
+          <Field label="Tow" value={v.tow} />
+          <Field label="Release" value={v.release} />
+          <Text style={st.label}>ID cues</Text>
+          <Bullets items={v.id_cues} />
+          {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}
+          <Field label="ERG source" value={v.erg_pdf_label} />
+          <Muted>Link check: {v.erg_verified_note}</Muted>
+        </>
+      )}
 
       {!!idAt && <WasThisRight at={Number(idAt)} shownId={v.id} />}
     </Screen>

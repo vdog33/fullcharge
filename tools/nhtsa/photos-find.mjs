@@ -62,13 +62,22 @@ async function candidates(gr) {
   return out;
 }
 
+// Pictures cropped from the manufacturer's own guide (npm run guide:scan) go first: right model, right years.
+const guidePics = existsSync('out/guide-pics.json') ? JSON.parse(readFileSync('out/guide-pics.json', 'utf8')) : {};
 const list = [...groups.values()];
 const result = {};
 let n = 0;
 for (const gr of list) {
-  result[gr.key] = prev[gr.key]?.candidates?.length ? prev[gr.key] : { ...gr, candidates: await candidates(gr) };
+  const web = prev[gr.key]?.candidates?.filter((c) => !c.url.startsWith('guide:')) ?? await candidates(gr);
+  const gp = guidePics[gr.key];
+  const fromGuide = gp?.file && existsSync(`out/${gp.file}`)
+    ? [{ title: `From the manufacturer guide (page ${gp.page})${gp.kind === 'drawing' ? ' — drawing' : ''}`, thumb: gp.file, url: `guide:${gp.file}`, license: 'Manufacturer guide', artist: gr.make }]
+    : [];
+  result[gr.key] = { ...gr, candidates: [...fromGuide, ...web] };
+  // A real photo from the manufacturer's guide is pre-selected — you still see it and Save.
+  if (!approved[gr.key] && gp?.kind === 'photo' && fromGuide.length) approved[gr.key] = fromGuide[0].url;
   if (++n % 25 === 0) console.log(`${n}/${list.length}`);
-  await new Promise((r) => setTimeout(r, 120)); // be polite to Commons
+  if (!prev[gr.key]) await new Promise((r) => setTimeout(r, 120)); // be polite to Commons
 }
 writeFileSync('out/photos-candidates.json', JSON.stringify({ at: new Date().toISOString(), groups: result }, null, 1));
 

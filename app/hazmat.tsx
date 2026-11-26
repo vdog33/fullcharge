@@ -1,8 +1,11 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Bullets, H2, Icon, LinkRow, Notice, Screen, st } from '../src/components/ui';
 import { ZoneDiagram } from '../src/components/ZoneDiagram';
+import { ZoneMap } from '../src/components/ZoneMap';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { Fix, lastFix, onFix, quickFix } from '../src/lib/here';
 import { chemFamily, ERG147, getBess, getVehicle, ZONES } from '../src/data/catalog';
 import { GUIDE_147_SECTIONS } from '../src/data/content';
 import { plumeHeading, toCompass } from '../src/lib/geo';
@@ -17,6 +20,11 @@ export default function Hazmat() {
   const r = useRouter();
   const [, force] = useReducer((x) => x + 1, 0);
   useEffect(() => subscribeScene(force), []);
+  // Live map right here (pinch / pan) on your spot — no need to open another screen first.
+  const [here, setHere] = useState<Fix | null>(lastFix());
+  const net = useNetInfo();
+  useEffect(() => { quickFix().then((f) => { if (f && f !== 'denied') setHere(f); }); return onFix(setHere); }, []);
+  const liveMap = !!here && net.isConnected !== false && net.isInternetReachable !== false;
   const d = ERG147.distances;
   const name = kind === 'vehicle' && id ? (() => { const v = getVehicle(id); return v && `${v.make} ${v.model}`; })() : kind === 'bess' && id ? getBess(id)?.name : null;
   const chem = kind && id ? chemFamily(kind, id) : null;
@@ -50,16 +58,20 @@ export default function Hazmat() {
       </View>
       <Notice tone="warn">{ERG147.honest_limit}</Notice>
 
-      {/* Map snapshot: the picture in place; tap opens the full map (F32). */}
-      <Pressable onPress={() => r.push(zonesHref)} accessibilityRole="button" accessibilityLabel="Open isolation zones and map"
-        style={({ pressed }) => [s.snap, pressed && { opacity: 0.9 }]}>
+      {/* The map works right here: live Apple map on your spot (pinch / pan), or the diagram with no fix / signal. */}
+      <View style={s.snap}>
         <View>
-          <ZoneDiagram fire={SNAP_ORIGIN} you={null} plumeHeading={heading} interactive={false} viewM={ZONES.cold_m * 1.1}
-            plumeHalfDeg={sc.night ? ZONES.plume_night_spread_deg : ZONES.plume_day_spread_deg}
-            plumeLenM={sc.night ? ZONES.plume_night_m : ZONES.plume_day_m} height={220} />
+          {liveMap ? (
+            <ZoneMap fire={{ lat: here!.lat, lng: here!.lng }} you={{ lat: here!.lat, lng: here!.lng }} mapType="satellite"
+              plumeHeading={heading} plumeHalfDeg={sc.night ? ZONES.plume_night_spread_deg : ZONES.plume_day_spread_deg}
+              plumeLenM={sc.night ? ZONES.plume_night_m : ZONES.plume_day_m} height={260} onMoveFire={() => r.push(zonesHref)} />
+          ) : (
+            <ZoneDiagram fire={SNAP_ORIGIN} you={null} plumeHeading={heading} interactive={false} viewM={ZONES.cold_m * 1.1}
+              plumeHalfDeg={sc.night ? ZONES.plume_night_spread_deg : ZONES.plume_day_spread_deg}
+              plumeLenM={sc.night ? ZONES.plume_night_m : ZONES.plume_day_m} height={220} />
+          )}
           <View style={s.badges} pointerEvents="none">
             <View style={s.badge}><Icon name="nav" size={16} /><Text style={s.badgeText}>{windLabel} wind · plume {heads}</Text></View>
-            <View style={s.badge}><Icon name="expand" size={16} /><Text style={s.badgeText}>Open</Text></View>
           </View>
         </View>
         <View style={s.sum}>
@@ -68,8 +80,11 @@ export default function Hazmat() {
           <Sum color={C.cold} k="Cold" v={`${ZONES.cold_label} (${ZONES.cold_m} m)`} />
           <Sum color={C.plume} k={sc.night ? 'Plume night' : 'Plume day'} v={sc.night ? `${ZONES.plume_night_ft.toLocaleString()} ft ±${ZONES.plume_night_spread_deg}°` : `${ZONES.plume_day_ft} ft ±${ZONES.plume_day_spread_deg}°`} />
         </View>
-        <View style={s.go}><Icon name="pin" size={22} /><Text style={s.goText}>Isolation zones + map</Text></View>
-      </Pressable>
+        <Pressable onPress={() => r.push(zonesHref)} accessibilityRole="button" accessibilityLabel="Open isolation zones: move fire, set wind, address"
+          style={({ pressed }) => [s.go, pressed && { opacity: 0.85 }]}>
+          <Icon name="pin" size={22} /><Text style={s.goText}>Move fire · set wind · address</Text>
+        </Pressable>
+      </View>
 
       <H2>Fire</H2>
       <Bullets items={ERG147.fire_notes} />

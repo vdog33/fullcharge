@@ -5,7 +5,7 @@ import { C } from '../theme';
 
 export type IconName =
   | 'chev' | 'back' | 'cam' | 'img' | 'search' | 'batt' | 'warn' | 'cloud' | 'signal' | 'dl' | 'book' | 'pin'
-  | 'clock' | 'id' | 'gear' | 'x' | 'loc' | 'nav' | 'arrow' | 'ext' | 'check' | 'expand' | 'bolt';
+  | 'clock' | 'id' | 'gear' | 'x' | 'loc' | 'nav' | 'arrow' | 'ext' | 'check' | 'expand' | 'bolt' | 'phone';
 
 export function Icon({ name, size = 24, color = C.text }: { name: IconName; size?: number; color?: string }) {
   const s = { stroke: color, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -33,6 +33,7 @@ export function Icon({ name, size = 24, color = C.text }: { name: IconName; size
       case 'ext': return <Path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" {...s} strokeWidth={2.2} />;
       case 'check': return <Path d="M4 12.5l5 5L20 6.5" {...s} strokeWidth={3} />;
       case 'expand': return <Path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" {...s} strokeWidth={2.4} />;
+      case 'phone': return <Path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 006.5 6.5L16 14l4 1.5V19a1 1 0 01-1 1A16 16 0 014 5a1 1 0 011-1z" {...s} strokeWidth={2.2} />;
       case 'bolt': return <Path d="M13.5 2L5 13.5h6L9.5 22 19 9.5h-6z" fill={color} />;
     }
   })();

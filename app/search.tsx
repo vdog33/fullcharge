@@ -9,7 +9,7 @@ import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
 import { looksLikeVin } from '../src/lib/vin-core';
-import { Guide, matchGuess, searchGuides } from '../src/lib/match-core';
+import { Guide, matchGuess, matchMakes, namedMake, smartSearchGuides } from '../src/lib/match-core';
 import { allReady, guideIndex, loadPacks, subscribe } from '../src/lib/packs';
 import { logIdAttempt, updateIdAttempt } from '../src/lib/history';
 import { NHTSA_PORTAL } from '../src/config';
@@ -47,7 +47,8 @@ export default function Search() {
   const index = guideIndex();
   const makesAll = useMemo(() => [...new Set([...VEHICLES.map((v) => v.make), ...index.map((g) => g.make)])].sort(), [index.length]);
   // Typing a make selects its chip, so the two filters never disagree (F16).
-  const typedMake = useMemo(() => makesAll.find((m) => m.toLowerCase() === q.trim().toLowerCase()), [q, makesAll]);
+  // "chevy", "vw", "Tesla" name a make outright; anything else narrows the brand list letter by letter.
+  const typedMake = useMemo(() => namedMake(q, makesAll), [q, makesAll]);
   const make = chip ?? typedMake;
   const textQ = typedMake && !chip ? '' : q;
   const seedList = useMemo(() => searchVehicles(textQ, make), [textQ, make]);
@@ -65,7 +66,13 @@ export default function Search() {
     return [...m.entries()].map(([mk, set]) => ({ make: mk, models: set.size })).sort((a, b) => a.make.localeCompare(b.make));
   }, [index.length]);
   const filtering = q.trim().length >= 2 || !!make;
-  const guideGroups = useMemo(() => (filtering ? groupGuides(searchGuides(textQ, index, make, 200)) : []), [textQ, make, index.length]);
+  const guideGroups = useMemo(() => (filtering ? groupGuides(smartSearchGuides(textQ, index, make, 200)) : []), [textQ, make, index.length]);
+  // Brands that fit what's typed, from the first letter: "t" → Tesla, Toyota… "te" → Tesla.
+  const brandHits = useMemo(() => {
+    if (chip || typedMake || !q.trim()) return null;
+    const order = matchMakes(q, brands.map((b) => b.make));
+    return order.map((m) => brands.find((b) => b.make === m)!).filter(Boolean);
+  }, [q, chip, typedMake, brands]);
 
   async function runVin(v?: string) {
     setErr(''); setRes(null); setVinCand(null); setAccepted(null); setBusy(true);
@@ -107,7 +114,13 @@ export default function Search() {
             <Btn tone="outline" size="sm" icon="back" label={`All brands · showing ${make}`}
               onPress={() => { setChip(undefined); if (typedMake) setQ(''); }} />
           )}
-          {!filtering && (
+          {brandHits && brandHits.length > 0 && (
+            <>
+              <H2>{brandHits.length === 1 ? 'Brand — tap it' : `Brands (${brandHits.length})`}</H2>
+              <BrandGrid brands={brandHits.slice(0, 8)} onPick={(mk) => { setChip(mk); setQ(''); }} />
+            </>
+          )}
+          {!filtering && !q.trim() && (
             <>
               <BrandGrid brands={brands} onPick={(mk) => { setChip(mk); setQ(''); }} />
               {!index.length && (

@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 // FULLCHARGE design system v2 components. Readable in smoke, sun and gloves:
 // 18px body / 15px floor, 48px minimum targets (56 standard), selection = solid white + check, never colour alone.
 import React, { forwardRef, useEffect, useRef, useState } from 'react';
@@ -17,6 +18,13 @@ export function BoltShield({ size = 28 }: { size?: number }) {
   return <Image source={require('../../assets/bolt-shield.png')} style={{ width: size, height: size }} resizeMode="contain" />;
 }
 /** Stencil bolt-A wordmark (assets/wordmark.png). */
+/** "FULLCHARGE 0.1.0 (12)" — shown under the responder-aid line so a crew can say which build they have. */
+const APP_VERSION = (() => {
+  const v = Constants.expoConfig?.version ?? '';
+  const b = (Constants as unknown as { nativeBuildVersion?: string }).nativeBuildVersion ?? Constants.expoConfig?.ios?.buildNumber;
+  return `FULLCHARGE ${v}${b ? ` (build ${b})` : ''}`;
+})();
+
 export function Wordmark({ size = 22 }: { size?: number }) {
   return <Image source={require('../../assets/wordmark.png')} style={{ width: size * 3, height: size }} resizeMode="contain" />;
 }
@@ -41,7 +49,7 @@ export function Footer() {
   return (
     <View style={st.disclaimer}>
       <Icon name="bolt" size={18} color={C.redText} />
-      <Text style={[st.muted, { flex: 1 }]}>{DISCLAIMER}</Text>
+      <Text style={[st.muted, { flex: 1 }]}>{DISCLAIMER}{'\n'}{APP_VERSION}</Text>
     </View>
   );
 }

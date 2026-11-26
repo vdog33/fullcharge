@@ -38,6 +38,17 @@ npm run publish          # uploads only new / changed PDFs, then the manifest
 To update weekly (or whenever NHTSA adds sheets), run `npm run all`, which does all four steps. Phones download only what changed,
 and a sheet stays on the phone until its replacement has fully downloaded.
 
+## Car pictures + phone numbers from the guides themselves
+Most manufacturer guides open with a photo of the exact car (e.g. the Acura MDX cover) and print a phone line
+("Acura Client Relations (800) 382-2238"). One pass reads them all:
+```powershell
+$env:GEMINI_API_KEY = "..."   # same key as the app's server
+npm run guide:scan            # crops the car off page 1–2 of every guide, lists every phone number
+#   → open out\contacts-review.html, tick the numbers a responder should call, Save, move contacts-approved.json into out\
+```
+The cropped car pictures then appear FIRST (pre-selected) on the photos review page below. Ticked numbers show on the
+vehicle's **Contacts** tab after `npm run publish`.
+
 ## Vehicle photos (real photos, approved by you)
 The app shows a real photo of each model on the "Which car is it?" cards — from the phone, no signal needed. Nothing
 is looked up live any more (the old Wikipedia search picked wrong cars). You approve every photo:

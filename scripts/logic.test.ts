@@ -246,3 +246,22 @@ test('rescue pack covers vehicles with no rescue sheet (#17)', async () => {
   assert.deepEqual(keys, ['Tesla rescue_sheet 2022', 'Autocar erg 2022', 'Ford rescue_sheet 2022', 'Ford erg 2025']);
   assert.equal(photoKey({ make: 'Mercedes', model: 'EQB 300', years: '2022–present' }), 'mercedesbenz|eqb300|2022–present');
 });
+
+test('forgiving search', async () => {
+  const { matchMakes, namedMake, looseMatch } = await import('../src/lib/match-core.ts');
+  const makes = ['Tesla', 'Toyota', 'Chevrolet', 'Mercedes-Benz', 'Hyundai', 'Volkswagen', 'Ford', 'Land Rover'];
+  assert.deepEqual(matchMakes('t', makes), ['Tesla', 'Toyota']);
+  assert.deepEqual(matchMakes('te', makes), ['Tesla']);
+  assert.equal(matchMakes('chevy', makes)[0], 'Chevrolet');
+  assert.equal(matchMakes('hyundia', makes)[0], 'Hyundai');
+  assert.equal(matchMakes('mercedez', makes)[0], 'Mercedes-Benz');
+  assert.equal(matchMakes('rover', makes)[0], 'Land Rover');
+  assert.equal(namedMake('vw', makes), 'Volkswagen');
+  assert.equal(namedMake('Tesla', makes), 'Tesla');
+  assert.ok(looseMatch('mach e', 'Ford Mustang Mach-E 2021'));
+  assert.ok(looseMatch('f150 lightning', 'Ford F-150 Lightning 2022'));
+  assert.ok(looseMatch('chevy bolt', 'Chevrolet Bolt EV 2017'));
+  assert.ok(looseMatch('ioniq5', 'Hyundai Ioniq 5 2022'));
+  assert.ok(looseMatch('modle y', 'Tesla Model Y'));
+  assert.ok(!looseMatch('camry', 'Tesla Model Y'));
+});

@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, st } from '../src/components/ui';
 import { VerifyPicture } from '../src/components/VerifyPicture';
+import { ChemistryPanel, ContactsPanel, TabKey, VehicleTabs } from '../src/components/VehicleTabs';
 import { EV_FIRST_MOVES } from '../src/data/content';
 import { getVehicle } from '../src/data/catalog';
 import { guideLabel } from '../src/lib/match-core';
@@ -19,6 +20,7 @@ export default function GuidePage() {
   const [, force] = useReducer((x) => x + 1, 0);
   const [dl, setDl] = useState<{ done: number; total: number } | null>(null);
   const [dlMsg, setDlMsg] = useState('');
+  const [tab, setTab] = useState<TabKey>('Cut');
   useEffect(() => { loadPacks().then(force); return subscribe(force); }, []);
   const guides = keys.split(',').filter(Boolean).map(getGuide).filter((g): g is NonNullable<typeof g> => !!g)
     .sort((a, b) => Number(b.docType === 'rescue_sheet') - Number(a.docType === 'rescue_sheet') || (b.yearFrom ?? 0) - (a.yearFrom ?? 0));
@@ -46,6 +48,15 @@ export default function GuidePage() {
         {g0 && <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{g0.years}{g0.powertrain ? ` · ${g0.powertrain}` : ''}</Text>}
       </View>
 
+      <VehicleTabs tabs={['Cut', 'Chemistry', 'Contacts'] as const} value={tab} onChange={setTab} />
+
+      {tab === 'Chemistry' && (
+        <ChemistryPanel powertrain={guides.find((g) => /FCEV/i.test(g.powertrain ?? ''))?.powertrain ?? g0?.powertrain}
+          onHazmat={() => r.push('/hazmat')} />
+      )}
+      {tab === 'Contacts' && <ContactsPanel guides={guides} />}
+
+      {tab === 'Cut' && <>
       {/* Which ERG guide: hydrogen and hybrids are not plain Guide 147. */}
       {erg.tone !== 'none' && (
         <Notice tone={erg.tone} title={erg.title}
@@ -55,7 +66,6 @@ export default function GuidePage() {
       )}
       {/* The manufacturer's picture is the answer: HV parts, cut zones, 12V — on the car. */}
       {guides.length > 0 && <VerifyPicture guides={guides} hero />}
-      <Notice tone="warn">Chemistry not verified — treat as lithium-ion, Guide 147.</Notice>
 
       {new Set(guides.map((x) => `${x.make}|${x.model}`)).size > 1 && (
         <Notice tone="info" icon="warn">More than one model matches — check the badge and pick the sheet for that exact model.</Notice>
@@ -89,12 +99,12 @@ export default function GuidePage() {
       {!guides.length && <Notice tone="info">Cut sheet not found on this phone. Update the rescue-sheet pack in Downloads.</Notice>}
 
       {linked && getVehicle(linked) && <Btn label="FULLCHARGE page — cut loop, 12V, tow" onPress={() => r.push(`/vehicle/${linked}`)} />}
-      <Btn tone="hazmat" icon="book" label="Hazmat ERG 147" onPress={() => r.push('/hazmat')} />
       <Btn tone="red" icon="pin" label="Isolation zones + map" onPress={() => r.push('/zones')} />
 
       <Disclose title="EV first moves" count={`${EV_FIRST_MOVES.length} steps`}>
         <Steps items={EV_FIRST_MOVES} />
       </Disclose>
+      </>}
       <View style={{ height: S.xs }} />
     </Screen>
   );

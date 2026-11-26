@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -9,6 +9,7 @@ import { ZoneMap, ZoneMapHandle } from '../src/components/ZoneMap';
 import { chemFamily, getBess, getVehicle, ZONES } from '../src/data/catalog';
 import { angleDiff, bearingDeg, circularMean, Compass, distanceM, LatLng, M_TO_FT, offsetM, plumeHeading, toCompass } from '../src/lib/geo';
 import { getScene, setScene } from '../src/lib/scene';
+import { Fix, lastFix, onFix, quickFix, sharpen } from '../src/lib/here';
 import { C, F, R, S, TARGET } from '../src/theme';
 
 type Mode = 'Satellite' | 'Map' | 'Diagram';
@@ -27,6 +28,9 @@ export default function Zones() {
   const chem = kind && id ? chemFamily(kind, id) : null;
   const net = useNetInfo();
   const { ref, mark, go } = useJump();
+  // Map fits the screen sideways too (landscape): never taller than ~70% of the window.
+  const { height: winH } = useWindowDimensions();
+  const mapH = Math.max(260, Math.min(FRAME_H, Math.round(winH * 0.7)));
 
   // Environment — shared with the Hazmat ERG 147 map snapshot.
   const sc0 = getScene();
@@ -41,14 +45,15 @@ export default function Zones() {
   useEffect(() => { setScene({ night, windFrom, windDeg, windMph }); }, [night, windFrom, windDeg, windMph]);
 
   // Location
-  const [you, setYou] = useState<(LatLng & { acc?: number }) | null>(null);
+  const fix0 = lastFix();
+  const [you, setYou] = useState<(LatLng & { acc?: number }) | null>(fix0 ? { lat: fix0.lat, lng: fix0.lng, acc: fix0.acc } : null);
   const [gpsMsg, setGpsMsg] = useState('');
   // Fire point: your location by default; an address when responding to a call.
   const [addr, setAddr] = useState('');
   const [addrMsg, setAddrMsg] = useState('');
   const [atAddr, setAtAddr] = useState<string | null>(null); // the address the fire marker is on, if any
-  const [fire, setFire] = useState<LatLng>(VIRTUAL_ORIGIN);
-  const [placed, setPlaced] = useState(false); // fire is on a real point (GPS or address)
+  const [fire, setFire] = useState<LatLng>(fix0 ? { lat: fix0.lat, lng: fix0.lng } : VIRTUAL_ORIGIN);
+  const [placed, setPlaced] = useState(!!fix0); // fire is on a real point (GPS or address)
   const fireReal = placed;
   const [nudge, setNudge] = useState(false);
   const atAddrRef = useRef<string | null>(null);
@@ -59,25 +64,24 @@ export default function Zones() {
   const [zoom, setZoom] = useState<Zoom | null>(null);
   const mapRef = useRef<ZoneMapHandle>(null);
 
+  // Fire follows your position until someone moves it or types an address.
+  const auto = useRef(true);
+  const applyFix = (f: Fix) => {
+    setYou({ lat: f.lat, lng: f.lng, acc: f.acc });
+    if (auto.current && !atAddrRef.current) { setFire({ lat: f.lat, lng: f.lng }); setPlaced(true); }
+  };
   async function locate() {
-    setGpsMsg('Getting fix…');
-    try {
-      const perm = await Location.requestForegroundPermissionsAsync();
-      if (!perm.granted) return setGpsMsg('Location denied. Zones still correct around the fire marker.');
-      let pos = await Location.getLastKnownPositionAsync({ maxAge: 30000, requiredAccuracy: 50 });
-      if (!pos) {
-        pos = await Promise.race([
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest }),
-          new Promise<null>((r) => setTimeout(() => r(null), 15000)),
-        ]);
-      }
-      if (!pos) return setGpsMsg('No fix in 15 s. Zones still correct around the fire marker.');
-      const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy ?? undefined };
-      // Marker starts on you — unless an address is in use.
-      if (!atAddrRef.current && !placed) { setFire({ lat: p.lat, lng: p.lng }); setPlaced(true); }
-      setYou(p); setGpsMsg('');
-    } catch { setGpsMsg('No fix. Zones still correct around the fire marker.'); }
+    auto.current = true;
+    const cached = lastFix();
+    if (cached) applyFix(cached); // map shows at once — no blank wait for GPS
+    setGpsMsg(cached ? '' : 'Getting fix…');
+    const q = await quickFix();
+    if (q === 'denied') return setGpsMsg('Location denied. Type an address, or zones still work around the fire marker.');
+    if (q) { applyFix(q); setGpsMsg(''); }
+    const f = await sharpen();
+    if (f) { applyFix(f); setGpsMsg(''); } else if (!q) setGpsMsg('No fix yet. Type an address, or zones still work around the fire marker.');
   }
+  useEffect(() => onFix(applyFix), []);
   useEffect(() => { locate(); }, []);
 
   /** Responding to a call: put the fire on an address (Apple's geocoder — needs signal). */
@@ -89,12 +93,12 @@ export default function Zones() {
       const hits = await Location.geocodeAsync(q);
       if (!hits.length) return setAddrMsg('Address not found — check it, or drag the fire on the map.');
       const p = { lat: hits[0].latitude, lng: hits[0].longitude };
-      setFire(p); setPlaced(true); setAtAddr(q); setAddrMsg('');
+      auto.current = false; setFire(p); setPlaced(true); setAtAddr(q); setAddrMsg('');
       setTimeout(() => mapRef.current?.frame(ZONES.warm_m), 80);
     } catch { setAddrMsg('Address lookup needs signal. Zones still work around your location.'); }
   }
   function backToMe() {
-    setAtAddr(null); setAddr(''); setAddrMsg('');
+    setAtAddr(null); setAddr(''); setAddrMsg(''); auto.current = true; atAddrRef.current = null;
     if (you) { setFire({ lat: you.lat, lng: you.lng }); setPlaced(true); setTimeout(() => mapRef.current?.frame(ZONES.warm_m), 50); }
     else locate();
   }
@@ -110,8 +114,8 @@ export default function Zones() {
   const heading = windDeg !== null ? (windDeg + 180) % 360 : plumeHeading(windFrom);
   const heads = toCompass(heading);
   const windLabel = windDeg !== null ? `${toCompass(windDeg)} ${Math.round(windDeg)}°` : windFrom;
-  const moveFire = useCallback((p: LatLng) => setFire(p), []);
-  const step = (e: number, n: number) => setFire((f) => offsetM(f, e, n));
+  const moveFire = useCallback((p: LatLng) => { auto.current = false; setFire(p); }, []);
+  const step = (e: number, n: number) => { auto.current = false; setFire((f) => offsetM(f, e, n)); };
   const distFt = you && fireReal ? distanceM(you, fire) * M_TO_FT : null;
   const brg = you && fireReal ? bearingDeg(you, fire) : null;
   const far = distFt !== null && distFt > 150; // fire isn't where you're standing (address or moved)
@@ -198,9 +202,9 @@ export default function Zones() {
         <View style={{ borderRadius: R.inner, overflow: 'hidden' }}>
           {live ? (
             <ZoneMap ref={mapRef} fire={fire} you={you} mapType={mode === 'Satellite' ? 'satellite' : 'standard'}
-              plumeHeading={heading} plumeHalfDeg={spread} plumeLenM={plumeM} height={FRAME_H} onMoveFire={moveFire} />
+              plumeHeading={heading} plumeHalfDeg={spread} plumeLenM={plumeM} height={mapH} onMoveFire={moveFire} />
           ) : (
-            <ZoneDiagram fire={fire} you={you} plumeHeading={heading} plumeHalfDeg={spread} plumeLenM={plumeM} height={FRAME_H}
+            <ZoneDiagram fire={fire} you={you} plumeHeading={heading} plumeHalfDeg={spread} plumeLenM={plumeM} height={mapH}
               onMoveFire={moveFire} viewM={DIAGRAM_M[zoom ?? 'Cold']} />
           )}
           <View style={s.badges} pointerEvents="box-none">

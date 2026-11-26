@@ -78,6 +78,10 @@ scripts/             seed, check-urls (run before every release), logic tests
   glare and smoke. The big stuff (distances, cut loop, 12V, shutdown steps) is readable at 0–1 taps; detail is one
   tap further in. No instructions to read in the moment, no extra steps, nothing a crew has to set up first.
   Pictures over text: lead with the manufacturer's drawing; no checklists on the main view — long text goes behind one tap.
+- **Human-error rule (every screen):** built for someone in a panic, with gloves and poor vision. Big targets that are
+  hard to miss, readable at a glance, nothing harmful on a stray tap (deletes ask first), easy to go back, and search
+  that forgives typos and nicknames. Works in portrait and landscape.
+- **Front page = four things only:** Identify by camera · Search a vehicle (make / model / VIN) · BESS · Isolation zones + map.
 - **Design system v2** (design sheet, 24 Nov 2026): tokens in `src/theme.ts`, components in `src/components/ui.tsx`.
   18px body / 15px floor, 48px minimum targets, solid-white selection with a check, safety caveats in the warning style.
   The rescue-sheet / PDF viewers (`sheet`, `erg-pdf`) keep the v1 look on purpose — `src/components/legacy.tsx`.

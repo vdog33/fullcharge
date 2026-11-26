@@ -33,6 +33,9 @@ const version = now.toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(
 const localFile = new Map(); // storage path -> file on this PC
 // Approved vehicle photos from `npm run photos:build` (one per make + model + years). Optional.
 const photos = existsSync('out/photos.json') ? JSON.parse(readFileSync('out/photos.json', 'utf8')).photos : {};
+// Phone lines you approved in out/contacts-review.html (npm run guide:scan).
+const contactsOk = existsSync('out/contacts-approved.json') ? JSON.parse(readFileSync('out/contacts-approved.json', 'utf8')) : {};
+const contactsOf = (g) => { const c = contactsOk[photoKey(g)]; return c?.length ? c : undefined; };
 const photoOf = (g) => { const p = photos[photoKey(g)]; if (p) localFile.set(p.file, `out/${p.file}`); return p; };
 const items = ready.map((g) => {
   const r = comp[g.sha256];
@@ -40,6 +43,7 @@ const items = ready.map((g) => {
     key: g.key, make: g.make, model: g.model, years: g.years || '', yearFrom: g.yearFrom ?? null, yearTo: g.yearTo ?? null,
     powertrain: g.powertrain || '', docType: g.docType, version: g.version, sourceUrl: g.sourceUrl, sha256: g.sha256,
     photo: photoOf(g),
+    contacts: contactsOf(g),
     vehicleId: matchGuess({ make: g.make, model: g.model, yearFrom: g.yearFrom, yearTo: g.yearTo, powertrain: g.powertrain }, seed, []).vehicleId,
   };
   if (r?.kind === 'images') {

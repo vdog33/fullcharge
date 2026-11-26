@@ -51,6 +51,11 @@ for (const g of Object.values(groups)) {
     if (prev[g.key]?.source === pick && existsSync(`out/${prev[g.key].file}`)) { photos[g.key] = prev[g.key]; kept++; continue; }
     const c = g.candidates.find((x) => x.url === pick);
     if (!c) { skipped++; continue; }
+    if (pick.startsWith('guide:')) { // cropped from the manufacturer's own guide on this PC
+      photos[g.key] = { ...(await shrink(readFileSync(`out/${pick.slice(6)}`))), credit: `${g.make} emergency response guide`, license: 'Manufacturer guide', source: pick };
+      made++;
+      continue;
+    }
     const r = await fetch(c.url, { headers: UA });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const credit = `${c.artist ? c.artist + ' · ' : ''}${c.license || 'Wikimedia Commons'}`.slice(0, 80);

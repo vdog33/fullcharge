@@ -1,4 +1,5 @@
 import raw from './fullcharge-data.json';
+import { looseMatch } from '../lib/match-core';
 
 export type Vehicle = {
   id: string;
@@ -81,7 +82,7 @@ export function searchVehicles(q: string, make?: string): Vehicle[] {
   return VEHICLES.filter((v) => {
     if (make && v.make !== make) return false;
     if (!s) return true;
-    return `${v.make} ${v.model} ${v.years} ${v.type}`.toLowerCase().includes(s);
+    return looseMatch(s, `${v.make} ${v.model} ${v.years} ${v.type}`); // typos, nicknames, 'mach e'
   });
 }
 

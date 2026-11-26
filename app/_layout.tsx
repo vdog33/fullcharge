@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/lib/auth';
 import { ensureIndex, loadPacks, resumeInterrupted } from '../src/lib/packs';
 import { ensureBessCatalog } from '../src/lib/bess-catalog';
-import { BackBtn } from '../src/components/ui';
+import { warm } from '../src/lib/here';
 import { C, F } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -18,6 +18,7 @@ export default function Root() {
   useEffect(() => {
     loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {});
     ensureBessCatalog().catch(() => {});
+    warm(); // maps open on your spot at once
   }, []);
   // Fonts are bundled; if they ever fail we still render with system fonts — never block the scene.
   useEffect(() => { if (loaded || err) SplashScreen.hideAsync().catch(() => {}); }, [loaded, err]);
@@ -34,9 +35,9 @@ export default function Root() {
             headerTitleStyle: { fontFamily: F.display, fontSize: 19 },
             headerShadowVisible: false,
             contentStyle: { backgroundColor: C.bg },
+            // iOS's own Back button. Our custom one sat inside iOS 26's glass capsule and got clipped ("tic tac").
             headerBackTitle: 'Back',
-            headerBackVisible: false,
-            headerLeft: () => <BackBtn />, // 48px, says "Back" (F19)
+            headerBackButtonDisplayMode: 'default',
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -48,9 +49,9 @@ export default function Root() {
           <Stack.Screen name="bess/brand" options={{ title: 'Home batteries' }} />
           <Stack.Screen name="bess/family" options={{ title: 'Home battery' }} />
           <Stack.Screen name="bess/camera" options={{ title: 'Identify home battery' }} />
-          <Stack.Screen name="erg-pdf" options={{ headerLeft: undefined, headerBackVisible: true, headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Manufacturer ERG' }} />
+          <Stack.Screen name="erg-pdf" options={{ headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Manufacturer ERG' }} />
           <Stack.Screen name="guide" options={{ title: 'Cut sheets' }} />
-          <Stack.Screen name="sheet" options={{ headerLeft: undefined, headerBackVisible: true, headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Rescue sheet' }} />
+          <Stack.Screen name="sheet" options={{ headerShadowVisible: true, headerStyle: { backgroundColor: '#0A0A0A' }, headerTintColor: '#F5F5F5', headerTitleStyle: { fontFamily: F.narrowBold }, title: 'Rescue sheet' }} />
           <Stack.Screen name="scan-vin" options={{ title: 'Scan VIN' }} />
           <Stack.Screen name="hazmat" options={{ title: 'Hazmat ERG 147' }} />
           <Stack.Screen name="guide147" options={{ title: 'Guide 147 full text' }} />

@@ -22,7 +22,11 @@ export type Guide = {
   pages?: number;
   images?: Record<'200' | '300', { bytes: number; pages: PageImage[] }>; // rescue sheets ship as page images
   photo?: VehiclePhoto;   // approved real photo of this model (tools/nhtsa photos:*) — ships with the rescue-sheet pack
+  contacts?: Contact[];   // manufacturer phone lines read from this guide and approved on the PC (tools/nhtsa contacts)
 };
+
+/** A phone line printed in the manufacturer's own guide. Only ever shown after a person approved it. */
+export type Contact = { name: string; phone: string; note?: string; page?: number };
 
 /** A real photo of the vehicle, picked and approved by a person on the PC. Never a live web lookup. */
 export type VehiclePhoto = { file: string; w: number; h: number; bytes: number; credit: string; license?: string };
@@ -148,4 +152,91 @@ export function resolveLocal(g: Guide, prevGuides: Guide[] | undefined, has: (fi
   const old = prevGuides?.find((x) => x.key === g.key);
   if (old) { const ofs = filesFor(old, set); if (ofs.length && ofs.every(has)) return old; }
   return null;
+}
+
+// ---------- Forgiving search (gloves, panic, typos) ----------
+/** Nicknames people actually say → the make as listed. Keys are normalized. */
+const MAKE_NICKS: Record<string, string> = {
+  chevy: 'chevrolet', chev: 'chevrolet', vw: 'volkswagen', vdub: 'volkswagen', merc: 'mercedesbenz', mercedes: 'mercedesbenz',
+  benz: 'mercedesbenz', mb: 'mercedesbenz', amg: 'mercedesbenz', maybach: 'mercedesbenz', caddy: 'cadillac', caddie: 'cadillac',
+  rangerover: 'landrover', rr: 'landrover', beemer: 'bmw', bimmer: 'bmw', beamer: 'bmw', lambo: 'lamborghini', alfa: 'alfaromeo',
+  ih: 'international', navistar: 'international', freightliner: 'freightliner', gm: 'gmc', hummer: 'gmc', jag: 'jaguar',
+};
+
+/** Edit distance (small strings only). */
+export function lev(a: string, b: string): number {
+  if (a === b) return 0;
+  const d = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = d[0]; d[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const t = d[j];
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = t;
+    }
+  }
+  return d[b.length];
+}
+/** Typos allowed for a typed fragment of this length: none under 4 letters, 1 up to 6, 2 from 7. */
+const slack = (n: number) => (n < 4 ? 0 : n < 7 ? 1 : 2);
+/** Does a typed fragment start this word, allowing a typo or two ("hyundia" → hyundai, "mercedez" → mercedes)? */
+export function fuzzyPrefix(typed: string, word: string): boolean {
+  const t = norm(typed), w = norm(word);
+  if (!t || !w) return false;
+  if (w.startsWith(t)) return true;
+  const k = slack(t.length);
+  if (!k) return false;
+  // compare against the word's prefixes around the typed length (letters can be missed or doubled)
+  for (let n = Math.max(1, t.length - k); n <= Math.min(w.length, t.length + k); n++) if (lev(t, w.slice(0, n)) <= k) return true;
+  return false;
+}
+
+/** Brands that fit what's typed so far, best first. One letter is enough to start narrowing. */
+export function matchMakes(q: string, makes: string[]): string[] {
+  const t = norm(q);
+  if (!t) return makes;
+  const nick = Object.entries(MAKE_NICKS).filter(([k]) => k.startsWith(t) || (t.length >= 4 && lev(t, k) <= 1)).map(([, v]) => v);
+  const score = (m: string) => {
+    const nm = norm(m), nk = normMake(m);
+    if (nm === t || nk === t) return 0;
+    if (nm.startsWith(t)) return 1;
+    if (m.toLowerCase().split(/[\s-]+/).some((w) => norm(w).startsWith(t))) return 2;
+    if (nick.includes(nk) || nick.includes(nm)) return 3;
+    if (fuzzyPrefix(t, nm)) return 4;
+    return 99;
+  };
+  return makes.map((m) => [m, score(m)] as const).filter(([, s]) => s < 99).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([m]) => m);
+}
+/** The one make the query names outright ("chevy", "tesla"), if any. */
+export function namedMake(q: string, makes: string[]): string | undefined {
+  const t = norm(q);
+  if (!t) return undefined;
+  const target = MAKE_NICKS[t] ?? t;
+  return makes.find((m) => norm(m) === target || normMake(m) === target);
+}
+
+/** Forgiving text match: every typed word must fit (substring, spaces/dashes ignored, nickname, or small typo). */
+export function looseMatch(q: string, hay: string): boolean {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const h = hay.toLowerCase();
+  const hn = norm(hay);
+  if (norm(q).length >= 3 && hn.includes(norm(q))) return true; // "mach e" → "Mustang Mach-E", "f150" → "F-150"
+  const hw = h.split(/[\s/·,()-]+/).filter(Boolean);
+  return words.every((w) => {
+    const nw = norm(w);
+    if (!nw) return true;
+    const nick = MAKE_NICKS[nw];
+    if (nick && hn.includes(nick)) return true;
+    if (hn.includes(nw)) return true;
+    return hw.some((x) => fuzzyPrefix(nw, x));
+  });
+}
+
+/** Forgiving version of searchGuides. */
+export function smartSearchGuides(q: string, guides: Guide[], make?: string, limit = 200): Guide[] {
+  return guides
+    .filter((x) => (!make || x.make === make) && looseMatch(q, `${x.make} ${x.model} ${x.years} ${x.powertrain}`))
+    .sort((a, b) => a.make.localeCompare(b.make) || a.model.localeCompare(b.model) || (b.yearFrom ?? 0) - (a.yearFrom ?? 0))
+    .slice(0, limit);
 }
