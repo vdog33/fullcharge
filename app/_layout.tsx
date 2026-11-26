@@ -16,12 +16,14 @@ import { C, F } from '../src/theme';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import { listenForTaps, registerPush } from '../src/lib/push';
+import { ensureErgPdfs } from '../src/lib/erg-pdfs';
 
 export default function Root() {
   useEffect(() => { registerPush(); return listenForTaps(); }, []);
   const [loaded, err] = useFonts({ Archivo_700Bold, Archivo_800ExtraBold, Archivo_900Black, ArchivoNarrow_600SemiBold, ArchivoNarrow_700Bold });
   useEffect(() => {
     loadPacks().then(() => ensureIndex()).then(() => resumeInterrupted()).catch(() => {});
+    ensureErgPdfs().catch(() => {}); // ERG guide PDFs onto the phone the first time there's signal
     ensureBessCatalog().catch(() => {});
     warm(); // maps open on your spot at once
   }, []);

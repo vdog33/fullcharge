@@ -8,6 +8,8 @@ import MapView, { Polygon } from 'react-native-maps';
 import { Btn, Card, H1, Input, Muted, Notice, Screen, Toggle, st } from '../src/components/ui';
 import { Icon, IconName } from '../src/components/Icon';
 import { VinDbRow } from '../src/components/VinDbRow';
+import { ErgPdfRow } from '../src/components/ErgPdfRow';
+import { ensureErgPdfs, ergState } from '../src/lib/erg-pdfs';
 import { allReady, coreReady, getPackState, guideIndex, loadPacks, sheetPageUris, startOrResume, subscribe, transferRate } from '../src/lib/packs';
 import { vinDbState } from '../src/lib/vin-offline';
 import { addArea, deleteArea, downloadArea, getAreas, isDownloading, loadAreas, spotCheckTiles, subscribeAreas } from '../src/lib/tiles';
@@ -105,6 +107,7 @@ function SheetsStep() {
   async function get() {
     setMsg('');
     if ((await NetInfo.fetch()).isConnected === false) return setMsg('No signal — do this on Wi-Fi at the station.');
+    ensureErgPdfs().catch(() => {}); // the ERG guide PDFs come with the cut sheets
     try { await startOrResume('core'); await startOrResume('nhtsa-rescue'); } catch (e) { setMsg((e as Error).message); }
   }
   return (
@@ -123,6 +126,7 @@ function SheetsStep() {
       )}
       {!ready && ps.status !== 'downloading' && <Btn tone="hazmat" icon="dl" label="Download cut sheets" onPress={get} />}
       {!!msg && <Muted>{msg}</Muted>}
+      <ErgPdfRow />
     </Card>
   );
 }
@@ -209,7 +213,7 @@ function MapsStep() {
   );
 }
 
-type Check = { key: 'sheets' | 'vin' | 'maps'; label: string; ok: boolean | null; fix?: string };
+type Check = { key: 'sheets' | 'ergs' | 'vin' | 'maps'; label: string; ok: boolean | null; fix?: string };
 function TestStep({ onPass, done, onHome }: { onPass: (c: Record<string, boolean>) => void; done: boolean; onHome: () => void }) {
   const [res, setRes] = useState<Check[] | null>(null);
   const [msg, setMsg] = useState('');
@@ -226,13 +230,15 @@ function TestStep({ onPass, done, onHome }: { onPass: (c: Record<string, boolean
     const sheets = coreReady() && allReady() && !!page?.local;
     const vin = (await vinDbState()).onPhone;
     const maps = await spotCheckTiles();
+    const ergs = !(await ergState()).missing.length;
     const out: Check[] = [
       { key: 'sheets', label: 'Cut sheets open', ok: sheets, fix: 'Step 2 — download cut sheets' },
+      { key: 'ergs', label: 'ERG guide PDFs open', ok: ergs, fix: 'Step 2 — ERG guides (PDF) → Download' },
       { key: 'vin', label: 'VIN decodes', ok: vin, fix: 'Step 3 — get the VIN decoder' },
       { key: 'maps', label: 'Map shows your area', ok: maps, fix: 'Step 4 — save a map area' },
     ];
     setRes(out); setBusy(false);
-    if (out.every((c) => c.ok)) onPass({ sheets, vin, maps });
+    if (out.every((c) => c.ok)) onPass({ sheets, ergs, vin, maps });
   }
   const pass = res?.every((c) => c.ok);
   return (
