@@ -56,7 +56,7 @@ for (const g of Object.values(groups)) {
       made++;
       continue;
     }
-    const r = await fetch(c.url, { headers: UA });
+    const r = await fetch(c.url, { headers: UA, signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const credit = `${c.artist ? c.artist + ' · ' : ''}${c.license || 'Wikimedia Commons'}`.slice(0, 80);
     photos[g.key] = { ...(await shrink(Buffer.from(await r.arrayBuffer()))), credit, license: c.license, source: c.url, page: c.page };

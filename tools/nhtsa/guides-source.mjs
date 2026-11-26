@@ -10,7 +10,7 @@ export const PUBLIC_BASE = (process.env.SUPABASE_URL || 'https://luuqzmvcoguuqcn
 export async function loadGuides() {
   if (existsSync('out/downloaded.json')) return { from: 'out/downloaded.json', guides: JSON.parse(readFileSync('out/downloaded.json', 'utf8')).guides };
   if (existsSync('out/guides.json')) return { from: 'out/guides.json', guides: JSON.parse(readFileSync('out/guides.json', 'utf8')).guides };
-  const r = await fetch(`${PUBLIC_BASE}/manifest.json?t=${Date.now()}`);
+  const r = await fetch(`${PUBLIC_BASE}/manifest.json?t=${Date.now()}`, { signal: AbortSignal.timeout(60000) });
   if (!r.ok) throw new Error(`No out\\ folder here and couldn't read the published list (${r.status}). Run npm run scrape, or set SUPABASE_URL.`);
   const m = await r.json();
   mkdirSync('out', { recursive: true });

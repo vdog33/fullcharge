@@ -78,7 +78,7 @@ async function ask(pngs) {
   };
   for (let i = 0; i < 4; i++) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body),
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000),
     });
     if (r.status === 429 || r.status >= 500) { await new Promise((res) => setTimeout(res, 4000 * (i + 1))); continue; }
     if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 160)}`);
@@ -100,14 +100,14 @@ for (const [k, g] of groups) {
     if (!LOCAL && g.images) {
       // Published rescue sheet: pages 1–2 are already images (300 dpi set).
       for (const [i, p] of g.images['300'].pages.slice(0, 2).entries()) {
-        const res = await fetch(`${PUBLIC_BASE}/${p.file}`);
+        const res = await fetch(`${PUBLIC_BASE}/${p.file}`, { signal: AbortSignal.timeout(60000) });
         if (!res.ok) throw new Error(`page ${i + 1}: HTTP ${res.status}`);
         await sharp(Buffer.from(await res.arrayBuffer())).png().toFile(`${tmp}/p${i + 1}.png`);
       }
     } else {
       let pdf = g.pdfFile;
       if (!LOCAL) { // published full ERG (shrunk PDF)
-        const res = await fetch(`${PUBLIC_BASE}/${g.file}`);
+        const res = await fetch(`${PUBLIC_BASE}/${g.file}`, { signal: AbortSignal.timeout(120000) });
         if (!res.ok) throw new Error(`PDF: HTTP ${res.status}`);
         pdf = `${tmp}/doc.pdf`;
         writeFileSync(pdf, Buffer.from(await res.arrayBuffer()));

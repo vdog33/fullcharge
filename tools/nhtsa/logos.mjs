@@ -27,7 +27,7 @@ if (MODE === 'find') {
     const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=20' +
       `&gsrsearch=${encodeURIComponent(q)}&prop=imageinfo&iiprop=url|mime&iiurlwidth=320`;
     for (let i = 0; i < 3; i++) {
-      try { const r = await fetch(url, { headers: UA }); if (r.ok) return Object.values((await r.json())?.query?.pages ?? {}); } catch { /* retry */ }
+      try { const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(15000) }); if (r.ok) return Object.values((await r.json())?.query?.pages ?? {}); } catch { /* retry */ }
       await new Promise((res) => setTimeout(res, 1200 * (i + 1)));
     }
     return [];
@@ -77,8 +77,8 @@ n();function save(){const a=document.createElement('a');a.href=URL.createObjectU
   for (const [make, thumb] of Object.entries(approved)) {
     if (thumb === 'none') continue;
     try {
-      const r = await fetch(thumb.replace(/\/\d+px-/, '/480px-'), { headers: UA });
-      const buf = Buffer.from(await (r.ok ? r : await fetch(thumb, { headers: UA })).arrayBuffer());
+      const r = await fetch(thumb.replace(/\/\d+px-/, '/480px-'), { headers: UA, signal: AbortSignal.timeout(15000) });
+      const buf = Buffer.from(await (r.ok ? r : await fetch(thumb, { headers: UA, signal: AbortSignal.timeout(15000) })).arrayBuffer());
       const png = await sharp(buf).trim().resize(240, 240, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
       writeFileSync(new URL(`${slug(make)}.png`, ASSETS), png);
       ok++;

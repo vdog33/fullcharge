@@ -31,7 +31,7 @@ async function commons(q) {
     `&gsrsearch=${encodeURIComponent(q)}&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1200`;
   for (let i = 0; i < 3; i++) {
     try {
-      const r = await fetch(url, { headers: UA });
+      const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(15000) });
       if (r.ok) return Object.values((await r.json())?.query?.pages ?? {});
     } catch { /* retry */ }
     await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
