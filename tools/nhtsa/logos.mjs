@@ -35,6 +35,7 @@ if (MODE === 'find') {
   // Commons names logo files many ways ("Mercedes-Logo.svg", "Logo of Rivian.svg", "Volvo Iron Mark.svg"):
   // several searches per brand, and the file name only has to contain one word of the brand.
   const words = (m) => m.toLowerCase().split(/[\s&-]+/).filter((w) => w.length >= 2 && !['motor', 'motors', 'bus', 'trucks', 'the'].includes(w));
+  console.log(`Searching logos for ${makes.length} brands — about ${Math.ceil(makes.length / 15)} min. The review page opens when it's done.`);
   for (const make of makes) {
     const seen = new Set(), list = [];
     for (const q of [`${make} logo`, `${make} logo svg`, `${make} emblem`, `${make} wordmark`, `intitle:"${make}" logo`]) {
@@ -50,6 +51,7 @@ if (MODE === 'find') {
       await new Promise((r) => setTimeout(r, 120));
     }
     result[make] = list.slice(0, 10);
+    console.log(`${Object.keys(result).length}/${makes.length} ${make} (${result[make].length} found)`);
   }
   const none = Object.entries(result).filter(([, c]) => !c.length).map(([m]) => m);
   if (none.length) console.log(`\nNo logo found for ${none.length}: ${none.join(', ')}\nDrop your own PNG for those in assets\\brands\\ named like ${none.slice(0, 2).map((m) => slug(m) + '.png').join(', ')} — logos:build keeps them.`);
