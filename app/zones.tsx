@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { getWeather, Weather, weatherLine } from '../src/lib/weather';
+import { WindSource } from '../src/lib/scene';
+import { WeatherChip } from '../src/components/WeatherChip';
 import { Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
@@ -42,7 +45,9 @@ export default function Zones() {
   const [windMode, setWindMode] = useState<'Manual' | 'Face the wind'>('Face the wind');
   const [markedAt, setMarkedAt] = useState<number | null>(null);
   const [markMsg, setMarkMsg] = useState('');
-  useEffect(() => { setScene({ night, windFrom, windDeg, windMph }); }, [night, windFrom, windDeg, windMph]);
+  const [windSource, setWindSource] = useState<WindSource>(sc0.windSource);
+  const [wx, setWx] = useState<Weather | null>(null);
+  useEffect(() => { setScene({ night, windFrom, windDeg, windMph, windSource }); }, [night, windFrom, windDeg, windMph, windSource]);
 
   // Location
   const fix0 = lastFix();
@@ -161,7 +166,23 @@ export default function Zones() {
     setWindDeg(mean);
     setWindFrom(toCompass(mean));
     setMarkedAt(now);
+    setWindSource('marked');
   }
+
+  // Weather at the scene fills the wind automatically (temp, speed, direction). Facing the wind or picking by hand overrides it.
+  useEffect(() => {
+    if (!you) return;
+    getWeather(you).then((w) => {
+      if (!w) return;
+      setWx(w);
+      setScene({ tempF: w.tempF, weatherNote: `${weatherLine(w)} · ${w.source}` });
+      if (getScene().windSource === 'none' || getScene().windSource === 'weather') {
+        if (w.windFromDeg != null) { setWindDeg(w.windFromDeg); setWindFrom(toCompass(w.windFromDeg)); }
+        if (w.windMph != null) setWindMph(Math.round(w.windMph));
+        setWindSource('weather');
+      }
+    });
+  }, [you ? Math.round(you.lat * 100) : null, you ? Math.round(you.lng * 100) : null]);
 
   const pickZoom = (z: Zoom) => { setZoom(z); if (live) mapRef.current?.frame(FRAME_M[z]); };
 
@@ -246,13 +267,14 @@ export default function Zones() {
         </View>
         <Muted style={{ paddingHorizontal: 4 }}>{live ? 'Drag FIRE, long-press, or tap Move fire.' : 'Drag or tap to move the fire, or tap Move fire.'}</Muted>
 
+        {wx && <WeatherChip w={wx} using={windSource === 'weather'} />}
         <Seg label="Set wind by" options={['Manual', 'Face the wind'] as const} value={windMode} onChange={setWindMode} />
 
         {windMode === 'Manual' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.md }}>
             <View style={s.compass} accessibilityRole="radiogroup" accessibilityLabel="Wind from">
               {GRID.map((d, i) => d ? (
-                <Pressable key={d} onPress={() => { setWindFrom(d); setWindDeg(null); setMarkedAt(null); }} accessibilityRole="radio"
+                <Pressable key={d} onPress={() => { setWindFrom(d); setWindDeg(null); setMarkedAt(null); setWindSource('manual'); }} accessibilityRole="radio"
                   accessibilityState={{ checked: windDeg === null && windFrom === d }} accessibilityLabel={`Wind from ${d}`}
                   style={[s.cell, windDeg === null && windFrom === d && { backgroundColor: '#FFF', borderColor: '#FFF' }]}>
                   <Text style={[s.cellText, windDeg === null && windFrom === d && { color: C.hazmatText }]}>{d}</Text>
@@ -300,13 +322,13 @@ export default function Zones() {
         )}
 
         <View style={s.stepper}>
-          <Pressable onPress={() => setWindMph((x) => Math.max(0, x - 5))} accessibilityRole="button" accessibilityLabel="Decrease wind speed by 5" style={s.stepBtn}>
+          <Pressable onPress={() => { setWindMph((x) => Math.max(0, x - 5)); if (windSource === 'weather') setWindSource('manual'); }} accessibilityRole="button" accessibilityLabel="Decrease wind speed by 5" style={s.stepBtn}>
             <Text style={s.stepText}>−5</Text>
           </Pressable>
           <Text style={{ flex: 1, textAlign: 'center', color: C.text, fontFamily: F.black, fontSize: 28 }} accessibilityLiveRegion="polite">
             {windMph} <Text style={{ fontSize: 16, color: C.muted, fontFamily: F.displayBold }}>mph</Text>
           </Text>
-          <Pressable onPress={() => setWindMph((x) => Math.min(80, x + 5))} accessibilityRole="button" accessibilityLabel="Increase wind speed by 5" style={s.stepBtn}>
+          <Pressable onPress={() => { setWindMph((x) => Math.min(80, x + 5)); if (windSource === 'weather') setWindSource('manual'); }} accessibilityRole="button" accessibilityLabel="Increase wind speed by 5" style={s.stepBtn}>
             <Text style={s.stepText}>+5</Text>
           </Pressable>
         </View>
