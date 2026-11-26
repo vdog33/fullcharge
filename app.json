@@ -3,7 +3,7 @@
     "name": "FULLCHARGE",
     "slug": "fullcharge",
     "scheme": "fullcharge",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "default",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0A0A0A",
