@@ -1,8 +1,9 @@
 // Command view — the command-zone screen. iPad landscape: live map on the left (fire, zones, wind plume),
 // the cut sheet or ERG 147 on the right, scenes along the top. Moving the fire or changing the wind on a shared
 // scene updates every phone viewing it. On a phone the same parts stack with a switch.
-import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Btn, Bullets, Chips, Input, Label, Muted, Seg, st } from '../src/components/ui';
@@ -53,6 +54,17 @@ export default function Command() {
   const [rightH, setRightH] = useState(0);
   const [wx, setWx] = useState<Weather | null>(null);
   const [windOpen, setWindOpen] = useState(false);
+  // Draggable middle: how much of the width the map gets (0.25–0.75). Remembered on this device.
+  const [split, setSplit] = useState(0.5);
+  const rowW = useRef(1);
+  const splitAtStart = useRef(0.5);
+  const splitNow = useRef(0.5);
+  splitNow.current = split; // the drag handler is made once, so it reads the current split from here
+  useEffect(() => { AsyncStorage.getItem('fullcharge.commandSplit').then((v) => { const n = Number(v); if (n >= 0.25 && n <= 0.75) setSplit(n); }).catch(() => {}); }, []);
+  const clampSplit = (x: number) => Math.min(0.75, Math.max(0.25, x));
+  const dragSplit = (dx: number, start: boolean) => { if (start) splitAtStart.current = splitNow.current; setSplit(clampSplit(splitAtStart.current + dx / Math.max(1, rowW.current))); };
+  const saveSplit = (x: number) => { setSplit(x); AsyncStorage.setItem('fullcharge.commandSplit', String(x)).catch(() => {}); };
+  const endSplit = () => setSplit((x) => { AsyncStorage.setItem('fullcharge.commandSplit', String(x)).catch(() => {}); return x; });
   const [checks, setChecks] = useState<Checkin[]>([]);
   const [me, setMe] = useState<string>('');
   const [myUnit, setUnitState] = useState('');
@@ -123,7 +135,6 @@ export default function Command() {
   }, [live?.id]);
   const mine = checks.find((c) => c.device_id === me);
   const responding = checks.filter((c) => c.status === 'responding');
-  const watching = checks.filter((c) => c.status === 'watching').length;
   async function choose(st: CheckStatus) {
     if (!live) return;
     if (st === 'responding' && !myUnit.trim()) return setErr('Type your unit first so the officer on scene knows who you are.');
@@ -204,7 +215,6 @@ export default function Command() {
           </View>
         ))}
         {!showWho && responding.length > 8 && <Text style={{ color: C.muted }}>+{responding.length - 8}</Text>}
-        <Text style={{ color: C.muted, fontSize: 15 }}>· {watching} watching</Text>
         {mine && (
           <Pressable onPress={() => choose(mine.status === 'responding' ? 'watching' : 'responding')} accessibilityRole="button"
             style={{ marginLeft: 6, paddingHorizontal: 10, minHeight: 36, justifyContent: 'center', borderRadius: 6, borderWidth: 1, borderColor: C.line }}>
@@ -253,9 +263,11 @@ export default function Command() {
       {who}
       {tiles}
       {!!err && <Text style={{ color: C.redText, paddingHorizontal: S.md }}>{err}</Text>}
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.md, paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}>
-        <View style={{ flex: 1, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
-        <View style={{ flex: 1, minWidth: 0, gap: S.sm }} onLayout={(e) => setRightH(Math.round(e.nativeEvent.layout.height))}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}
+        onLayout={(e) => { rowW.current = e.nativeEvent.layout.width; }}>
+        <View style={{ flex: split, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
+        <Divider onDrag={dragSplit} onEnd={endSplit} onReset={() => saveSplit(0.5)} />
+        <View style={{ flex: 1 - split, minWidth: 0, gap: S.sm }} onLayout={(e) => setRightH(Math.round(e.nativeEvent.layout.height))}>
           <Seg label="Right side" options={['Cut sheet', 'ERG 147'] as const} value={pane === 'Map' ? 'Cut sheet' : pane} onChange={setPane} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40, gap: S.block }}>{pane === 'ERG 147' ? erg : sheet}</ScrollView>
         </View>
@@ -300,5 +312,32 @@ function Tile({ label, value, unit, sub, on, mono, onPress }: { label: string; v
       </Text>
       {!!sub && <Text style={{ color: on ? C.hazmatText : C.muted, fontSize: 13 }} numberOfLines={1}>{sub}</Text>}
     </Pressable>
+  );
+}
+
+/** The middle bar between map and cut sheet: drag left / right to resize; double-tap for 50/50. Wide grab area for gloves. */
+function Divider({ onDrag, onEnd, onReset }: { onDrag: (dx: number, start: boolean) => void; onEnd: () => void; onReset: () => void }) {
+  const lastTap = useRef(0);
+  const pan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      const now = Date.now();
+      if (now - lastTap.current < 300) onReset();
+      lastTap.current = now;
+      onDrag(0, true);
+    },
+    onPanResponderMove: (_e, g) => onDrag(g.dx, false),
+    onPanResponderRelease: onEnd,
+    onPanResponderTerminate: onEnd,
+  })).current;
+  return (
+    <View {...pan.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Divider between map and cut sheet. Drag to resize, double-tap for half and half."
+      style={{ width: 32, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 4, flex: 1, maxHeight: '100%', borderRadius: 2, backgroundColor: C.line }} />
+      <View style={{ position: 'absolute', width: 28, height: 64, borderRadius: 14, backgroundColor: C.surface2, borderWidth: 2, borderColor: C.text, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        {[0, 1, 2].map((i) => <View key={i} style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: C.text }} />)}
+      </View>
+    </View>
   );
 }
