@@ -15,7 +15,8 @@
     "logos:find": "node --experimental-strip-types logos.mjs find",
     "logos:build": "node --experimental-strip-types logos.mjs build",
     "pictures": "npm run logos:find && npm run guide:scan && npm run photos:find",
-    "guide:scan": "node --experimental-strip-types guide-scan.mjs"
+    "guide:scan": "node --experimental-strip-types guide-scan.mjs",
+    "publish:extras": "node --experimental-strip-types publish-extras.mjs"
   },
   "dependencies": {
     "playwright": "^1.49.0",

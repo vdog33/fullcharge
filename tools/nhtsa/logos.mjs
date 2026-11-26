@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import sharp from 'sharp';
+import { loadGuides } from './guides-source.mjs';
 
 const MODE = process.argv[2];
 const ASSETS = new URL('../../assets/brands/', import.meta.url);
@@ -17,9 +18,9 @@ const UA = { 'User-Agent': 'FULLCHARGE/1.0 (first-responder app; brand logos; on
 mkdirSync('out', { recursive: true });
 
 if (MODE === 'find') {
-  const src = existsSync('out/downloaded.json') ? 'out/downloaded.json' : 'out/guides.json';
+  const { guides: listed } = await loadGuides();
   const seed = JSON.parse(readFileSync(new URL('../../src/data/fullcharge-data.json', import.meta.url))).vehicles;
-  const makes = [...new Set([...JSON.parse(readFileSync(src, 'utf8')).guides.map((g) => g.make), ...seed.map((v) => v.make)].filter(Boolean))].sort();
+  const makes = [...new Set([...listed.map((g) => g.make), ...seed.map((v) => v.make)].filter(Boolean))].sort();
   const approved = existsSync('out/logos-approved.json') ? JSON.parse(readFileSync('out/logos-approved.json', 'utf8')) : {};
   const result = {};
   for (const make of makes) {

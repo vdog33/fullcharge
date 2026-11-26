@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { photoKey } from '../../src/lib/match-core.ts';
+import { loadGuides, PUBLIC_BASE } from './guides-source.mjs';
 
 const KEY = process.env.GEMINI_API_KEY;
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
@@ -32,14 +33,17 @@ function findGhostscript() {
 }
 const GS = findGhostscript();
 
-const { guides } = JSON.parse(readFileSync('out/downloaded.json', 'utf8'));
+const { guides, from } = await loadGuides();
+const LOCAL = from === 'out/downloaded.json';
 ['out/guide-pics', 'out/tmp-scan'].forEach((d) => mkdirSync(d, { recursive: true }));
 const pics = existsSync('out/guide-pics.json') ? JSON.parse(readFileSync('out/guide-pics.json', 'utf8')) : {};
 const contacts = existsSync('out/contacts-candidates.json') ? JSON.parse(readFileSync('out/contacts-candidates.json', 'utf8')) : {};
 
 // One scan per make + model + years: prefer the full ERG (cover photo), else the rescue sheet.
 const groups = new Map();
-for (const g of guides.filter((x) => x.make && x.model && x.pdfFile && existsSync(x.pdfFile))) {
+// On this PC: the original PDFs. Otherwise: the published copies (full ERGs as PDFs, rescue sheets as page images).
+const usable = (x) => x.make && x.model && (LOCAL ? x.pdfFile && existsSync(x.pdfFile) : (x.file || x.images));
+for (const g of guides.filter(usable)) {
   const k = photoKey(g);
   const cur = groups.get(k);
   if (!cur || (cur.docType === 'rescue_sheet' && g.docType !== 'rescue_sheet')) groups.set(k, g);
@@ -93,10 +97,26 @@ for (const [k, g] of groups) {
   const tmp = `out/tmp-scan/${g.sha256}`;
   rmSync(tmp, { recursive: true, force: true }); mkdirSync(tmp, { recursive: true });
   try {
-    const r = spawnSync(GS, ['-dSAFER', '-dBATCH', '-dNOPAUSE', '-dQUIET', '-sDEVICE=png16m', '-r150', '-dFirstPage=1', '-dLastPage=2',
-      '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${tmp}/p%d.png`, g.pdfFile], { timeout: 120_000 });
-    if (r.status !== 0) throw new Error('Ghostscript could not render');
-    const files = readdirSync(tmp).filter((f) => f.endsWith('.png')).sort();
+    if (!LOCAL && g.images) {
+      // Published rescue sheet: pages 1–2 are already images (300 dpi set).
+      for (const [i, p] of g.images['300'].pages.slice(0, 2).entries()) {
+        const res = await fetch(`${PUBLIC_BASE}/${p.file}`);
+        if (!res.ok) throw new Error(`page ${i + 1}: HTTP ${res.status}`);
+        await sharp(Buffer.from(await res.arrayBuffer())).png().toFile(`${tmp}/p${i + 1}.png`);
+      }
+    } else {
+      let pdf = g.pdfFile;
+      if (!LOCAL) { // published full ERG (shrunk PDF)
+        const res = await fetch(`${PUBLIC_BASE}/${g.file}`);
+        if (!res.ok) throw new Error(`PDF: HTTP ${res.status}`);
+        pdf = `${tmp}/doc.pdf`;
+        writeFileSync(pdf, Buffer.from(await res.arrayBuffer()));
+      }
+      const r = spawnSync(GS, ['-dSAFER', '-dBATCH', '-dNOPAUSE', '-dQUIET', '-sDEVICE=png16m', '-r150', '-dFirstPage=1', '-dLastPage=2',
+        '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${tmp}/p%d.png`, pdf], { timeout: 120_000 });
+      if (r.status !== 0) throw new Error('Ghostscript could not render');
+    }
+    const files = readdirSync(tmp).filter((f) => /^p\d+\.png$/.test(f)).sort();
     // Smaller copies for Gemini (it doesn't need 150 dpi to find the car); crop from the full render.
     const small = await Promise.all(files.map((f) => sharp(join(tmp, f)).resize({ width: 900 }).png().toBuffer()));
     const a = await ask(small);

@@ -7,9 +7,9 @@
 // model AND generation. Your own photos (or ones you have rights to) go in out/photos-manual/ — see README.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { photoKey } from '../../src/lib/match-core.ts';
+import { loadGuides } from './guides-source.mjs';
 
-const src = existsSync('out/downloaded.json') ? 'out/downloaded.json' : 'out/guides.json';
-const { guides } = JSON.parse(readFileSync(src, 'utf8'));
+const { guides } = await loadGuides();
 mkdirSync('out/photos-manual', { recursive: true });
 
 // One group per make + model + years.
