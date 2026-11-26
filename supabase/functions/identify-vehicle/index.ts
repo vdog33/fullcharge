@@ -112,15 +112,15 @@ async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL, r
       res = await send({ ...body, generationConfig: plain });
     } else throw new Error(`Gemini 400 (${model}): ${t.slice(0, 300)}`);
   }
-  // Overloaded ("high demand", 503) or a hiccup (500): one quick retry on the same model.
-  if (!res.ok && [500, 503].includes(res.status) && !retried) {
-    await new Promise((r) => setTimeout(r, 700));
-    return callGemini(body, model, true);
-  }
-  // Still busy, or not available on this account (not found / not allowed / no quota): use 3.5 Flash instead.
+  // Busy, or not available on this account: go straight to 3.5 Flash (no waiting on an overloaded model).
   if (!res.ok && [403, 404, 429, 500, 503].includes(res.status) && model !== FALLBACK_MODEL) {
     console.warn(`Gemini ${res.status} on ${model} — falling back to ${FALLBACK_MODEL}: ${(await res.text()).slice(0, 200)}`);
     return callGemini(body, FALLBACK_MODEL);
+  }
+  // 3.5 Flash itself busy: one quick retry.
+  if (!res.ok && [500, 503].includes(res.status) && !retried) {
+    await new Promise((r) => setTimeout(r, 700));
+    return callGemini(body, model, true);
   }
   if (!res.ok) {
     // Pull Google's one-line message out of its JSON so the phone shows words, not code.
