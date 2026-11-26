@@ -113,3 +113,12 @@ npm run callouts:propose      # the 20 Test vehicles (npm run callouts:propose -
 npm run callouts:publish      # needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
 ```
 Re-running propose skips sheets you've already checked. The beta app's **Test** button shows which of the 20 are done.
+
+## Offline VIN decoder
+VINs decode to make + model with no signal, from NHTSA's own vPIC data (trimmed to makes with cut sheets).
+1. Download the vPIC standalone database, **PostgreSQL** format, from https://vpic.nhtsa.dot.gov/Downloads and unzip it into `out\vpic\`.
+2. `npm run vin:build` → `out\vin-db.json` (prints size).
+3. Put real VINs (one per line) in `vin-samples.txt` — test cars, fleet — then `npm run vin:check`: every VIN is decoded
+   offline and online and any disagreement is listed. Don't publish until it's clean.
+4. `npm run vin:publish`. Phones: Downloads → Offline VIN decoder → Download (also in Scene-ready setup).
+When the offline data allows more than one model, the app shows each one and the crew picks — same pick → check → accept as camera ID.

@@ -1,0 +1,1 @@
+# One real VIN per line (test cars, fleet, past scenes). Used only by npm run vin:check on this PC.

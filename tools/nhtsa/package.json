@@ -19,7 +19,10 @@
     "publish:extras": "node --experimental-strip-types publish-extras.mjs",
     "callouts:propose": "node --experimental-strip-types callouts.mjs propose",
     "callouts:review": "node --experimental-strip-types callouts.mjs review",
-    "callouts:publish": "node --experimental-strip-types callouts.mjs publish"
+    "callouts:publish": "node --experimental-strip-types callouts.mjs publish",
+    "vin:build": "node --experimental-strip-types vin.mjs build",
+    "vin:check": "node --experimental-strip-types vin.mjs check",
+    "vin:publish": "node --experimental-strip-types vin.mjs publish"
   },
   "dependencies": {
     "playwright": "^1.49.0",

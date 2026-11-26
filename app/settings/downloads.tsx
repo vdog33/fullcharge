@@ -1,4 +1,5 @@
 import React, { useEffect, useReducer, useState } from 'react';
+import { VinDbRow } from '../../src/components/VinDbRow';
 import { Alert, Text, View } from 'react-native';
 import { Btn, H1, Muted, Notice, Pill, Screen, Toggle, st } from '../../src/components/ui';
 import {
@@ -37,6 +38,7 @@ export default function Downloads() {
   return (
     <Screen>
       <H1>Downloads</H1>
+      <VinDbRow />
       <Notice tone={full ? 'ok' : 'warn'} icon={full ? 'check' : 'cloud'}>
         <Text style={[st.body, { fontSize: 17, fontWeight: '700' }]}>{full ? 'Every rescue sheet is on this device — no signal needed to open them.' : 'Rescue sheets not fully downloaded — some need signal.'}</Text>
         <Text style={st.muted}>Cut loops, 12V, BESS, ERG 147 and zones are built in and always work offline. Photo ID always needs signal.</Text>

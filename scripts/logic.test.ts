@@ -304,3 +304,19 @@ test('Callouts: only checked sheets show; crops stay on the page and contain the
   assert.ok(c.x >= 0 && c.y >= 0 && c.x + c.w <= 1.0001 && c.y + c.h <= 1.0001);
   assert.ok(c.x <= box.x && c.x + c.w >= box.x + box.w && c.y <= box.y && c.y + c.h >= box.y + box.h);
 });
+
+import { decodeOffline, keyRegex, type VinDb } from '../src/lib/vin-offline-core.ts';
+test('Offline VIN: patterns, year ranges, most specific wins, ties return both', () => {
+  const db: VinDb = {
+    version: 't', models: ['Tesla|Model 3', 'Tesla|Model Y', 'Tesla|Model S'], elec: ['BEV (Battery Electric Vehicle)'],
+    wmi: { '5YJ': [[1, 2017, null], [2, 2012, 2016]], '7SA': [[3, 2020, null]] },
+    schemas: { '1': [['3E1E', 0, -1], ['3***', 0, 0], ['[XY]E', 1, -1]], '2': [['S', 2, -1]], '3': [['Y', 1, 0], ['Y', 0, -1]] },
+  };
+  assert.ok(keyRegex('3*[A-C]').test('3XB12|P'));
+  const a = decodeOffline(db, '5YJ3E1EA7PF000001', 2023)!;
+  assert.deepEqual(a.models, ['Model 3']); assert.equal(a.electrification, 'BEV (Battery Electric Vehicle)');
+  assert.deepEqual(decodeOffline(db, '5YJSA1E2XGF000001', 2016)!.models, ['Model S']);
+  assert.deepEqual(decodeOffline(db, '5YJSA1E2XGF000001', 2023)!.models, []); // schema 2 ended 2016
+  assert.deepEqual(decodeOffline(db, '7SAYGDEE1PF000001', 2023)!.models.sort(), ['Model 3', 'Model Y']); // tie → both, crew picks
+  assert.equal(decodeOffline(db, 'WVWZZZ1KZ6W000001', 2006), null);
+});

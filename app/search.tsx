@@ -8,7 +8,7 @@ import { Candidate, describeModel, destination, vinCandidate } from '../src/lib/
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
-import { looksLikeVin } from '../src/lib/vin-core';
+import { looksLikeVin, matchCatalog } from '../src/lib/vin-core';
 import { cleanModel, Guide, matchGuess, matchMakes, namedMake, smartSearchGuides } from '../src/lib/match-core';
 import { allReady, guideIndex, loadPacks, subscribe } from '../src/lib/packs';
 import { logIdAttempt, updateIdAttempt } from '../src/lib/history';
@@ -38,7 +38,7 @@ export default function Search() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [res, setRes] = useState<{ r: VinResult; at: number; guides: Guide[] } | null>(null);
-  const [vinCand, setVinCand] = useState<Candidate | null>(null); // same pick → check → accept as camera ID
+  const [vinCands, setVinCands] = useState<Candidate[]>([]); // same pick → check → accept as camera ID
   const [accepted, setAccepted] = useState<string | null>(null);
   // Coming back from the scanner with a VIN: look it up straight away.
   const params = useLocalSearchParams<{ vin?: string }>();
@@ -75,24 +75,31 @@ export default function Search() {
   }, [q, chip, typedMake, brands]);
 
   async function runVin(v?: string) {
-    setErr(''); setRes(null); setVinCand(null); setAccepted(null); setBusy(true);
+    setErr(''); setRes(null); setVinCands([]); setAccepted(null); setBusy(true);
     try {
       const out = await lookupVin(v ?? vin);
       const d = out.decoded;
-      const mg = d.make && d.model ? matchGuess({ make: d.make, model: d.model, yearFrom: d.year, yearTo: d.year, powertrain: d.electrification }, SEED, index) : null;
-      const guides = mg?.guides ?? [];
+      // Offline decode can allow more than one model (NHTSA patterns overlap) — offer each, the crew picks.
+      const variants = (out.models?.length ? out.models : [d.model]).map((model) => ({ ...d, model }));
+      const picks = variants.map((dv) => {
+        const mg = dv.make && dv.model ? matchGuess({ make: dv.make, model: dv.model, yearFrom: dv.year, yearTo: dv.year, powertrain: dv.electrification }, SEED, index) : null;
+        return { dv, mg, guides: mg?.guides ?? [] };
+      });
+      const guides = picks.flatMap((p) => p.guides);
       const at = Date.now();
       await logIdAttempt({
         at, source: 'vin', topMatch: [d.year, d.make, d.model].filter(Boolean).join(' ') || null,
         candidates: out.matches.map((m) => ({ label: m.reason, vehicleId: m.vehicleId, confidence: m.strength === 'model' ? 100 : 0 })), confirmedId: null,
       });
       setRes({ r: out, at, guides });
-      const vid = out.matches.find((m) => m.strength === 'model')?.vehicleId;
-      const c0 = vinCandidate(d, guides, vid);
-      const c = c0 ? { ...c0, yearsLoose: mg?.yearsLoose } : null;
-      setVinCand(c);
+      const cs = picks.map(({ dv, mg, guides: gs }) => {
+        const vid = matchCatalog(dv, VEHICLES).find((m) => m.strength === 'model')?.vehicleId;
+        const c0 = vinCandidate(dv, gs, vid);
+        return c0 ? { ...c0, yearsLoose: mg?.yearsLoose } : null;
+      }).filter((c): c is NonNullable<typeof c> => !!c);
+      setVinCands(cs);
       // Photo + checks arrive a moment later (need signal); the card works without them.
-      if (c) describeModel(c.guess).then((x) => setVinCand((p) => (p && p.label === c.label ? { ...p, photo: x.photo, checks: p.checks.length ? p.checks : x.checks } : p)));
+      cs.forEach((c) => describeModel(c.guess).then((x) => setVinCands((p) => p.map((q) => (q.label === c.label ? { ...q, photo: x.photo, checks: q.checks.length ? q.checks : x.checks } : q)))).catch(() => {}));
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -180,16 +187,16 @@ export default function Search() {
       {res && mode === 'vin' && (
         <>
           <Card>
-            <Text style={st.label}>Decoded · {res.r.source === 'nhtsa-vpic' ? 'NHTSA vPIC' : res.r.source === 'offline-wmi' ? 'offline' : 'mock'}</Text>
+            <Text style={st.label}>Decoded · {res.r.source === 'nhtsa-vpic' ? 'NHTSA vPIC' : res.r.source === 'offline-db' ? 'offline (NHTSA data on phone)' : res.r.source === 'offline-wmi' ? 'offline' : 'mock'}</Text>
             <Text style={[st.body, { fontWeight: '700', fontSize: 20 }]}>{[res.r.decoded.year, res.r.decoded.make, res.r.decoded.model, res.r.decoded.trim].filter(Boolean).join(' ') || 'Unknown'}</Text>
             {!!res.r.decoded.electrification && <Muted>{res.r.decoded.electrification}</Muted>}
             <Muted>VIN {res.r.vin}</Muted>
           </Card>
           {res.r.warnings.map((w) => <Notice key={w} tone="warn">{w}</Notice>)}
 
-          {vinCand && (
-            <MatchPicker title="Is this the car?" candidates={[vinCand]} accepted={accepted} noneLabel="Not this car — search by name"
-              onNone={async () => { await updateIdAttempt(res.at, { confirmedId: null }); setMode('name'); setRes(null); setVinCand(null); }}
+          {vinCands.length > 0 && (
+            <MatchPicker title={vinCands.length > 1 ? 'Which one is it?' : 'Is this the car?'} candidates={vinCands} accepted={accepted} noneLabel="Not this car — search by name"
+              onNone={async () => { await updateIdAttempt(res.at, { confirmedId: null }); setMode('name'); setRes(null); setVinCands([]); }}
               onAccept={async (c) => {
                 const d = destination(c);
                 if (!d) return;
