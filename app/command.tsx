@@ -38,6 +38,7 @@ export default function Command() {
   const wide = width >= 700 && width > height; // landscape iPad (or big phone) → split screen
   const [pane, setPane] = useState<'Cut sheet' | 'ERG 147' | 'Map'>(wide ? 'Cut sheet' : 'Map');
   const [inc, setInc] = useState<Incident[]>([]);
+  const [paneH, setPaneH] = useState(0); // measured height of the split area — the map fills all of it
   const [focus, setFocus] = useState<Focus>({ label: 'Your location', guides: [], at: lastFix(), windFrom: null });
 
   // Start on your own scene: your spot + the last vehicle you opened + the wind set on Isolation zones.
@@ -67,7 +68,7 @@ export default function Command() {
   );
 
   const map = focus.at
-    ? <ZoneMap fire={focus.at} you={lastFix()} mapType="satellite" height={wide ? Math.max(300, height - insets.top - insets.bottom - 150) : Math.min(460, height * 0.55)}
+    ? <ZoneMap fire={focus.at} you={lastFix()} mapType="satellite" height={wide ? Math.max(300, paneH || height - insets.top - insets.bottom - 150) : Math.min(460, height * 0.55)}
         plumeHeading={((focus.windFrom ?? 0) + 180) % 360} plumeHalfDeg={focus.windFrom != null ? ZONES.plume_day_spread_deg : 0}
         plumeLenM={focus.windFrom != null ? ZONES.plume_day_m : 0} onMoveFire={(p) => setFocus((f) => ({ ...f, at: p }))} />
     : <Muted>Waiting for your location…</Muted>;
@@ -92,8 +93,9 @@ export default function Command() {
   if (wide) return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {strip}
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.lg, paddingHorizontal: S.lg, paddingBottom: insets.bottom + 8 }}>
-        <View style={{ flex: 1, minWidth: 0 }}>{map}</View>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: S.md, paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}>
+        {/* Map is the main thing on scene: a bit more than half, and the full height of the screen. */}
+        <View style={{ flex: 1.25, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
         <View style={{ flex: 1, minWidth: 0, gap: S.sm }}>
           <Seg label="Right side" options={['Cut sheet', 'ERG 147'] as const} value={pane === 'Map' ? 'Cut sheet' : pane} onChange={setPane} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>{pane === 'ERG 147' ? erg : sheet}</ScrollView>
