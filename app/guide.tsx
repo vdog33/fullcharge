@@ -84,6 +84,7 @@ export default function GuidePage() {
 
       {linked && getVehicle(linked) && <Btn label="FULLCHARGE page — cut loop, 12V, tow" onPress={() => r.push(`/vehicle/${linked}`)} />}
       <Btn tone="red" icon="pin" label="Isolation zones + map" onPress={() => r.push('/zones')} />
+      <Btn tone="outline" icon="share" label="Share to zone" onPress={() => r.push(`/zone/share?ref=${encodeURIComponent(`guide:${keys}`)}&title=${encodeURIComponent(name)}`)} />
       <Btn tone="outline" icon="book" label={`All sheets (${guides.length})`} onPress={() => setTab('Sheets')} />
       </>}
 

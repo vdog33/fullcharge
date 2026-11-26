@@ -6,6 +6,7 @@ import { useAuth } from '../../src/lib/auth';
 import { getSettings, setSettings } from '../../src/lib/history';
 import { DATA_VERSION } from '../../src/data/catalog';
 import { USE_MOCKS, BACKEND_READY } from '../../src/config';
+import { commandOn, getSetup, setSetup, SetupState } from '../../src/lib/setup';
 
 export default function Settings() {
   const r = useRouter();
@@ -22,6 +23,8 @@ export default function Settings() {
       <H1>Settings</H1>
       <LinkRow icon="check" title="Scene-ready setup" sub="Role, cut sheets, VIN decoder, map areas, airplane test" onPress={() => r.push('/setup')} />
       <LinkRow icon="dl" title="Downloads (data packs)" onPress={() => r.push('/settings/downloads')} />
+
+      <CommandRow />
 
       <H2>Camera ID</H2>
       <Toggle label="Share ID photos to improve matching" sub="Off: only the match + your correction are logged. Avoid faces and plates in frame."
@@ -51,4 +54,13 @@ export default function Settings() {
       <Muted>Data {DATA_VERSION} · {USE_MOCKS ? 'mock mode' : BACKEND_READY ? 'live backend' : 'offline only'}</Muted>
     </Screen>
   );
+}
+
+/** Captains and chiefs: command view on / off (chiefs on by default). Role is set in Scene-ready setup. */
+function CommandRow() {
+  const [s, setS] = useState<SetupState | null>(null);
+  useEffect(() => { getSetup().then(setS); }, []);
+  if (!s || (s.role !== 'captain' && s.role !== 'chief')) return null;
+  return <Toggle label="Command view" sub="Home button: map + cut sheet / ERG side by side on iPad, zone scenes on top."
+    value={commandOn(s)} onChange={async (v) => { await setSetup({ commandView: v }); setS(await getSetup()); }} />;
 }
