@@ -101,3 +101,15 @@ Zip `out\debug\` and send it to Claude. That folder holds the page snapshots and
 ## Before shipping to other departments
 Copies of the manufacturer PDFs are re-hosted on your Supabase storage. Check with a lawyer, or ask NHTSA or the
 manufacturers, that redistributing them inside the app is OK. The fallback: phones download from the original URLs instead (less reliable).
+
+## Break cut sheets down: Cut loop · HV disconnect · 12V · No cut
+The app can show each item as its own tab, using the sheet's own picture with a box on it. A script proposes the
+boxes; **nothing shows on scene until you check it**, and the app shows "Checked by <name>, <date>".
+```powershell
+$env:GEMINI_API_KEY = "..."
+npm run callouts:propose      # the 20 Test vehicles (npm run callouts:propose -- --all for every rescue sheet)
+#   open out\callouts-review.html: drag/resize boxes, fix the label, type your name, press "Checked" per sheet, Save
+#   move the downloaded callouts-approved.json into out\
+npm run callouts:publish      # needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+```
+Re-running propose skips sheets you've already checked. The beta app's **Test** button shows which of the 20 are done.

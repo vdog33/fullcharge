@@ -5,7 +5,8 @@ import { C } from '../theme';
 
 export type IconName =
   | 'chev' | 'back' | 'cam' | 'img' | 'search' | 'batt' | 'warn' | 'cloud' | 'signal' | 'dl' | 'book' | 'pin'
-  | 'clock' | 'id' | 'gear' | 'x' | 'loc' | 'nav' | 'arrow' | 'ext' | 'check' | 'expand' | 'bolt' | 'phone';
+  | 'clock' | 'id' | 'gear' | 'x' | 'loc' | 'nav' | 'arrow' | 'ext' | 'check' | 'expand' | 'bolt' | 'phone' | 'menu' | 'flask'
+  | 'cut' | 'truck' | 'fire' | 'power' | 'eye' | 'doc' | 'share' | 'users';
 
 export function Icon({ name, size = 24, color = C.text }: { name: IconName; size?: number; color?: string }) {
   const s = { stroke: color, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -33,6 +34,16 @@ export function Icon({ name, size = 24, color = C.text }: { name: IconName; size
       case 'ext': return <Path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" {...s} strokeWidth={2.2} />;
       case 'check': return <Path d="M4 12.5l5 5L20 6.5" {...s} strokeWidth={3} />;
       case 'expand': return <Path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" {...s} strokeWidth={2.4} />;
+      case 'cut': return <><Circle cx={6} cy={18} r={3} {...s} strokeWidth={2.2} /><Circle cx={18} cy={18} r={3} {...s} strokeWidth={2.2} /><Path d="M8 16L17 4M16 16L7 4" {...s} strokeWidth={2.2} /></>;
+      case 'truck': return <><Path d="M2 16V7h11v9M13 10h4l3 3v3h-2M2 16h2M9 16h6" {...s} strokeWidth={2.2} /><Circle cx={6.5} cy={17} r={2} {...s} strokeWidth={2.2} /><Circle cx={16.5} cy={17} r={2} {...s} strokeWidth={2.2} /></>;
+      case 'fire': return <Path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 01-10 0c0-2 1-3.5 2-4.5.3 1.8 1.2 2.8 2.2 3C10.5 9 11 5.5 12 3z" {...s} strokeWidth={2.2} />;
+      case 'power': return <><Path d="M12 3v8" {...s} strokeWidth={2.6} /><Path d="M7 6.5a7 7 0 1010 0" {...s} strokeWidth={2.4} /></>;
+      case 'eye': return <><Path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z" {...s} strokeWidth={2.2} /><Circle cx={12} cy={12} r={3} {...s} strokeWidth={2.2} /></>;
+      case 'doc': return <><Path d="M6 3h8l4 4v14H6z" {...s} strokeWidth={2.2} /><Path d="M14 3v4h4M9 12h6M9 16h6" {...s} strokeWidth={2.2} /></>;
+      case 'share': return <><Path d="M12 15V3M7.5 7.5L12 3l4.5 4.5" {...s} strokeWidth={2.4} /><Path d="M5 12v8h14v-8" {...s} strokeWidth={2.2} /></>;
+      case 'users': return <><Circle cx={9} cy={8} r={3.2} {...s} strokeWidth={2.2} /><Path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 5a3 3 0 010 6M18 14c2 .8 3 2.8 3 6" {...s} strokeWidth={2.2} /></>;
+      case 'menu': return <Path d="M4 7h16M4 12h16M4 17h16" {...s} strokeWidth={2.6} />;
+      case 'flask': return <Path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 001.3 2h12.4a1.5 1.5 0 001.3-2L14 9V3M7.5 14h9" {...s} strokeWidth={2.2} />;
       case 'phone': return <Path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 006.5 6.5L16 14l4 1.5V19a1 1 0 01-1 1A16 16 0 014 5a1 1 0 011-1z" {...s} strokeWidth={2.2} />;
       case 'bolt': return <Path d="M13.5 2L5 13.5h6L9.5 22 19 9.5h-6z" fill={color} />;
     }

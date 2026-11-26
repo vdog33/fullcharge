@@ -2,18 +2,19 @@
 //   Cut · Chemistry · Contacts (· Notes on FULLCHARGE pages)
 import React, { useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
-import { Btn, Card, Muted, Notice, Seg, st } from './ui';
+import { Btn, Card, Field, Muted, Notice, st } from './ui';
+import { IconName } from './Icon';
 import { SHARED_CONTACTS } from '../data/catalog';
 import { ergFor, ERG_GUIDE_PDF } from '../lib/chem-guide';
 import { Contact, Guide } from '../lib/match-core';
 import { getGuide, loadPacks } from '../lib/packs';
 import { C, S } from '../theme';
 
-export type TabKey = 'Cut' | 'Chemistry' | 'Contacts' | 'Notes';
+export type TabKey = 'Cut' | 'Chemistry' | 'Tow' | 'Contacts' | 'Notes' | 'Sheets';
+const TAB_ICON: Record<TabKey, IconName> = { Cut: 'cut', Chemistry: 'flask', Tow: 'truck', Contacts: 'phone', Notes: 'doc', Sheets: 'book' };
 
-export function VehicleTabs({ tabs, value, onChange }: { tabs: readonly TabKey[]; value: TabKey; onChange: (t: TabKey) => void }) {
-  return <Seg label="Section" options={tabs} value={value} onChange={onChange} />;
-}
+/** Must be a direct child of <Screen> so it stays pinned (Screen looks for TabBar). */
+export const vehicleTabs = (keys: readonly TabKey[]) => keys.map((k) => ({ key: k, label: k, icon: TAB_ICON[k] }));
 
 const tel = (p: string) => Linking.openURL(`tel:${p.replace(/[^\d+]/g, '')}`);
 
@@ -64,6 +65,20 @@ export function ContactsPanel({ guides }: { guides: Guide[] }) {
         : <Muted>No manufacturer line checked for this vehicle yet. Use the lines below, or the number on the cut sheet.</Muted>}
       <Text style={[st.label, { marginTop: S.sm }]}>24/7 chemical emergency</Text>
       {SHARED_CONTACTS.map((c) => <Btn key={c.phone} tone="neutral" icon="phone" label={`Call ${c.name}`} sub={`${c.phone} · ${c.note}`} onPress={() => tel(c.phone)} />)}
+    </View>
+  );
+}
+
+/** Tow tab: the vehicle's own tow / release lines, then the manufacturer guide (its towing section wins). */
+export function TowPanel({ tow, release, verified, onSheet }: { tow?: string; release?: string; verified?: boolean; onSheet?: () => void }) {
+  return (
+    <View style={{ gap: S.block }}>
+      {tow || release ? <>
+        {!verified && <Notice tone="info">Written notes — not yet verified against the manufacturer guide. The guide's towing section wins.</Notice>}
+        {!!tow && <Field label="Tow" value={tow} />}
+        {!!release && <Field label="Release to tow" value={release} />}
+      </> : <Notice tone="info" icon="truck">No tow notes for this vehicle yet — use the towing section of the manufacturer guide.</Notice>}
+      {onSheet && <Btn tone="neutral" icon="book" label="Manufacturer guide — towing section" onPress={onSheet} />}
     </View>
   );
 }

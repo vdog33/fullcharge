@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Btn, Bullets, Card, Field, H1, Input, Muted, Notice, Screen, st } from '../../src/components/ui';
-import { ChemistryPanel, ContactsPanel, TabKey, VehicleTabs } from '../../src/components/VehicleTabs';
+import { Btn, Bullets, Card, Field, H1, Input, Muted, Notice, Screen, TabBar, st } from '../../src/components/ui';
+import { ChemistryPanel, ContactsPanel, TabKey, TowPanel, vehicleTabs } from '../../src/components/VehicleTabs';
 import { guideIndex } from '../../src/lib/packs';
 import { VerifyPicture } from '../../src/components/VerifyPicture';
+import { SheetItems } from '../../src/components/SheetItems';
 import { getVehicle, searchVehicles } from '../../src/data/catalog';
 import { getIdHistory, logView, updateIdAttempt } from '../../src/lib/history';
 import { sendFeedback } from '../../src/lib/identify';
 import { C, S } from '../../src/theme';
+
+const TABS = vehicleTabs(['Cut', 'Chemistry', 'Tow', 'Contacts', 'Notes']);
 
 export default function VehicleScreen() {
   const { id, idAt } = useLocalSearchParams<{ id: string; idAt?: string }>();
@@ -25,12 +28,13 @@ export default function VehicleScreen() {
         <H1>{v.make} {v.model}</H1>
         <Text style={[st.body, { color: C.muted, fontSize: 17 }]}>{v.years} · {v.type}</Text>
       </View>
-      <VehicleTabs tabs={['Cut', 'Chemistry', 'Contacts', 'Notes'] as const} value={tab} onChange={setTab} />
+      <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === 'Cut' && (
         <>
           {/* Picture first: the manufacturer rescue sheet shows cut zones, HV and 12V on the car itself. */}
           {!!v.watch_for && <Notice tone="warn" title="Watch for">{v.watch_for}</Notice>}
+          <SheetItems guides={guideIndex().filter((g) => g.vehicleId === v.id && g.docType === 'rescue_sheet')} />
           <VerifyPicture vehicleId={v.id} hero />
           <Btn tone="red" icon="book" label="Manufacturer cut sheet (PDF)" onPress={() => r.push(`/erg-pdf?kind=vehicle&id=${v.id}`)} />
           <Btn icon="pin" label="Isolation zones + map" onPress={() => r.push(`/zones?kind=vehicle&id=${v.id}`)} />
@@ -43,6 +47,8 @@ export default function VehicleScreen() {
           onHazmat={() => r.push(`/hazmat?kind=vehicle&id=${v.id}`)} />
       )}
 
+      {tab === 'Tow' && <TowPanel tow={v.tow} release={v.release} onSheet={() => r.push(`/erg-pdf?kind=vehicle&id=${v.id}`)} />}
+
       {tab === 'Contacts' && <ContactsPanel guides={guideIndex().filter((g) => g.vehicleId === v.id)} />}
 
       {tab === 'Notes' && (
@@ -52,8 +58,6 @@ export default function VehicleScreen() {
           <Field label="12V" value={v.lv_location} />
           <Field label="No-cut" value={v.no_cut_zones} />
           <Field label="Airbag / HV" value={v.airbag_hv} />
-          <Field label="Tow" value={v.tow} />
-          <Field label="Release" value={v.release} />
           <Text style={st.label}>ID cues</Text>
           <Bullets items={v.id_cues} />
           {!!v.warning && <Notice tone="info" icon="warn" title="Data note">{v.warning}</Notice>}

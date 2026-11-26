@@ -6,24 +6,48 @@ import { BigNav, Btn, Icon, Notice, Screen, Wordmark } from '../src/components/u
 import { IconName } from '../src/components/Icon';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { BESS } from '../src/data/catalog';
+import { BETA } from '../src/config';
 import { allReady, coreReady, loadPacks } from '../src/lib/packs';
 import { C, R } from '../src/theme';
 
-const TILES: [string, string, IconName][] = [
-  ['Recents', '/recents', 'clock'], ['ID History', '/history', 'id'], ['Downloads', '/settings/downloads', 'dl'], ['Settings', '/settings', 'gear'],
+// Corner menu: things you set up at the station, not on scene.
+const MENU: [string, string, IconName][] = [
+  ['Downloads', '/settings/downloads', 'dl'], ['ID History', '/history', 'id'], ['Settings', '/settings', 'gear'],
 ];
 
 export default function Home() {
   const r = useRouter();
   const insets = useSafeAreaInsets();
   const [core, setCore] = useState(true);
+  const [menu, setMenu] = useState(false);
+  useFocusEffect(useCallback(() => () => setMenu(false), []));
   useFocusEffect(useCallback(() => { loadPacks().then(() => setCore(coreReady() && allReady())); }, []));
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
       <Screen>
         {/* FULLCHARGE wordmark — big enough to read at arm's length, not a whole banner. */}
-        <View style={{ alignItems: 'center', paddingVertical: 6 }}><Wordmark fill /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}><Wordmark fill /></View>
+          {/* Labelled, not just an icon — easy for everyone to find. */}
+          <Pressable onPress={() => setMenu(!menu)} accessibilityRole="button" accessibilityState={{ expanded: menu }} accessibilityLabel="Menu: Downloads, ID History, Settings"
+            style={({ pressed }) => ({ alignItems: 'center', justifyContent: 'center', minWidth: 64, minHeight: 56, paddingHorizontal: 8, borderRadius: R.card, borderWidth: 2, borderColor: menu ? C.text : C.line, backgroundColor: pressed || menu ? C.surface2 : 'transparent' })}>
+            <Icon name={menu ? 'x' : 'menu'} size={24} />
+            <Text style={{ color: C.text, fontWeight: '700', fontSize: 14 }}>{menu ? 'Close' : 'Menu'}</Text>
+          </Pressable>
+        </View>
+        {menu && (
+          <View style={{ borderWidth: 2, borderColor: C.text, borderRadius: R.card, backgroundColor: C.surface, overflow: 'hidden' }}>
+            {MENU.map(([l, p, ic], i) => (
+              <Pressable key={p} onPress={() => { setMenu(false); r.push(p); }} accessibilityRole="button"
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 16, borderTopWidth: i ? 1 : 0, borderColor: C.border, backgroundColor: pressed ? C.surface2 : 'transparent' })}>
+                <Icon name={ic} size={24} />
+                <Text style={{ color: C.text, fontWeight: '700', fontSize: 18, flex: 1 }}>{l}</Text>
+                <Icon name="chev" size={22} />
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <LastVehicleBar />
 
@@ -40,15 +64,14 @@ export default function Home() {
         <BigNav icon="batt" title="BESS" sub={`${BESS.length} home battery systems`} onPress={() => r.push('/bess')} />
         <BigNav icon="pin" title="Isolation zones + map" sub="Starts on your location" onPress={() => r.push('/zones')} />
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {TILES.map(([l, p, ic]) => (
-            <Pressable key={p} onPress={() => r.push(p)} accessibilityRole="button"
-              style={({ pressed }) => ({ flexGrow: 1, flexBasis: 136, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 60, paddingHorizontal: 12, borderRadius: R.card, borderWidth: 2, borderColor: C.line, backgroundColor: pressed ? C.surface : 'transparent' })}>
-              <Icon name={ic} size={24} />
-              <Text style={{ color: C.text, fontWeight: '700', fontSize: 17 }}>{l}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {BETA && <BigNav icon="flask" title="Test" sub="Beta: 20 vehicles — cut sheets broken down" onPress={() => r.push('/test')} />}
+
+        {/* Small link — Recents can matter on scene, but it isn't one of the big four. */}
+        <Pressable onPress={() => r.push('/recents')} accessibilityRole="button"
+          style={({ pressed }) => ({ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 16, borderRadius: 24, backgroundColor: pressed ? C.surface : 'transparent' })}>
+          <Icon name="clock" size={20} color={C.muted} />
+          <Text style={{ color: C.muted, fontWeight: '700', fontSize: 17, textDecorationLine: 'underline' }}>Recents</Text>
+        </Pressable>
       </Screen>
     </View>
   );
