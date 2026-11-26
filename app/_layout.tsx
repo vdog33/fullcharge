@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { Pressable, Text } from 'react-native';
+import { Icon } from '../src/components/Icon';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Archivo_700Bold, Archivo_800ExtraBold, Archivo_900Black } from '@expo-google-fonts/archivo';
@@ -32,7 +34,9 @@ export default function Root() {
       <AuthProvider>
         <StatusBar style="light" />
         <Stack
-          screenOptions={{
+          screenOptions={({ navigation }: { navigation: { canGoBack: () => boolean } }) => ({
+            // No screen to go back to (opened from a notification, a link, or after a replace): show Home instead of nothing.
+            headerLeft: navigation.canGoBack() ? undefined : () => <HomeBtn />,
             headerStyle: { backgroundColor: C.bg },
             headerTintColor: C.text,
             headerTitleStyle: { fontFamily: F.display, fontSize: 19 },
@@ -41,7 +45,7 @@ export default function Root() {
             // iOS's own Back button. Our custom one sat inside iOS 26's glass capsule and got clipped ("tic tac").
             headerBackTitle: 'Back',
             headerBackButtonDisplayMode: 'default',
-          }}
+          })}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="camera" options={{ title: 'Identify by Camera' }} />
@@ -77,5 +81,16 @@ export default function Root() {
         </Stack>
       </AuthProvider>
     </SafeAreaProvider>
+  );
+}
+
+function HomeBtn() {
+  const r = useRouter();
+  return (
+    <Pressable onPress={() => r.replace('/')} accessibilityRole="button" accessibilityLabel="Home" hitSlop={14}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10 }}>
+      <Icon name="back" size={22} />
+      <Text style={{ color: C.text, fontWeight: '700', fontSize: 17 }}>Home</Text>
+    </Pressable>
   );
 }
