@@ -35,8 +35,16 @@ const localFile = new Map(); // storage path -> file on this PC
 const photos = existsSync('out/photos.json') ? JSON.parse(readFileSync('out/photos.json', 'utf8')).photos : {};
 // Phone lines you approved in out/contacts-review.html (npm run guide:scan).
 const contactsOk = existsSync('out/contacts-approved.json') ? JSON.parse(readFileSync('out/contacts-approved.json', 'utf8')) : {};
-const contactsOf = (g) => { const c = contactsOk[photoKey(g)]; return c?.length ? c : undefined; };
-const photoOf = (g) => { const p = photos[photoKey(g)]; if (p) localFile.set(p.file, `out/${p.file}`); return p; };
+const pk = (g) => g._pk ?? photoKey(g); // approvals are keyed by the years as first listed
+const contactsOf = (g) => { const c = contactsOk[pk(g)]; return c?.length ? c : undefined; };
+// Years read off the sheet's own title and approved by you ("as of 2021") replace NHTSA's newest-year-only label.
+const yearsOk = contactsOk.__years ?? {};
+for (const g of guides) {
+  g._pk = photoKey(g);
+  const y = yearsOk[g._pk];
+  if (y?.from) { g.yearFrom = y.from; g.yearTo = y.to ?? null; g.years = y.to ? (y.to === y.from ? `${y.from}` : `${y.from}–${y.to}`) : `${y.from}–present`; }
+}
+const photoOf = (g) => { const p = photos[pk(g)]; if (p) localFile.set(p.file, `out/${p.file}`); return p; };
 const items = ready.map((g) => {
   const r = comp[g.sha256];
   const base = {

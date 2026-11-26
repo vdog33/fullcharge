@@ -50,6 +50,9 @@ const PROMPT = `These are the first pages of a vehicle manufacturer's emergency 
    (like a press photo of the car), not a line drawing, diagram, logo or icon. Give the page number (1-based, as sent)
    and box_2d = [ymin, xmin, ymax, xmax] on 0-1000 scale, tight around the vehicle only (no text).
    kind = "photo" for a photo / realistic rendering, "drawing" if only line drawings exist, "none" if no vehicle picture.
+3) The model years this document says it covers, from its title (e.g. "EQS Model 297 sedan as of 2021" → from 2021, to null;
+   "2017–20 Acura MDX" → 2017 to 2020). years_from / years_to as 4-digit years; years_to null if open-ended; omit both if not stated.
+   years_text = the exact words you read them from.
 2) List EVERY phone number printed on these pages, exactly as printed, with the name it belongs to (e.g. "Acura Client Relations")
    and a short note of what it is for (max 8 words). Don't invent numbers.`;
 
@@ -62,6 +65,7 @@ async function ask(pngs) {
         type: 'OBJECT', required: ['kind', 'phones'],
         properties: {
           kind: { type: 'STRING', enum: ['photo', 'drawing', 'none'] }, page: { type: 'INTEGER' },
+          years_from: { type: 'INTEGER' }, years_to: { type: 'INTEGER' }, years_text: { type: 'STRING' },
           box_2d: { type: 'ARRAY', items: { type: 'INTEGER' } },
           phones: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, phone: { type: 'STRING' }, note: { type: 'STRING' }, page: { type: 'INTEGER' } }, required: ['name', 'phone'] } },
         },
@@ -98,6 +102,8 @@ for (const [k, g] of groups) {
     const a = await ask(small);
     const label = `${g.make} ${g.model} ${g.years}`;
     contacts[k] = { label, phones: (a.phones ?? []).filter((p) => /\d{3}.*\d{4}/.test(p.phone)).slice(0, 6) };
+    // Years the sheet says it covers (NHTSA files many under their newest year only: EQS "2026" is really 2021+).
+    if (a.years_from >= 1990 && a.years_from <= 2100) contacts[k].years = { from: a.years_from, to: a.years_to || null, text: String(a.years_text ?? '').slice(0, 80), listed: g.years };
     if (a.kind !== 'none' && a.page >= 1 && a.page <= files.length && a.box_2d?.length === 4) {
       const src = join(tmp, files[a.page - 1]);
       const meta = await sharp(src).metadata();
@@ -129,9 +135,13 @@ const approved = existsSync('out/contacts-approved.json') ? JSON.parse(readFileS
 writeFileSync('out/contacts-review.html', `<!doctype html><meta charset="utf-8"><title>Approve contact numbers</title>
 <style>body{font:16px system-ui;background:#111;color:#eee;margin:20px}h2{font-size:17px;margin:22px 0 6px}label{display:block;padding:8px;border:2px solid #444;border-radius:8px;margin:4px 0;cursor:pointer}
 label.on{border-color:#2ecc40}input{transform:scale(1.4);margin-right:10px}#bar{position:sticky;top:0;background:#111;padding:10px 0;z-index:2}.m{color:#aaa}</style>
-<div id="bar"><button onclick="save()">Save approvals</button> — tick only numbers a responder should call (emergency / technical / client line). Move the saved contacts-approved.json into out\\, then npm run publish.</div><div id="l"></div>
+<div id="bar"><button onclick="save()">Save approvals</button> — tick the YEARS the sheet really covers, and only numbers a responder should call (emergency / technical / client line). Move the saved contacts-approved.json into out\\, then npm run publish.</div><div id="l"></div>
 <script>const G=${JSON.stringify(contacts)},A=${JSON.stringify(approved)},l=document.getElementById('l');
-for(const [k,g] of Object.entries(G)){if(!g.phones.length)continue;const h=document.createElement('h2');h.textContent=g.label;l.appendChild(h);
+const Y=A.__years||(A.__years={});
+for(const [k,g] of Object.entries(G)){if(!g.phones.length&&!g.years)continue;const h=document.createElement('h2');h.textContent=g.label;l.appendChild(h);
+if(g.years){const y=g.years,lb=document.createElement('label');const on=!!Y[k];if(on)lb.className='on';
+lb.innerHTML='<input type=checkbox '+(on?'checked':'')+'><b>Years: '+y.from+'–'+(y.to||'present')+'</b> <span class=m>sheet says "'+y.text+'" · NHTSA lists '+(y.listed||'?')+'</span>';
+lb.querySelector('input').onchange=e=>{if(e.target.checked)Y[k]={from:y.from,to:y.to};else delete Y[k];lb.className=e.target.checked?'on':'';};l.appendChild(lb);}
 for(const p of g.phones){const lb=document.createElement('label');const on=(A[k]||[]).some(x=>x.phone===p.phone);if(on)lb.className='on';
 lb.innerHTML='<input type=checkbox '+(on?'checked':'')+'><b>'+p.name+'</b> '+p.phone+' <span class=m>'+(p.note||'')+(p.page?' · p.'+p.page:'')+'</span>';
 lb.querySelector('input').onchange=e=>{A[k]=(A[k]||[]).filter(x=>x.phone!==p.phone);if(e.target.checked)A[k].push({name:p.name,phone:p.phone,note:p.note||''});lb.className=e.target.checked?'on':'';};
