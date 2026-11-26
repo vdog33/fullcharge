@@ -70,6 +70,7 @@ function idError(e: unknown): string {
   const m = String((e as Error)?.message ?? '');
   if ((e as Error)?.name === 'AbortError' || /abort/i.test(m)) return 'Photo ID took too long (weak signal?). Search manually below — downloaded cut sheets work offline.';
   if (/network request failed|failed to fetch|network/i.test(m)) return NO_SIGNAL_MSG;
+  if (/Gemini (503|500|429)|high demand|overloaded|UNAVAILABLE|quota/i.test(m)) return 'Photo ID is busy right now (Google\'s AI is overloaded). Try again in a few seconds, or search manually below.';
   if (/HTTP 40[13]|JWT|apikey|unauthor/i.test(m)) return `Photo ID couldn't sign in to the server (${m.slice(0, 80)}). Search manually below.`;
   if (/HTTP 404|not found/i.test(m)) return 'Photo ID server not found — the identify-vehicle function may not be deployed. Search manually below.';
   return `Photo ID failed on the server: ${m.slice(0, 140)}. Search manually below.`;

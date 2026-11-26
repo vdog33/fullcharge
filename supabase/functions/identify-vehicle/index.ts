@@ -98,7 +98,7 @@ In "notes", one short sentence on what limits certainty (damage, angle, lighting
 const withPhotos = (gs: RawGuess[]) => gs.map((g) => ({ ...g, photo: null }));
 
 /** One Gemini call. Low thinking keeps photo ID fast (~2–5 s); if a model rejects the thinking setting, retry without it. */
-async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL): Promise<string> {
+async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL, retried = false): Promise<string> {
   const send = (b: unknown) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY }, body: JSON.stringify(b),
   });
@@ -112,12 +112,23 @@ async function callGemini(body: Record<string, unknown>, model = GEMINI_MODEL): 
       res = await send({ ...body, generationConfig: plain });
     } else throw new Error(`Gemini 400 (${model}): ${t.slice(0, 300)}`);
   }
-  // Model not available on this account (not found / not allowed / no quota on this plan): use 3.5 Flash instead.
-  if (!res.ok && [403, 404, 429].includes(res.status) && model !== FALLBACK_MODEL) {
+  // Overloaded ("high demand", 503) or a hiccup (500): one quick retry on the same model.
+  if (!res.ok && [500, 503].includes(res.status) && !retried) {
+    await new Promise((r) => setTimeout(r, 700));
+    return callGemini(body, model, true);
+  }
+  // Still busy, or not available on this account (not found / not allowed / no quota): use 3.5 Flash instead.
+  if (!res.ok && [403, 404, 429, 500, 503].includes(res.status) && model !== FALLBACK_MODEL) {
     console.warn(`Gemini ${res.status} on ${model} — falling back to ${FALLBACK_MODEL}: ${(await res.text()).slice(0, 200)}`);
     return callGemini(body, FALLBACK_MODEL);
   }
-  if (!res.ok) throw new Error(`Gemini ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) {
+    // Pull Google's one-line message out of its JSON so the phone shows words, not code.
+    const t = await res.text();
+    let msg = t;
+    try { msg = JSON.parse(t)?.error?.message ?? t; } catch { /* not JSON */ }
+    throw new Error(`Gemini ${res.status} (${model}): ${String(msg).slice(0, 160)}`);
+  }
   const out = await res.json();
   const parts = (out?.candidates?.[0]?.content?.parts ?? []) as { text?: string; thought?: boolean }[];
   const text = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('').trim();
