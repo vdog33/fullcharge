@@ -1,9 +1,10 @@
 import React, { useEffect, useReducer, useState } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Linking, Text, View, useWindowDimensions } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, TabBar, st } from '../src/components/ui';
 import { VerifyPicture } from '../src/components/VerifyPicture';
+import { SheetZoom } from '../src/components/SheetZoom';
 import { SheetItems } from '../src/components/SheetItems';
 import { ShareToZoneBtn } from '../src/components/ShareToZoneBtn';
 import { ChemistryPanel, ContactsPanel, TabKey, TowPanel, vehicleTabs } from '../src/components/VehicleTabs';
@@ -19,6 +20,7 @@ const TABS = vehicleTabs(['Cut', 'Chemistry', 'Tow', 'Contacts', 'Sheets']);
 
 /** Page for any NHTSA vehicle — the cut sheets themselves, plus the shared on-scene tools. */
 export default function GuidePage() {
+  const { height: winH } = useWindowDimensions();
   const { keys = '', title } = useLocalSearchParams<{ keys?: string; title?: string }>();
   const r = useRouter();
   const [, force] = useReducer((x) => x + 1, 0);
@@ -78,7 +80,10 @@ export default function GuidePage() {
       {/* The manufacturer's picture is the answer: HV parts, cut zones, 12V — on the car. */}
       {/* Checked break-down first (cut loop, HV disconnect, 12V), then the whole sheet. */}
       {guides.length > 0 && <SheetItems guides={guides} />}
-      {guides.length > 0 && <VerifyPicture guides={guides} hero />}
+      {/* The sheet itself, right here: pinch to zoom — no need to open it first. No picture on the phone → tap-to-open card. */}
+      {guides.length > 0 && (guides.some((g) => g.images)
+        ? <SheetZoom guides={guides} height={Math.round(winH * 0.7)} />
+        : <VerifyPicture guides={guides} hero />)}
 
       {new Set(guides.map((x) => `${x.make}|${x.model}`)).size > 1 && (
         <Notice tone="info" icon="warn">More than one model matches — check the badge and pick the sheet for that exact model.</Notice>
