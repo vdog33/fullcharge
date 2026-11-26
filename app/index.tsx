@@ -23,7 +23,7 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
       <Screen>
         {/* FULLCHARGE wordmark — big enough to read at arm's length, not a whole banner. */}
-        <View style={{ alignItems: 'center', paddingVertical: 4 }}><Wordmark size={46} /></View>
+        <View style={{ alignItems: 'center', paddingVertical: 6 }}><Wordmark fill /></View>
 
         <LastVehicleBar />
 

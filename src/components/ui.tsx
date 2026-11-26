@@ -25,7 +25,9 @@ const APP_VERSION = (() => {
   return `FULLCHARGE ${v}${b ? ` (build ${b})` : ''}`;
 })();
 
-export function Wordmark({ size = 22 }: { size?: number }) {
+export function Wordmark({ size = 22, fill }: { size?: number; fill?: boolean }) {
+  // fill: as wide as the screen allows (home page) — readable at arm's length, capped on iPad / landscape.
+  if (fill) return <Image source={require('../../assets/wordmark.png')} style={{ width: '82%', maxWidth: 380, aspectRatio: 1024 / 341 }} resizeMode="contain" accessibilityLabel="FULLCHARGE" />;
   return <Image source={require('../../assets/wordmark.png')} style={{ width: size * 3, height: size }} resizeMode="contain" />;
 }
 
