@@ -23,19 +23,36 @@ if (MODE === 'find') {
   const makes = [...new Set([...listed.map((g) => g.make), ...seed.map((v) => v.make)].filter(Boolean))].sort();
   const approved = existsSync('out/logos-approved.json') ? JSON.parse(readFileSync('out/logos-approved.json', 'utf8')) : {};
   const result = {};
+  const commons = async (q) => {
+    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=20' +
+      `&gsrsearch=${encodeURIComponent(q)}&prop=imageinfo&iiprop=url|mime&iiurlwidth=320`;
+    for (let i = 0; i < 3; i++) {
+      try { const r = await fetch(url, { headers: UA }); if (r.ok) return Object.values((await r.json())?.query?.pages ?? {}); } catch { /* retry */ }
+      await new Promise((res) => setTimeout(res, 1200 * (i + 1)));
+    }
+    return [];
+  };
+  // Commons names logo files many ways ("Mercedes-Logo.svg", "Logo of Rivian.svg", "Volvo Iron Mark.svg"):
+  // several searches per brand, and the file name only has to contain one word of the brand.
+  const words = (m) => m.toLowerCase().split(/[\s&-]+/).filter((w) => w.length >= 2 && !['motor', 'motors', 'bus', 'trucks', 'the'].includes(w));
   for (const make of makes) {
-    const q = encodeURIComponent(`${make} logo`);
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${q}` +
-      '&prop=imageinfo&iiprop=url|mime&iiurlwidth=320';
-    let pages = [];
-    try { const r = await fetch(url, { headers: UA }); if (r.ok) pages = Object.values((await r.json())?.query?.pages ?? {}); } catch { /* none */ }
-    const first = make.toLowerCase().split(/[\s-]/)[0];
-    result[make] = pages
-      .filter((p) => /svg|png/.test(p.imageinfo?.[0]?.mime ?? '') && p.title.toLowerCase().includes(first))
-      .slice(0, 8)
-      .map((p) => ({ title: p.title.replace(/^File:/, ''), thumb: p.imageinfo[0].thumburl, page: p.imageinfo[0].descriptionurl }));
-    await new Promise((r) => setTimeout(r, 120));
+    const seen = new Set(), list = [];
+    for (const q of [`${make} logo`, `${make} logo svg`, `${make} emblem`, `${make} wordmark`, `intitle:"${make}" logo`]) {
+      for (const p of await commons(q)) {
+        const ii = p.imageinfo?.[0];
+        if (!ii || seen.has(p.title) || !/svg|png/.test(ii.mime ?? '')) continue;
+        const t = p.title.toLowerCase();
+        if (!words(make).some((w) => t.includes(w)) || !/logo|emblem|wordmark|badge|mark|brand/.test(t)) continue;
+        seen.add(p.title);
+        list.push({ title: p.title.replace(/^File:/, ''), thumb: ii.thumburl, page: ii.descriptionurl });
+      }
+      if (list.length >= 10) break;
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    result[make] = list.slice(0, 10);
   }
+  const none = Object.entries(result).filter(([, c]) => !c.length).map(([m]) => m);
+  if (none.length) console.log(`\nNo logo found for ${none.length}: ${none.join(', ')}\nDrop your own PNG for those in assets\\brands\\ named like ${none.slice(0, 2).map((m) => slug(m) + '.png').join(', ')} — logos:build keeps them.`);
   writeFileSync('out/logos-candidates.json', JSON.stringify(result, null, 1));
   writeFileSync('out/logos-review.html', `<!doctype html><meta charset="utf-8"><title>Approve brand logos</title>
 <style>body{font:15px system-ui;background:#222;color:#eee;margin:20px}h2{font-size:18px;margin:24px 0 6px}.row{display:flex;gap:10px;flex-wrap:wrap}
