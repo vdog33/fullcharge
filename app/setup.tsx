@@ -87,8 +87,8 @@ function RoleStep({ s, onChange }: { s: SetupState; onChange: (p: Partial<SetupS
           </Pressable>
         );
       })}
-      {s.role === 'captain' && (
-        <Toggle label="Command view" sub="On iPad: map on the left, cut sheet or ERG on the right." value={!!s.commandView} onChange={(v) => onChange({ commandView: v })} />
+      {!!s.role && (
+        <Toggle label="Command view" sub="Home button for everyone: map + cut sheet / ERG, weather, shared scenes." value={s.commandView ?? true} onChange={(v) => onChange({ commandView: v })} />
       )}
     </View>
   );

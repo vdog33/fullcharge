@@ -56,11 +56,11 @@ export default function Settings() {
   );
 }
 
-/** Captains and chiefs: command view on / off (chiefs on by default). Role is set in Scene-ready setup. */
+/** Command view button on Home — on for every role by default. */
 function CommandRow() {
   const [s, setS] = useState<SetupState | null>(null);
   useEffect(() => { getSetup().then(setS); }, []);
-  if (!s || (s.role !== 'captain' && s.role !== 'chief')) return null;
+  if (!s) return null;
   return <Toggle label="Command view" sub="Home button: map + cut sheet / ERG side by side on iPad, zone scenes on top."
     value={commandOn(s)} onChange={async (v) => { await setSetup({ commandView: v }); setS(await getSetup()); }} />;
 }
