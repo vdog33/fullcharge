@@ -3,12 +3,15 @@ import { VEHICLES } from '../data/catalog';
 import {
   CatalogMatch, Decoded, checkDigitOk, looksLikeVin, matchCatalog, modelYear, normalizeVin, wmiMake,
 } from './vin-core';
+import { decodeVinOffline } from './vin-offline';
 
 export type VinResult = {
   vin: string;
   decoded: Decoded;
   matches: CatalogMatch[];
-  source: 'nhtsa-vpic' | 'offline-wmi' | 'mock';
+  source: 'nhtsa-vpic' | 'offline-db' | 'offline-wmi' | 'mock';
+  /** Offline decode: every model NHTSA's patterns allow — the crew picks + confirms. */
+  models?: string[];
   warnings: string[];
 };
 
@@ -42,7 +45,17 @@ export async function lookupVin(input: string): Promise<VinResult> {
     };
     return { vin, decoded, matches: matchCatalog(decoded, VEHICLES), source: 'nhtsa-vpic', warnings };
   } catch {
-    warnings.push('No signal — offline decode: make + year only. Pick the model.');
+    const year = modelYear(vin);
+    const off = await decodeVinOffline(vin, year).catch(() => null);
+    if (off?.models.length) {
+      const make = titleCase(off.make);
+      warnings.push(off.models.length > 1 ? 'No signal — offline decode found more than one model. Check the badge and pick.' : 'No signal — decoded offline from NHTSA data. Confirm with the car.');
+      const all = off.models.map((model) => ({ make, model, year, electrification: off.electrification }));
+      const matches = all.flatMap((d) => matchCatalog(d, VEHICLES)).filter((m, i, a) => a.findIndex((x) => x.vehicleId === m.vehicleId) === i);
+      return { vin, decoded: all[0], models: off.models, matches, source: 'offline-db', warnings };
+    }
+    warnings.push(off ? 'No signal — offline decode: make + year only. Pick the model.' : 'No signal — offline decode: make + year only. Get the offline VIN decoder in Downloads.');
+    if (off) { const decoded: Decoded = { make: titleCase(off.make), year }; return { vin, decoded, matches: matchCatalog(decoded, VEHICLES), source: 'offline-wmi', warnings }; }
     const decoded: Decoded = { make: wmiMake(vin) ?? undefined, year: modelYear(vin) };
     return { vin, decoded, matches: matchCatalog(decoded, VEHICLES), source: 'offline-wmi', warnings };
   }

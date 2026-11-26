@@ -20,6 +20,7 @@ export default function Settings() {
   return (
     <Screen>
       <H1>Settings</H1>
+      <LinkRow icon="check" title="Scene-ready setup" sub="Role, cut sheets, VIN decoder, map areas, airplane test" onPress={() => r.push('/setup')} />
       <LinkRow icon="dl" title="Downloads (data packs)" onPress={() => r.push('/settings/downloads')} />
 
       <H2>Camera ID</H2>

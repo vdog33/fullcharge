@@ -1,8 +1,10 @@
 // Live zone map: Apple Maps on iPhone / iPad (react-native-maps uses MapKit on iOS by default).
 // Native pinch / pan / zoom; rings are real map circles in METRES, so they hold true ground size at any zoom.
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { Text, View } from 'react-native';
-import MapView, { Circle, Marker, Polygon } from 'react-native-maps';
+import MapView, { Circle, LocalTile, Marker, Polygon } from 'react-native-maps';
+import { hasOfflineTiles, loadAreas, TILE_PATH_TEMPLATE } from '../lib/tiles';
 import { ZONES } from '../data/catalog';
 import { LatLng, plumePolygon, regionFor } from '../lib/geo';
 import { C, F } from '../theme';
@@ -34,6 +36,10 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
     frame: (radiusM) => map.current?.animateToRegion(regionFor(fire, radiusM), 450),
   }), [fire.lat, fire.lng]);
 
+  // No signal + map areas saved in setup -> draw our own aerial tiles (Apple's need signal).
+  const offline = useOffline();
+  const local = offline && mapType === 'satellite' && hasOfflineTiles();
+
   const plume = plumePolygon(fire, plumeHeading, plumeHalfDeg, plumeLenM).map(ll);
 
   return (
@@ -41,7 +47,8 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
       <MapView
         ref={map}
         style={{ flex: 1 }}
-        mapType={mapType === 'satellite' ? 'hybrid' : 'standard'} // hybrid = satellite + street names
+        mapType={local ? 'none' : mapType === 'satellite' ? 'hybrid' : 'standard'} // hybrid = satellite + street names
+        maxZoomLevel={local ? 16.5 : undefined}
         initialRegion={regionFor(fire, ZONES.warm_m)}
         rotateEnabled={false}   // north stays up, so the wind picker and plume read true
         pitchEnabled={false}
@@ -51,6 +58,7 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         userInterfaceStyle="dark"
         onLongPress={(e) => { const c = e.nativeEvent.coordinate; onMoveFire({ lat: c.latitude, lng: c.longitude }); }}
       >
+        {local && <LocalTile pathTemplate={TILE_PATH_TEMPLATE} tileSize={256} zIndex={-1} />}
         <Polygon coordinates={plume} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />
         <Circle center={ll(fire)} radius={ZONES.cold_m} strokeColor={C.cold} strokeWidth={2.5} fillColor="rgba(0,0,0,0)" />
         <Circle center={ll(fire)} radius={ZONES.warm_m} strokeColor={C.warm} strokeWidth={2.5} fillColor={rgba(C.warm, 0.08)} />
@@ -77,6 +85,16 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
           </Marker>
         )}
       </MapView>
+      {local && <Text style={{ position: 'absolute', left: 6, bottom: 6, color: C.text, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, fontSize: 13 }}>Offline aerial · USGS</Text>}
     </View>
   );
 });
+
+function useOffline() {
+  const [off, setOff] = useState(false);
+  useEffect(() => {
+    loadAreas().catch(() => {});
+    return NetInfo.addEventListener((s) => setOff(s.isConnected === false || s.isInternetReachable === false));
+  }, []);
+  return off;
+}
