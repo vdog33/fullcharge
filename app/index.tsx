@@ -33,7 +33,7 @@ export default function Home() {
       <Screen>
         {/* FULLCHARGE wordmark — big enough to read at arm's length, not a whole banner. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}><Wordmark fill /></View>
+          <View style={{ flex: 1, alignItems: 'center' }}><Wordmark fill /></View>
           {/* Labelled, not just an icon — easy for everyone to find. */}
           <Pressable onPress={() => setMenu(!menu)} accessibilityRole="button" accessibilityState={{ expanded: menu }} accessibilityLabel="Menu: Zone sharing, Downloads, ID History, Settings"
             style={({ pressed }) => ({ alignItems: 'center', justifyContent: 'center', minWidth: 64, minHeight: 56, paddingHorizontal: 8, borderRadius: R.card, borderWidth: 2, borderColor: menu ? C.text : C.line, backgroundColor: pressed || menu ? C.surface2 : 'transparent' })}>
