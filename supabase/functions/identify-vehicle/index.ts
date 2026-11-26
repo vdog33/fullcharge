@@ -56,7 +56,7 @@ async function userId(req: Request): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-async function gemini(imageBase64: string, mimeType: string) {
+async function gemini(imageBase64: string, mimeType: string, extra: string[] = []) {
   const prompt = `You help firefighters identify a vehicle at a crash or fire, so they can pull its manufacturer emergency response guide.
 Identify the vehicle in the photo from your own knowledge of vehicles: make, model (official name, e.g. "Mustang Mach-E", "Model Y", "F-150 Lightning"),
 likely model-year range, and powertrain: BEV, PHEV, HEV, FCEV, ICE or UNKNOWN. Look for EV cues: charge-port door, no exhaust, closed grille, EV badges
@@ -67,9 +67,10 @@ THIS model and not a look-alike (badge text and where it is, light shape, door h
 For any other guess, "checks" is an empty list.
 Only features that are true for that model and year range; plain words, max 10 words each.
 Similar-looking vehicles that differ in powertrain (e.g. F-150 vs F-150 Lightning, Wrangler vs Wrangler 4xe) MUST be separate guesses.
-In "notes", one short sentence on what limits certainty (damage, angle, lighting, missing badge). Never claim certainty from one photo.`;
+In "notes", one short sentence on what limits certainty (damage, angle, lighting, missing badge). Never claim certainty from one photo.${extra.length ? `
+You get ${extra.length + 1} photos of the SAME vehicle (e.g. front, then rear or a badge close-up, often a wrecked car). Use all of them together.` : ''}`;
   const body = {
-    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, { text: prompt }] }],
+    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mimeType, data: imageBase64 } }, ...extra.map((d) => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: prompt }] }],
     generationConfig: {
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM', // fewer image tokens = faster; still reads badges at 1024 px
       responseMimeType: 'application/json',
@@ -303,13 +304,15 @@ Deno.serve(async (req: Request) => {
     const { imageBase64, mimeType = 'image/jpeg', sharePhoto = false } = body;
     if (!/^image\/(jpeg|png)$/.test(mimeType)) return json({ error: 'JPEG or PNG only' }, 400);
     if (!imageBase64 || imageBase64.length > 8_000_000) return json({ error: 'image missing or too large' }, 400);
+    // Second photo (rear / badge) for wrecked cars — JPEG, at most 2 extra.
+    const extra = (Array.isArray(body.extraImages) ? body.extraImages : []).filter((x: unknown) => typeof x === 'string' && x.length < 8_000_000).slice(0, 2) as string[];
 
     const raw = MOCK
       ? { guesses: [
           { make: 'Tesla', model: 'Model Y', yearFrom: 2020, yearTo: 2024, powertrain: 'BEV', confidence: 92, cues: ['coupe-SUV roofline', 'flush door handles', 'grille-less front'], checks: ['No grille, smooth nose', 'Tall hatchback, taller than Model 3'] },
           { make: 'Ford', model: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, powertrain: 'BEV', confidence: 32, cues: ['coupe-SUV profile'], checks: ['Pony badge on the nose', 'Tri-bar tail lights'] },
         ], notes: 'SERVER MOCK — no Gemini key set.', model: 'mock' }
-      : await gemini(imageBase64, mimeType);
+      : await gemini(imageBase64, mimeType, extra);
     const tGemini = Date.now() - t0;
     const guesses = withPhotos(clean(raw.guesses));
     const top = guesses[0] ? `${guesses[0].yearFrom ?? ''} ${guesses[0].make} ${guesses[0].model}`.trim() : null;

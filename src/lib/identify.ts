@@ -77,7 +77,7 @@ function idError(e: unknown): string {
   return `Photo ID failed on the server: ${m.slice(0, 140)}. Search manually below.`;
 }
 
-export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean }): Promise<IdResult> {
+export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean; extraUris?: string[] }): Promise<IdResult> {
   await loadPacks();
   if (USE_MOCKS) {
     await new Promise((r) => setTimeout(r, 900));
@@ -89,10 +89,15 @@ export async function identifyPhoto(uri: string, opts: { sharePhoto: boolean }):
   const img = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1024 } }], {
     compress: 0.65, format: ImageManipulator.SaveFormat.JPEG, base64: true,
   });
+  // Rear / badge photo of a wrecked car goes with the first one, smaller (badges still read at 768 px).
+  const extra = await Promise.all((opts.extraUris ?? []).slice(0, 2).map((u) => ImageManipulator.manipulateAsync(u, [{ resize: { width: 768 } }], {
+    compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true,
+  })));
   try {
     const t1 = Date.now();
     const r = await callFunction<{ guesses: RawGuess[]; notes: string; attemptId?: string; feedbackToken?: string; timing?: { geminiMs: number; serverMs: number; imageKB: number } }>('identify-vehicle', {
       action: 'identify', imageBase64: img.base64, mimeType: 'image/jpeg', sharePhoto: opts.sharePhoto,
+      ...(extra.length ? { extraImages: extra.map((x) => x.base64) } : {}),
     }, 45000);
     const t2 = Date.now();
     // Where the time went: phone resize · network (upload + reply) · Gemini · total.

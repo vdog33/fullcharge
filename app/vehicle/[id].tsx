@@ -38,6 +38,7 @@ export default function VehicleScreen() {
           <VerifyPicture vehicleId={v.id} hero />
           <Btn tone="red" icon="book" label="Manufacturer cut sheet (PDF)" onPress={() => r.push(`/erg-pdf?kind=vehicle&id=${v.id}`)} />
           <Btn icon="pin" label="Isolation zones + map" onPress={() => r.push(`/zones?kind=vehicle&id=${v.id}`)} />
+          <Btn tone="outline" icon="share" label="Share to zone" onPress={() => r.push(`/zone/share?ref=${encodeURIComponent(`vehicle:${v.id}`)}&title=${encodeURIComponent(`${v.make} ${v.model}`)}`)} />
           <Btn tone="outline" size="sm" label="Quick sheet — offline" onPress={() => r.push(`/quick?kind=vehicle&id=${v.id}`)} />
         </>
       )}

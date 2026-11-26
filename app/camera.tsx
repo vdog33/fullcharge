@@ -18,6 +18,7 @@ export default function CameraId() {
   const r = useRouter();
   const [phase, setPhase] = useState<Phase>('idle');
   const [uri, setUri] = useState<string | null>(null);
+  const [uri2, setUri2] = useState<string | null>(null); // rear / badge photo for wrecked cars
   const [res, setRes] = useState<IdResult | null>(null);
   const [accepted, setAccepted] = useState<string | null>(null); // the car opened last, if they came back
   const last = getLastId();
@@ -34,18 +35,21 @@ export default function CameraId() {
   const noSignal = net.isConnected === false || net.isInternetReachable === false;
   useEffect(() => { getSettings().then((s) => setShare(s.sharePhotos)); }, []);
 
-  async function pick(fromCamera: boolean) {
+  async function pick(fromCamera: boolean, second = false) {
     const perm = fromCamera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { setErr('Permission denied — search manually.'); setPhase('error'); return; }
     const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8, exif: false };
     const out = fromCamera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
     if (out.canceled || !out.assets?.[0]) return;
-    setUri(out.assets[0].uri); setPhase('working');
+    const first = second && uri ? uri : out.assets[0].uri;
+    const extra = second ? [out.assets[0].uri] : [];
+    if (second) setUri2(out.assets[0].uri); else { setUri(first); setUri2(null); }
+    setPhase('working');
     try {
-      const result = await identifyPhoto(out.assets[0].uri, { sharePhoto: share });
+      const result = await identifyPhoto(first, { sharePhoto: share, extraUris: extra });
       const stamp = Date.now();
       setAt(stamp); setRes(result); setAccepted(null);
-      saveLastId({ res: result, uri: out.assets[0].uri, at: stamp });
+      saveLastId({ res: result, uri: first, at: stamp });
       await logIdAttempt({
         at: stamp, source: 'camera', topMatch: result.candidates[0]?.label ?? null,
         candidates: result.candidates.map((c) => ({ label: c.label, vehicleId: c.vehicleId, confidence: c.confidence })),
@@ -96,7 +100,10 @@ export default function CameraId() {
 
       {phase === 'working' && (
         <View style={{ alignItems: 'center', gap: S.md, alignSelf: 'stretch' }}>
-          {uri && <Image source={{ uri }} style={{ width: '100%', height: 220, borderRadius: 14 }} />}
+          <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
+            {uri && <Image source={{ uri }} style={{ flex: 1, height: 220, borderRadius: 14 }} />}
+            {uri2 && <Image source={{ uri: uri2 }} style={{ flex: 1, height: 220, borderRadius: 14 }} />}
+          </View>
           <ActivityIndicator color={C.text} size="large" />
           <Muted>Identifying…</Muted>
           <Btn tone="outline" icon="search" label="Search manually" onPress={() => r.replace('/search')} />
@@ -105,15 +112,20 @@ export default function CameraId() {
 
       {phase === 'confirm' && res && (
         <MatchPicker candidates={res.candidates} accepted={accepted} onAccept={yes} onNone={manual}
-          extra={<Btn tone="outline" icon="cam" label="Try another photo" onPress={() => setPhase('idle')} />}
+          extra={<>
+            {/* Wrecked car? A second view (rear, badge) goes WITH the first one — not instead of it. */}
+            {!!uri && !uri2 && <Btn icon="cam" label="Add 2nd photo — rear or badge" sub="For a damaged car. Both photos are used together." onPress={() => pick(true, true)} />}
+            <Btn tone="outline" icon="cam" label="Start over — new photo" onPress={() => { setUri2(null); setPhase('idle'); }} />
+          </>}
           note="Likelihood is the AI's estimate from one photo. Photos show each model (approved, stored on the phone) — check the badge." />
       )}
 
       {phase === 'error' && (
         <View style={{ gap: S.block }}>
           <Notice tone="warn">{err || NO_SIGNAL_MSG}</Notice>
+          {!!uri && !uri2 && <Btn big tone="red" icon="cam" label="Add 2nd photo — rear or badge" sub="Both photos are used together." onPress={() => pick(true, true)} />}
           <Btn big icon="search" label="Search manually" onPress={() => r.replace('/search')} />
-          <Btn tone="outline" icon="cam" label="Try another photo" onPress={() => setPhase('idle')} />
+          <Btn tone="outline" icon="cam" label="Start over — new photo" onPress={() => { setUri2(null); setPhase('idle'); }} />
         </View>
       )}
     </Screen>

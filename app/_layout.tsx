@@ -60,6 +60,10 @@ export default function Root() {
           <Stack.Screen name="recents" options={{ title: 'Recents' }} />
           <Stack.Screen name="test" options={{ title: 'Test vehicles' }} />
           <Stack.Screen name="setup" options={{ title: 'Scene-ready setup' }} />
+          <Stack.Screen name="zone/index" options={{ title: 'Zone sharing' }} />
+          <Stack.Screen name="zone/share" options={{ title: 'Share to zone' }} />
+          <Stack.Screen name="zone/[id]" options={{ title: 'Shared scene' }} />
+          <Stack.Screen name="command" options={{ title: 'Command view' }} />
           <Stack.Screen name="history" options={{ title: 'ID History' }} />
           <Stack.Screen name="settings/downloads" options={{ title: 'Downloads' }} />
           <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />

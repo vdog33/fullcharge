@@ -23,6 +23,8 @@ sign-in code `123456`, simulated pack downloads.
 3. Secrets: `supabase secrets set GEMINI_API_KEY=… GEMINI_MODEL=gemini-3.5-flash`
 4. Deploy: `supabase functions deploy identify-vehicle`
 5. `.env`: `EXPO_PUBLIC_USE_MOCKS=false`, URL + anon key. Auth → Email → enable OTP (code, 6 digits).
+6. Zone sharing: run `supabase/migrations/0006_zone_sharing.sql` (or `supabase db push`). It turns on Realtime for
+   `zone_incidents`; check Database → Publications → supabase_realtime lists it.
 
 ### Testing functions locally through ngrok
 ```bash
@@ -90,4 +92,6 @@ scripts/             seed, check-urls (run before every release), logic tests
   Vehicle pages can fetch just their own sheets ("Download all N") without the whole pack.
 
 ## Not built yet
-NHTSA ingestion job (portal is JS-filtered + bot-blocked — needs a browser fetch), on-device ID model, offline map tiles, Android PDF viewer (iOS WebView renders PDFs natively).
+On-device photo ID / OCR model (photo ID needs signal), push notifications for zone scenes when the app is closed
+(needs the expo-notifications package + a push sender; today a new scene vibrates and shows only while the app is open),
+Tow home screen (waiting on tow operators), Android PDF viewer (iOS WebView renders PDFs natively).
