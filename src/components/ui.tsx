@@ -380,9 +380,10 @@ export function Pill({ label, tone = 'neutral', icon }: { label: string; tone?: 
 }
 
 /** Search results: 64px, chevron, optional pill. */
-export function Row({ title, meta, pill, onPress }: { title: string; meta?: string; pill?: string; onPress: () => void }) {
+export function Row({ title, meta, pill, onPress, lead }: { title: string; meta?: string; pill?: string; onPress: () => void; lead?: React.ReactNode }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [st.row, pressed && { backgroundColor: C.surface }]}>
+      {lead}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={st.rowTitle}>{title}</Text>
         {!!meta && <Text style={[st.muted, { marginTop: 2 }]}>{meta}</Text>}

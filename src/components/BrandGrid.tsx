@@ -24,9 +24,10 @@ export function BrandGrid({ brands, onPick }: { brands: BrandItem[]; onPick: (ma
               width: '48.5%', aspectRatio: 1.1, backgroundColor: pressed ? C.surface2 : C.surface, borderColor: C.line, borderWidth: 2, borderRadius: 14,
               alignItems: 'center', justifyContent: 'center', padding: S.md,
             })}>
-            <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: logo ? '#fff' : C.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {/* Rounded white plate, wide enough for word-only logos (Lucid, Aston Martin, Tesla…) to read. */}
+            <View style={{ width: '92%', maxWidth: 150, height: 84, borderRadius: 12, backgroundColor: logo ? '#fff' : C.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 8 }}>
               {logo
-                ? <Image source={logo} style={{ width: 60, height: 60 }} resizeMode="contain" />
+                ? <Image source={logo} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
                 : <Text style={{ color: C.text, fontFamily: F.display, fontSize: 26 }}>{initials(b.make)}</Text>}
             </View>
             <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18, marginTop: S.sm, textAlign: 'center' }} numberOfLines={2}>{b.make}</Text>

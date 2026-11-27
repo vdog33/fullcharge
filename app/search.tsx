@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Btn, Card, H2, Input, Muted, Notice, Row, Screen, Seg, st } from '../src/components/ui';
 import { BrandGrid, BrandItem } from '../src/components/BrandGrid';
 import { MatchPicker } from '../src/components/MatchPicker';
+import { SheetThumb } from '../src/components/SheetThumb';
 import { Candidate, describeModel, destination, vinCandidate } from '../src/lib/identify';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
 import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
@@ -67,6 +68,8 @@ export default function Search() {
   }, [index.length]);
   const filtering = q.trim().length >= 2 || !!make;
   const guideGroups = useMemo(() => (filtering ? groupGuides(smartSearchGuides(textQ, index, make, 200)) : []), [textQ, make, index.length]);
+  // Short lists may stream the drawings; long ones show only sheets already on the phone (no 200-page download).
+  const streamThumbs = guideGroups.length + seedList.length <= 30;
   // Brands that fit what's typed, from the first letter: "t" → Tesla, Toyota… "te" → Tesla.
   const brandHits = useMemo(() => {
     if (chip || typedMake || !q.trim()) return null;
@@ -151,7 +154,7 @@ export default function Search() {
           {filtering && seedGrouped.map(([mk, vs]) => (
             <View key={mk}>
               <Text style={[st.label, { paddingTop: S.sm }]}>{mk}</Text>
-              {vs.map((v) => <Row key={v.id} title={v.model} meta={`${v.years} · ${v.type}`} onPress={() => r.push(`/vehicle/${v.id}`)} />)}
+              {vs.map((v) => <Row key={v.id} lead={<SheetThumb vehicleId={v.id} width={THUMB_W} height={THUMB_H} remote={streamThumbs} />} title={v.model} meta={`${v.years} · ${v.type}`} onPress={() => r.push(`/vehicle/${v.id}`)} />)}
             </View>
           ))}
 
@@ -165,7 +168,7 @@ export default function Search() {
               const years = [...new Set(gs.map((g) => g.years))].join(' · ');
               const pt = gs[0].powertrain ?? '';
               const flag = /FCEV/i.test(pt) ? 'Hydrogen · 115' : /^HEV$/i.test(pt) ? 'Hybrid · 171?' : plural(gs.length, 'sheet');
-              return <Row key={label} title={label} meta={`${years}${pt ? ` · ${pt}` : ''}`} pill={flag} onPress={() => r.push(guideHref(gs, label))} />;
+              return <Row key={label} lead={<SheetThumb guides={gs} width={THUMB_W} height={THUMB_H} remote={streamThumbs} />} title={label} meta={`${years}${pt ? ` · ${pt}` : ''}`} pill={flag} onPress={() => r.push(guideHref(gs, label))} />;
             })}
           </View>
         </>
@@ -221,3 +224,7 @@ export default function Search() {
     </Screen>
   );
 }
+
+// Car drawing in each row: the top of the rescue sheet (side view), wide band.
+const THUMB_W = 104;
+const THUMB_H = 44;

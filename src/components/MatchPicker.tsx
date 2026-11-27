@@ -9,6 +9,7 @@ import { Candidate, destination } from '../lib/identify';
 import { ergFor } from '../lib/chem-guide';
 import { allReady, CarPhotoSrc, guideIndex, photoFor } from '../lib/packs';
 import { C, F, S } from '../theme';
+import { SheetThumb } from './SheetThumb';
 
 export function MatchPicker({ candidates, accepted, onAccept, onNone, noneLabel = 'None of these — search', extra, note, title = 'Which car is it?' }: {
   candidates: Candidate[]; accepted?: string | null; onAccept: (c: Candidate) => void; onNone: () => void;
@@ -84,15 +85,24 @@ function Likely({ c }: { c: Candidate }) {
   return <View style={{ alignItems: 'flex-end' }}><Text style={[cs.pct, { color: col }]}>{c.confidence}%</Text><Text style={st.muted}>likely</Text></View>;
 }
 
-/** Real photo of the model, approved on the PC and stored with the rescue sheets (offline). Never a web search. */
+/** Car picture: an approved photo if one exists, else the top of the model's own rescue sheet (side-view drawing). */
 function CarPhoto({ c, h }: { c: Candidate; h: number }) {
   const [bad, setBad] = useState(false);
+  const [w, setW] = useState(0);
   const [p, setP] = useState<CarPhotoSrc | null | undefined>(undefined);
   const k = c.guides.map((g) => g.key).join(',');
   useEffect(() => { let on = true; photoFor(c.guides).then((x) => on && setP(x)).catch(() => on && setP(null)); return () => { on = false; }; }, [k]);
   if (p === undefined) return <View style={{ height: h * 0.6, backgroundColor: C.surface2 }} />;
   if (!p || bad) {
-    return <View style={{ height: h * 0.6, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface2 }}><Text style={st.muted}>{p && bad ? 'Photo needs signal until downloaded' : 'No photo on file for this model yet'}</Text></View>;
+    if (!c.guides.length && !c.vehicleId) {
+      return <View style={{ height: h * 0.6, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface2 }}><Text style={st.muted}>No cut sheet on file for this model</Text></View>;
+    }
+    return (
+      <View onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))} style={{ backgroundColor: '#fff' }}>
+        {w > 0 && <SheetThumb guides={c.guides} vehicleId={c.vehicleId} width={w} height={Math.round(h * 0.8)} />}
+        <Text style={cs.credit} numberOfLines={1}>Rescue sheet drawing</Text>
+      </View>
+    );
   }
   return (
     <View>

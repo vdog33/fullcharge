@@ -79,7 +79,7 @@ n();function save(){const a=document.createElement('a');a.href=URL.createObjectU
     try {
       const r = await fetch(thumb.replace(/\/\d+px-/, '/480px-'), { headers: UA, signal: AbortSignal.timeout(15000) });
       const buf = Buffer.from(await (r.ok ? r : await fetch(thumb, { headers: UA, signal: AbortSignal.timeout(15000) })).arrayBuffer());
-      const png = await sharp(buf).trim().resize(240, 240, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+      const png = await sharp(buf).trim().resize(480, 240, { fit: 'inside', withoutEnlargement: true }).png().toBuffer(); // tight, not squared: wide wordmarks stay readable
       writeFileSync(new URL(`${slug(make)}.png`, ASSETS), png);
       ok++;
       await new Promise((res) => setTimeout(res, 120));
