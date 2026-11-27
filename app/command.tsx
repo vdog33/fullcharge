@@ -214,17 +214,18 @@ export default function Command() {
     <>
       <Pressable onPress={() => setShowWho((x) => !x)} accessibilityRole="button" accessibilityState={{ expanded: showWho }}
         style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-        <Text style={{ color: C.green, fontFamily: F.display, fontSize: 15 }}>RESPONDING {responding.length}</Text>
+        <Text style={{ color: C.green, fontFamily: F.display, fontSize: 15 }}>APP CHECK-IN {responding.length}</Text>
         {responding.slice(0, showWho ? 99 : wide ? 6 : 3).map((c) => (
           <View key={c.device_id} style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#0F2A1A', borderWidth: 1, borderColor: '#2F7A4D' }}>
             <Text style={{ color: C.text, fontWeight: '700', fontSize: 15 }}>{c.unit || 'Unit not set'}{showWho ? ` · ${ago(c.updated_at)}` : ''}</Text>
           </View>
         ))}
         {!showWho && responding.length > (wide ? 6 : 3) && <Text style={{ color: C.muted }}>+{responding.length - (wide ? 6 : 3)}</Text>}
+        <Text style={{ color: C.muted, fontSize: 13 }}>(not dispatch)</Text>
       </Pressable>
       <Pressable onPress={() => choose(mine.status === 'responding' ? 'watching' : 'responding')} accessibilityRole="button"
         style={{ paddingHorizontal: 10, minHeight: 36, justifyContent: 'center', borderRadius: 6, borderWidth: 1, borderColor: C.line }}>
-        <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>You: {mine.status === 'responding' ? 'Responding' : 'Watching'} · switch</Text>
+        <Text style={{ color: C.text, fontSize: 14, fontWeight: '700' }}>You: {mine.status === 'responding' ? 'Coming' : 'Just looking'} · change</Text>
       </Pressable>
     </>
   ) : null;
@@ -310,14 +311,15 @@ export default function Command() {
     </View>
   );
 
-  // Opened a shared scene: are you responding or just watching? (Shown until you pick.)
+  // Opened a shared scene: coming, or just looking? (Shown until you pick.) Worded so nobody mistakes it for
+  // dispatch / Tablet Command data — it's only who tapped in on this app.
   const ask = live && !mine ? (
     <View style={{ marginHorizontal: S.md, marginBottom: 6, borderWidth: 2, borderColor: C.hazmat, borderRadius: R.card, padding: 10, gap: 8, backgroundColor: C.warnBg }}>
-      <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18 }}>Are you responding or watching?</Text>
+      <Text style={{ color: C.text, fontFamily: F.display, fontSize: 18 }}>Coming to this scene, or just looking?</Text>
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <View style={{ flexBasis: 180, flexGrow: 1 }}><Input label="Your unit" placeholder="e.g. Vista E151" value={myUnit} onChangeText={setUnitState} /></View>
-        <View style={{ flexBasis: 140, flexGrow: 1 }}><Btn tone="red" icon="nav" label="Responding" sub="Listed for the officer on scene" onPress={() => choose('responding')} /></View>
-        <View style={{ flexBasis: 140, flexGrow: 1 }}><Btn tone="outline" icon="eye" label="Watching" sub="Not listed" onPress={() => choose('watching')} /></View>
+        <View style={{ flexBasis: 140, flexGrow: 1 }}><Btn tone="red" icon="nav" label="I'm coming" sub="Shows your unit here · app only" onPress={() => choose('responding')} /></View>
+        <View style={{ flexBasis: 140, flexGrow: 1 }}><Btn tone="outline" icon="eye" label="Just looking" sub="Not shown" onPress={() => choose('watching')} /></View>
       </View>
     </View>
   ) : null;

@@ -1,4 +1,4 @@
-// Scene check-ins: RESPONDING (listed by unit, so the officer on scene sees who's coming) or WATCHING (counted only).
+// Scene check-ins (shown as "APP CHECK-IN" — self check-in on this app only, never dispatch data): responding = "I'm coming" (listed by unit) or watching = "Just looking" (not shown).
 // Info only — Tablet Command / the MDC is the real tracking and accountability system.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
