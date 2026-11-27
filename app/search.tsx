@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { ActivityIndicator, Linking, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Btn, Card, H2, Input, Muted, Notice, Row, Screen, Seg, st } from '../src/components/ui';
+import { Btn, Card, Chips, H2, Input, Muted, Notice, Row, Screen, Seg, st } from '../src/components/ui';
 import { BrandGrid, BrandItem } from '../src/components/BrandGrid';
 import { MatchPicker } from '../src/components/MatchPicker';
 import { SheetThumb } from '../src/components/SheetThumb';
+import { VoiceSearchBtn } from '../src/components/VoiceSearch';
 import { Candidate, describeModel, destination, vinCandidate } from '../src/lib/identify';
 import { LastVehicleBar } from '../src/components/LastVehicleBar';
-import { getVehicle, searchVehicles, Vehicle, VEHICLES } from '../src/data/catalog';
+import { getVehicle, searchVehicles, seedBody, Vehicle, VEHICLES } from '../src/data/catalog';
 import { lookupVin, VinResult } from '../src/lib/vin';
 import { looksLikeVin, matchCatalog } from '../src/lib/vin-core';
-import { cleanModel, Guide, matchGuess, matchMakes, namedMake, smartSearchGuides } from '../src/lib/match-core';
+import { BODIES, Body, cleanModel, Guide, matchGuess, matchMakes, namedMake, smartSearchGuides } from '../src/lib/match-core';
 import { allReady, guideIndex, loadPacks, subscribe } from '../src/lib/packs';
 import { logIdAttempt, updateIdAttempt } from '../src/lib/history';
 import { NHTSA_PORTAL } from '../src/config';
@@ -35,6 +36,7 @@ export default function Search() {
   const [mode, setMode] = useState<Mode>('name');
   const [q, setQ] = useState('');
   const [chip, setChip] = useState<string | undefined>();
+  const [body, setBody] = useState<Body | undefined>(); // Cars · SUVs · Trucks · Vans · Heavy
   const [vin, setVin] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -52,7 +54,7 @@ export default function Search() {
   const typedMake = useMemo(() => namedMake(q, makesAll), [q, makesAll]);
   const make = chip ?? typedMake;
   const textQ = typedMake && !chip ? '' : q;
-  const seedList = useMemo(() => searchVehicles(textQ, make), [textQ, make]);
+  const seedList = useMemo(() => searchVehicles(textQ, make).filter((v) => !body || seedBody(v.id) === body), [textQ, make, body]);
   const seedGrouped = useMemo(() => {
     const g: Record<string, Vehicle[]> = {};
     seedList.forEach((v) => (g[v.make] ??= []).push(v));
@@ -66,8 +68,15 @@ export default function Search() {
     index.forEach((g) => add(g.make, g.model));
     return [...m.entries()].map(([mk, set]) => ({ make: mk, models: set.size })).sort((a, b) => a.make.localeCompare(b.make));
   }, [index.length]);
-  const filtering = q.trim().length >= 2 || !!make;
-  const guideGroups = useMemo(() => (filtering ? groupGuides(smartSearchGuides(textQ, index, make, 200)) : []), [textQ, make, index.length]);
+  const filtering = q.trim().length >= 2 || !!make || !!body;
+  // A body type alone lists every model of that type (not just the first 200 sheets).
+  const bodyOnly = !!body && !make && !textQ.trim();
+  const guideGroups = useMemo(() => (filtering
+    ? groupGuides(smartSearchGuides(textQ, body ? index.filter((g) => g.body === body) : index, make, bodyOnly ? 5000 : 200))
+    : []), [textQ, make, body, index.length]);
+  // Brand + model names help the phone's speech recognizer hear "Ioniq", "Lyriq", "Rivian".
+  const voiceHints = useMemo(() => [...makesAll, ...new Set([...VEHICLES.map((v) => v.model), ...index.map((g) => cleanModel(g.model))])].slice(0, 100), [makesAll, index.length]);
+  const bodyKnown = useMemo(() => index.some((g) => g.body), [index.length]);
   // Short lists may stream the drawings; long ones show only sheets already on the phone (no 200-page download).
   const streamThumbs = guideGroups.length + seedList.length <= 30;
   // Brands that fit what's typed, from the first letter: "t" → Tesla, Toyota… "te" → Tesla.
@@ -121,6 +130,11 @@ export default function Search() {
         <>
           <Input label="Make or model" icon="search" placeholder="e.g. ioniq 6" value={q} onChangeText={setQ}
             onClear={() => { setQ(''); setChip(undefined); }} autoCorrect={false} autoCapitalize="none" returnKeyType="search" />
+          <VoiceSearchBtn onText={(t) => { setChip(undefined); setQ(t); }} hints={voiceHints} />
+          {/* Body type: one tap narrows everything below (brands, typing, the list). */}
+          <Chips label="Vehicle type" options={[{ key: 'all', label: 'All' }, ...BODIES]} value={body ?? 'all'}
+            onChange={(k) => setBody(k === 'all' || k === body ? undefined : (k as Body))} />
+          {!!body && !bodyKnown && !!index.length && <Muted>Only the FULLCHARGE pages have a type yet — the rest arrive with the next data update.</Muted>}
           {looksLikeVin(q) && <Btn icon="search" label="That looks like a VIN — look it up" onPress={() => { setMode('vin'); setVin(q); runVin(q); }} />}
           {make && (
             <Btn tone="outline" size="sm" icon="back" label={`All brands · showing ${make}`}

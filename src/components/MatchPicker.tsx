@@ -21,7 +21,7 @@ export function MatchPicker({ candidates, accepted, onAccept, onNone, noneLabel 
 
   if (cur) {
     const dest = destination(cur);
-    const e = ergFor(cur.guess.powertrain);
+    const e = ergFor(cur.guess.powertrain, cur.guides.find((g) => g.battery)?.battery?.chem);
     return (
       <View style={{ gap: S.block }}>
         <CarPhoto c={cur} h={220} />

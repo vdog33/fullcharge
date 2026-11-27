@@ -34,7 +34,9 @@ export default function GuidePage() {
   const name = title || (g0 ? `${g0.make} ${g0.model}` : 'Cut sheet');
   const linked = guides.find((g) => g.vehicleId)?.vehicleId;
   const missing = guides.filter((g) => !guideOnPhone(g));
-  const erg = ergFor(guides.find((g) => /FCEV/i.test(g.powertrain ?? ''))?.powertrain ?? g0?.powertrain);
+  // Chemistry printed on the maker's sheet (approved) decides the ERG guide; newest sheet with one wins.
+  const battery = guides.find((g) => g.battery)?.battery;
+  const erg = ergFor(guides.find((g) => /FCEV/i.test(g.powertrain ?? ''))?.powertrain ?? g0?.powertrain, battery?.chem);
   useEffect(() => { if (keys) logView('guide', keys, name); }, [keys]);
 
   async function getThese() {
@@ -58,7 +60,7 @@ export default function GuidePage() {
       <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === 'Chemistry' && (
-        <ChemistryPanel powertrain={guides.find((g) => /FCEV/i.test(g.powertrain ?? ''))?.powertrain ?? g0?.powertrain}
+        <ChemistryPanel battery={battery} powertrain={guides.find((g) => /FCEV/i.test(g.powertrain ?? ''))?.powertrain ?? g0?.powertrain}
           onHazmat={() => r.push('/hazmat')} />
       )}
       {tab === 'Contacts' && <ContactsPanel guides={guides} />}

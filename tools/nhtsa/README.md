@@ -49,6 +49,19 @@ npm run guide:scan            # crops the car off page 1–2 of every guide, lis
 The cropped car pictures then appear FIRST (pre-selected) on the photos review page below. Ticked numbers show on the
 vehicle's **Contacts** tab after `npm run publish`.
 
+## Battery chemistry + body type (approved by you)
+Reads the traction-battery chemistry exactly as each manufacturer printed it (rescue sheet + the battery pages of
+the full guide), the HV voltage, and the body type (car / SUV / truck / van / heavy). Chemistry picks the ERG guide in
+the app: lithium-ion / sodium-ion = 147, NiMH = 171, lithium-metal = 138.
+```powershell
+$env:GEMINI_API_KEY = "..."
+npm run battery:scan          # → out\battery-review.html: check each row against the printed words, fix a dropdown
+#   if needed, tick it ("Tick every row that quotes the sheet" for the bulk), Save approvals,
+#   move battery-approved.json into out\
+npm run publish               # phones get chemistry + Cars / SUVs / Trucks / Vans / Heavy on the next data update
+```
+Rows marked "not stated" ship the body type only — the app keeps saying "check the label" for those.
+
 ## Vehicle photos (real photos, approved by you)
 The app shows a real photo of each model on the "Which car is it?" cards — from the phone, no signal needed. Nothing
 is looked up live any more (the old Wikipedia search picked wrong cars). You approve every photo:

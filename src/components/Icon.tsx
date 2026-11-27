@@ -6,7 +6,7 @@ import { C } from '../theme';
 export type IconName =
   | 'chev' | 'back' | 'cam' | 'img' | 'search' | 'batt' | 'warn' | 'cloud' | 'signal' | 'dl' | 'book' | 'pin'
   | 'clock' | 'id' | 'gear' | 'x' | 'loc' | 'nav' | 'arrow' | 'ext' | 'check' | 'expand' | 'bolt' | 'phone' | 'menu' | 'flask'
-  | 'cut' | 'truck' | 'fire' | 'power' | 'eye' | 'doc' | 'share' | 'users' | 'plus' | 'target';
+  | 'cut' | 'truck' | 'fire' | 'power' | 'eye' | 'doc' | 'share' | 'users' | 'plus' | 'target' | 'mic';
 
 export function Icon({ name, size = 24, color = C.text }: { name: IconName; size?: number; color?: string }) {
   const s = { stroke: color, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -16,6 +16,7 @@ export function Icon({ name, size = 24, color = C.text }: { name: IconName; size
       case 'back': return <Path d="M15 5l-7 7 7 7" {...s} strokeWidth={2.8} />;
       case 'cam': return <><Path d="M4 8h3l2-3h6l2 3h3v11H4z" {...s} strokeWidth={2.2} /><Circle cx={12} cy={13} r={3.6} {...s} strokeWidth={2.2} /></>;
       case 'img': return <><Rect x={3} y={4} width={18} height={16} rx={2} {...s} strokeWidth={2.2} /><Circle cx={9} cy={9.5} r={1.8} fill={color} /><Path d="M4 18l5.5-5.5 4 4 2.5-2.5L21 19" {...s} strokeWidth={2.2} /></>;
+      case 'mic': return <><Path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" {...s} strokeWidth={2.4} /><Path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" {...s} strokeWidth={2.4} /></>;
       case 'search': return <><Circle cx={10.5} cy={10.5} r={6.5} {...s} strokeWidth={2.4} /><Path d="M15.5 15.5L21 21" {...s} strokeWidth={2.6} /></>;
       case 'batt': return <><Rect x={3} y={7} width={16} height={10} rx={2} {...s} strokeWidth={2.2} /><Path d="M21 10.5v3" {...s} strokeWidth={2.4} /><Path d="M11.5 8.8L8.5 12.4h3l-1 2.8 3-3.6h-3z" fill={color} /></>;
       case 'warn': return <><Path d="M12 3L2 20.5h20z" {...s} strokeWidth={2.2} /><Path d="M12 9.5v5" {...s} strokeWidth={2.4} /><Circle cx={12} cy={17.4} r={1.3} fill={color} /></>;

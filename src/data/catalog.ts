@@ -1,3 +1,4 @@
+import type { Body } from '../lib/match-core';
 import raw from './fullcharge-data.json';
 import { looseMatch } from '../lib/match-core';
 
@@ -88,3 +89,11 @@ export function searchVehicles(q: string, make?: string): Vehicle[] {
 
 /** Safe URL for manufacturer PDFs: keep verbatim, only encode raw spaces (Kia). Never double-encode (Ioniq 5 has %20). */
 export const pdfUrl = (u: string) => u.replace(/ /g, '%20');
+
+/** Body type of the 20 FULLCHARGE pages (NHTSA models get theirs from the battery:scan approvals). */
+const SEED_BODY: Record<string, Body> = {
+  'model-y': 'suv', 'model-3': 'car', id4: 'suv', 'q4-etron': 'suv', eqb: 'suv', 'bmw-i5': 'car', 'bmw-i7': 'car',
+  'mach-e': 'suv', 'f150-lightning': 'truck', 'ioniq-5': 'suv', ev6: 'suv', r1t: 'truck', r1s: 'suv', 'equinox-ev': 'suv',
+  'blazer-ev': 'suv', 'hummer-ev': 'truck', 'lucid-air': 'car', 'wrangler-4xe': 'suv', bz4x: 'suv', 'prius-prime': 'car',
+};
+export const seedBody = (id: string): Body | undefined => SEED_BODY[id];
