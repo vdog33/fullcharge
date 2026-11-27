@@ -1,0 +1,28 @@
+# Build the iOS app on Expo's servers and send it to TestFlight — no PC needed.
+# Start it from GitHub (Actions → "TestFlight build" → Run workflow) or have Claude run it.
+# One-time setup: repo secret EXPO_TOKEN, and App Store Connect API key + push key stored on EAS (eas credentials).
+name: TestFlight build
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: What's in this build (optional)
+        required: false
+concurrency: { group: testflight, cancel-in-progress: false }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: npx tsc --noEmit
+        continue-on-error: true # report type problems, don't block a build over them
+      - run: npm test
+      # --no-wait: the build and the TestFlight upload carry on at Expo; this job just starts them.
+      - run: eas build -p ios --profile production --non-interactive --auto-submit --no-wait --message "${{ github.event.inputs.note || 'TestFlight build' }}"
