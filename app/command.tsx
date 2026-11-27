@@ -113,6 +113,18 @@ export default function Command() {
     openCount.set(id, (openCount.get(id) ?? 0) + 1);
     return () => { openCount.set(id, Math.max(0, (openCount.get(id) ?? 1) - 1)); };
   }, [live?.id]);
+  // Only ever ONE Command screen. Share to zone (from inside Command), a notification or the incident list used to
+  // push a second copy on top; Back then landed on the old copy and looked like it did nothing.
+  useEffect(() => {
+    type St = { routes: { key: string; name: string }[]; index: number };
+    const st = nav.getState() as St | undefined;
+    const me = st?.routes?.[st.index];
+    if (!st || !me || !st.routes.some((rt) => rt.name === me.name && rt.key !== me.key)) return;
+    nav.dispatch(((state: St) => {
+      const routes = state.routes.filter((rt) => rt.name !== me.name || rt.key === me.key);
+      return { type: 'RESET', payload: { ...state, routes, index: routes.length - 1 } };
+    }) as never);
+  }, []);
   // Backing out of your own running incident ends it — say so first.
   useEffect(() => {
     if (!runningMine) return;
