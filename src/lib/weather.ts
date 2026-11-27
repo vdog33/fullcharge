@@ -45,7 +45,7 @@ async function openMeteo(p: LatLng): Promise<Weather | null> {
   if (!c) return null;
   return {
     tempF: c.temperature_2m != null ? Math.round(c.temperature_2m) : null,
-    windFromDeg: c.wind_direction_10m != null && c.wind_speed_10m > 0 ? Math.round(c.wind_direction_10m) % 360 : null,
+    windFromDeg: c.wind_direction_10m != null ? Math.round(c.wind_direction_10m) % 360 : null,
     windMph: c.wind_speed_10m != null ? Math.round(c.wind_speed_10m) : null, gustMph: c.wind_gusts_10m != null ? Math.round(c.wind_gusts_10m) : null,
     source: 'Open-Meteo model', observedAt: Date.parse(c.time + 'Z') || Date.now(),
   };
@@ -57,6 +57,10 @@ export async function getWeather(p: LatLng): Promise<Weather | null> {
   let w: Weather | null = null;
   try { w = await nws(p); } catch { /* outside the US or NWS slow */ }
   if (!w) { try { w = await openMeteo(p); } catch { /* no signal */ } }
+  else if (w.windFromDeg == null) {
+    // Station reads calm or has no direction: borrow the model's direction so the wind is still filled by standard.
+    try { const m = await openMeteo(p); if (m?.windFromDeg != null) w = { ...w, windFromDeg: m.windFromDeg, source: `${w.source} · dir Open-Meteo` }; } catch { /* keep NWS */ }
+  }
   if (w) cache = { at: p, t: Date.now(), w };
   return w;
 }
