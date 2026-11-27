@@ -45,7 +45,8 @@ export default function VehicleScreen() {
       )}
 
       {tab === 'Chemistry' && (
-        <ChemistryPanel powertrain={v.type} chemistry={[v.chemistry, v.pack].filter(Boolean).join(' · ')} verified={v.chemistry_verified}
+        <ChemistryPanel battery={guideIndex().filter((g) => g.vehicleId === v.id && g.battery).sort((a, b) => (b.yearTo ?? 9999) - (a.yearTo ?? 9999))[0]?.battery}
+          powertrain={v.type} chemistry={[v.chemistry, v.pack].filter(Boolean).join(' · ')} verified={v.chemistry_verified}
           onHazmat={() => r.push(`/hazmat?kind=vehicle&id=${v.id}`)} />
       )}
 

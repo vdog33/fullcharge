@@ -59,7 +59,14 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "FULLCHARGE uses the microphone so you can say the vehicle's make and model instead of typing.",
+          "speechRecognitionPermission": "FULLCHARGE turns what you say into a vehicle search, on the phone."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

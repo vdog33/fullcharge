@@ -341,3 +341,14 @@ test('Zone rings: every point sits on the radius', () => {
     assert.ok(Math.abs(Math.hypot(dx, dy) - 100) < 1.5);
   }
 });
+
+test('ERG: chemistry printed on the maker sheet beats the powertrain guess', () => {
+  assert.deepEqual(ergFor('HEV', 'nimh').guides, ['171']);          // NiMH hybrid
+  assert.deepEqual(ergFor('HEV', 'lithium-ion').guides, ['147']);   // lithium hybrid: no "check the label"
+  assert.equal(ergFor('HEV', 'lithium-ion').tone, 'none');
+  assert.deepEqual(ergFor('HEV').guides, ['171', '147']);           // unknown chemistry: unchanged
+  assert.deepEqual(ergFor('FCEV', 'nimh').guides, ['115', '171']);  // older fuel-cell cars
+  assert.deepEqual(ergFor('FCEV', 'lithium-ion').guides, ['115', '147']);
+  assert.deepEqual(ergFor('BEV', 'sodium-ion').guides, ['147']);
+  assert.deepEqual(ergFor('BEV', 'lithium-metal').guides, ['138']);
+});

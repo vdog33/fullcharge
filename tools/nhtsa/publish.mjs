@@ -37,6 +37,17 @@ const photos = existsSync('out/photos.json') ? JSON.parse(readFileSync('out/phot
 const contactsOk = existsSync('out/contacts-approved.json') ? JSON.parse(readFileSync('out/contacts-approved.json', 'utf8')) : {};
 const pk = (g) => g._pk ?? photoKey(g); // approvals are keyed by the years as first listed
 const contactsOf = (g) => { const c = contactsOk[pk(g)]; return c?.length ? c : undefined; };
+// Battery chemistry + body type you approved in out/battery-review.html (npm run battery:scan).
+const batteryOk = existsSync('out/battery-approved.json') ? JSON.parse(readFileSync('out/battery-approved.json', 'utf8')) : {};
+const batteryOf = (g) => {
+  const b = batteryOk[pk(g)];
+  if (!b || !b.chem || b.chem === 'not-stated') return undefined;
+  return { chem: b.chem, ...(b.text ? { text: b.text } : {}), ...(b.cell ? { cell: b.cell } : {}), ...(b.voltage ? { voltage: b.voltage } : {}) };
+};
+// Body type is the same for every year of a model: any approved row for this make + model counts.
+const bodyByModel = new Map();
+for (const [k, b] of Object.entries(batteryOk)) if (b?.body) bodyByModel.set(k.split('|').slice(0, 2).join('|'), b.body);
+const bodyOf = (g) => batteryOk[pk(g)]?.body ?? bodyByModel.get(pk(g).split('|').slice(0, 2).join('|'));
 // Years read off the sheet's own title and approved by you ("as of 2021") replace NHTSA's newest-year-only label.
 const yearsOk = contactsOk.__years ?? {};
 for (const g of guides) {
@@ -52,6 +63,8 @@ const items = ready.map((g) => {
     powertrain: g.powertrain || '', docType: g.docType, version: g.version, sourceUrl: g.sourceUrl, sha256: g.sha256,
     photo: photoOf(g),
     contacts: contactsOf(g),
+    battery: batteryOf(g),
+    body: bodyOf(g),
     vehicleId: matchGuess({ make: g.make, model: g.model, yearFrom: g.yearFrom, yearTo: g.yearTo, powertrain: g.powertrain }, seed, []).vehicleId,
   };
   if (r?.kind === 'images') {
@@ -101,6 +114,7 @@ const withPhoto = (pick) => (g) => [...pick(g), ...(g.photo ? [{ file: g.photo.f
 const orphans = rescueItems.filter((g) => g.docType !== 'rescue_sheet');
 console.log(`  ${orphans.length} vehicle entries have no rescue sheet — their full ERG goes in the rescue pack too.`);
 console.log(`  ${items.filter((g) => g.photo).length} entries have an approved photo.`);
+console.log(`  ${items.filter((g) => g.battery).length} entries have approved battery chemistry, ${items.filter((g) => g.body).length} a body type.`);
 const bundles = {
   'rescue_sheet:200': buildBundles('rescue_sheet:200', setFiles(items.filter((g) => g.photo || rescueItems.includes(g)), (g) => (rescueItems.includes(g) ? withPhoto(pickFiles('200'))(g) : [g.photo]))),
   'rescue_sheet:300': buildBundles('rescue_sheet:300', setFiles(items.filter((g) => g.photo || rescueItems.includes(g)), (g) => (rescueItems.includes(g) ? withPhoto(pickFiles('300'))(g) : [g.photo]))),

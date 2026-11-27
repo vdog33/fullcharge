@@ -23,7 +23,17 @@ export type Guide = {
   images?: Record<'200' | '300', { bytes: number; pages: PageImage[] }>; // rescue sheets ship as page images
   photo?: VehiclePhoto;   // approved real photo of this model (tools/nhtsa photos:*) — ships with the rescue-sheet pack
   contacts?: Contact[];   // manufacturer phone lines read from this guide and approved on the PC (tools/nhtsa contacts)
+  battery?: Battery;      // HV battery chemistry as printed on this sheet, approved on the PC (tools/nhtsa battery:scan)
+  body?: Body;            // car / suv / truck / van / heavy (same pass)
 };
+
+export type Body = 'car' | 'suv' | 'truck' | 'van' | 'heavy';
+export const BODIES: { key: Body; label: string }[] = [
+  { key: 'car', label: 'Cars' }, { key: 'suv', label: 'SUVs' }, { key: 'truck', label: 'Trucks' }, { key: 'van', label: 'Vans' }, { key: 'heavy', label: 'Heavy' },
+];
+/** Traction battery as the manufacturer printed it. chem decides the ERG guide (NiMH = 171). */
+export type Battery = { chem: 'lithium-ion' | 'nimh' | 'sodium-ion' | 'lithium-metal'; text?: string; cell?: string; voltage?: string };
+export const CHEM_LABEL: Record<Battery['chem'], string> = { 'lithium-ion': 'Lithium-ion', nimh: 'NiMH (nickel-metal hydride)', 'sodium-ion': 'Sodium-ion', 'lithium-metal': 'Lithium-metal' };
 
 /** A phone line printed in the manufacturer's own guide. Only ever shown after a person approved it. */
 export type Contact = { name: string; phone: string; note?: string; page?: number };

@@ -7,7 +7,7 @@ import { Btn, Card, Field, Muted, Notice, st } from './ui';
 import { IconName } from './Icon';
 import { SHARED_CONTACTS } from '../data/catalog';
 import { ergFor, ERG_GUIDE_PDF } from '../lib/chem-guide';
-import { Contact, Guide } from '../lib/match-core';
+import { Battery, CHEM_LABEL, Contact, Guide } from '../lib/match-core';
 import { getGuide, loadPacks } from '../lib/packs';
 import { C, S } from '../theme';
 
@@ -20,10 +20,10 @@ export const vehicleTabs = (keys: readonly TabKey[]) => keys.map((k) => ({ key: 
 const tel = (p: string) => Linking.openURL(`tel:${p.replace(/[^\d+]/g, '')}`);
 
 /** Which hazmat guide applies — the main thing the Chemistry tab answers. */
-export function ChemistryPanel({ powertrain, chemistry, verified, onHazmat }: {
-  powertrain?: string; chemistry?: string; verified?: boolean | 'partial'; onHazmat: () => void;
+export function ChemistryPanel({ powertrain, chemistry, verified, battery, onHazmat }: {
+  powertrain?: string; chemistry?: string; verified?: boolean | 'partial'; battery?: Battery; onHazmat: () => void;
 }) {
-  const e = ergFor(powertrain);
+  const e = ergFor(powertrain, battery?.chem);
   const g = e.guides[0];
   return (
     <View style={{ gap: S.block }}>
@@ -39,8 +39,15 @@ export function ChemistryPanel({ powertrain, chemistry, verified, onHazmat }: {
       ))}
       <Card>
         <Text style={st.label}>Battery</Text>
-        <Text style={[st.body, { fontSize: 19 }]}>{chemistry || (powertrain ? `${powertrain} — cell chemistry not listed` : 'Not listed')}</Text>
-        <Muted>{verified === true ? 'Chemistry verified against the manufacturer guide.' : verified === 'partial' ? 'Chemistry partly verified.' : 'Chemistry not verified — treat as lithium-ion, Guide 147.'}</Muted>
+        {battery ? <>
+          {/* Read off the manufacturer's own sheet and approved — wins over the hand-written note. */}
+          <Text style={{ color: C.text, fontSize: 24, fontWeight: '900' }}>{CHEM_LABEL[battery.chem]}{battery.cell ? ` · ${battery.cell}` : ''}</Text>
+          {!!battery.voltage && <Text style={[st.body, { fontSize: 19 }]}>{battery.voltage}</Text>}
+          <Muted>{battery.text ? `Manufacturer sheet: "${battery.text}"` : 'From the manufacturer sheet.'}</Muted>
+        </> : <>
+          <Text style={[st.body, { fontSize: 19 }]}>{chemistry || (powertrain ? `${powertrain} — cell chemistry not listed` : 'Not listed')}</Text>
+          <Muted>{verified === true ? 'Chemistry verified against the manufacturer guide.' : verified === 'partial' ? 'Chemistry partly verified.' : 'Chemistry not verified — treat as lithium-ion, Guide 147.'}</Muted>
+        </>}
       </Card>
     </View>
   );
