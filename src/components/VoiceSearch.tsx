@@ -1,7 +1,7 @@
 // Say the car: "Tesla Model Y", "F-150 Lightning", "Chevy Bolt". On-device speech recognition (iPhone's own,
 // no signal needed on phones that support it). What it hears goes straight into the search box — the forgiving
 // search does the rest, so a slightly wrong word still finds the car.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { Icon } from './Icon';
@@ -20,7 +20,8 @@ export function spokenToQuery(t: string): string {
 }
 
 /** Big mic button. hints = brand / model names to bias recognition (e.g. "Ioniq", "Lyriq", "Rivian"). */
-export function VoiceSearchBtn({ onText, hints }: { onText: (q: string) => void; hints?: string[] }) {
+/** autoStart: start listening as soon as the screen opens (the Voice choice on Start New). */
+export function VoiceSearchBtn({ onText, hints, autoStart }: { onText: (q: string) => void; hints?: string[]; autoStart?: boolean }) {
   const [on, setOn] = useState(false);
   const [msg, setMsg] = useState('');
   useSpeechRecognitionEvent('start', () => setOn(true));
@@ -50,6 +51,8 @@ export function VoiceSearchBtn({ onText, hints }: { onText: (q: string) => void;
       contextualStrings: (hints ?? []).slice(0, 100),
     });
   }
+
+  useEffect(() => { if (autoStart) start().catch(() => {}); }, []);
 
   return (
     <View style={{ gap: 4 }}>

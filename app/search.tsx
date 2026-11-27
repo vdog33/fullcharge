@@ -44,8 +44,10 @@ export default function Search() {
   const [vinCands, setVinCands] = useState<Candidate[]>([]); // same pick → check → accept as camera ID
   const [accepted, setAccepted] = useState<string | null>(null);
   // Coming back from the scanner with a VIN: look it up straight away.
-  const params = useLocalSearchParams<{ vin?: string }>();
+  const params = useLocalSearchParams<{ vin?: string; mode?: string; voice?: string }>();
   useEffect(() => { if (params.vin) { setMode('vin'); setVin(params.vin); runVin(params.vin); } }, [params.vin]);
+  // From Start New: VIN opens straight on the VIN tab; Voice starts listening right away.
+  useEffect(() => { if (params.mode === 'vin' && !params.vin) setMode('vin'); }, [params.mode]);
 
   const index = guideIndex();
   const makesAll = useMemo(() => [...new Set([...VEHICLES.map((v) => v.make), ...index.map((g) => g.make)])].sort(), [index.length]);
@@ -130,7 +132,7 @@ export default function Search() {
         <>
           <Input label="Make or model" icon="search" placeholder="e.g. ioniq 6" value={q} onChangeText={setQ}
             onClear={() => { setQ(''); setChip(undefined); }} autoCorrect={false} autoCapitalize="none" returnKeyType="search" />
-          <VoiceSearchBtn onText={(t) => { setChip(undefined); setQ(t); }} hints={voiceHints} />
+          <VoiceSearchBtn autoStart={params.voice === '1'} onText={(t) => { setChip(undefined); setQ(t); }} hints={voiceHints} />
           {/* Body type: one tap narrows everything below (brands, typing, the list). */}
           <Chips label="Vehicle type" options={[{ key: 'all', label: 'All' }, ...BODIES]} value={body ?? 'all'}
             onChange={(k) => setBody(k === 'all' || k === body ? undefined : (k as Body))} />
