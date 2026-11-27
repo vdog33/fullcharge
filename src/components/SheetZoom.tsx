@@ -1,18 +1,21 @@
 // The manufacturer rescue sheet, full size, pinch to zoom (iOS native zoom, up to 6×). Used in command view.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
 import { Guide } from '../lib/match-core';
 import { SheetPage, sheetPageUris } from '../lib/packs';
 import { C, S } from '../theme';
 
-export function SheetZoom({ guides, height }: { guides: Guide[]; height: number }) {
+export function SheetZoom({ guides, height, freeze }: { guides: Guide[]; height: number; freeze?: boolean }) {
   const sheet = guides.find((g) => g.docType === 'rescue_sheet' && g.images) ?? guides.find((g) => g.images);
   const [pages, setPages] = useState<SheetPage[]>([]);
   const [W, setW] = useState(0);
+  // While the divider is being dragged, keep the picture's size (no zoom jump); fit the new width on release.
+  const lastW = useRef(0);
+  useEffect(() => { if (!freeze && lastW.current && lastW.current !== W) setW(lastW.current); }, [freeze]);
   useEffect(() => { setPages([]); if (sheet) sheetPageUris(sheet).then(setPages).catch(() => setPages([])); }, [sheet?.key]);
   if (!sheet) return <Text style={{ color: C.muted, fontSize: 16 }}>No picture of this cut sheet on the phone — open the full page for the PDF.</Text>;
   return (
-    <View style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' }} onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}>
+    <View style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff' }} onLayout={(e) => { lastW.current = Math.round(e.nativeEvent.layout.width); if (!freeze) setW(lastW.current); }}>
       <ScrollView key={`z${W}`} maximumZoomScale={6} minimumZoomScale={1} bouncesZoom pinchGestureEnabled centerContent
         contentContainerStyle={{ gap: S.sm }} accessibilityLabel="Rescue sheet — pinch to zoom">
         {W > 0 && pages.map((p) => <Image key={p.uri} source={{ uri: p.uri }} style={{ width: W, height: (W * p.h) / p.w }} resizeMode="contain" />)}

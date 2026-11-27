@@ -65,8 +65,15 @@ export default function Command() {
   useEffect(() => { AsyncStorage.getItem('fullcharge.commandSplit').then((v) => { const n = Number(v); if (n >= 0.25 && n <= 0.75) setSplit(n); }).catch(() => {}); }, []);
   const clampSplit = (x: number) => Math.min(0.75, Math.max(0.25, x));
   const saveSplit = (x: number) => { setSplit(x); AsyncStorage.setItem('fullcharge.commandSplit', String(x)).catch(() => {}); };
-  // The bar follows your finger; the panes resize once you let go (keeps a zoomed cut sheet from jumping).
-  const commitSplit = (dx: number) => saveSplit(clampSplit(splitNow.current + dx / Math.max(1, rowW.current)));
+  // Panes resize live as you drag. The cut sheet holds its size while dragging (so a zoomed sheet doesn't jump)
+  // and fits the new width when you let go.
+  const [dragging, setDragging] = useState(false);
+  const splitAtStart = useRef(0.5);
+  const dragSplit = (dx: number, phase: 'start' | 'move' | 'end') => {
+    if (phase === 'start') { splitAtStart.current = splitNow.current; setDragging(true); return; }
+    const x = clampSplit(splitAtStart.current + dx / Math.max(1, rowW.current));
+    if (phase === 'move') setSplit(x); else { setDragging(false); saveSplit(x); }
+  };
   const [checks, setChecks] = useState<Checkin[]>([]);
   const [me, setMe] = useState<string>('');
   const [myUnit, setUnitState] = useState('');
@@ -296,7 +303,7 @@ export default function Command() {
       {!live && focus.ref && <ShareToZoneBtn vehicleRef={focus.ref} title={focus.label} />}
       {focus.guides.length ? <>
         <SheetItems guides={focus.guides} />
-        <SheetZoom guides={focus.guides} height={wide ? Math.max(320, rightH - 70) : Math.round(height * 0.7)} />
+        <SheetZoom guides={focus.guides} height={wide ? Math.max(320, rightH - 70) : Math.round(height * 0.7)} freeze={dragging} />
         <Btn tone="outline" icon="book" label="Full cut sheet page" onPress={() => r.push(`/guide?keys=${focus.guides.map((g) => g.key).join(',')}&title=${encodeURIComponent(focus.label)}`)} />
       </> : <Btn icon="search" label="Find the vehicle" onPress={() => r.push('/search')} />}
     </View>
@@ -319,7 +326,7 @@ export default function Command() {
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'stretch', paddingLeft: Math.max(S.md, insets.left), paddingRight: Math.max(S.md, insets.right), paddingBottom: Math.max(8, insets.bottom) }}
         onLayout={(e) => { rowW.current = e.nativeEvent.layout.width; }}>
         <View style={{ flex: split, minWidth: 0 }} onLayout={(e) => setPaneH(Math.round(e.nativeEvent.layout.height))}>{map}</View>
-        <Divider onCommit={commitSplit} onReset={() => saveSplit(0.5)} />
+        <Divider onDrag={dragSplit} onReset={() => saveSplit(0.5)} active={dragging} />
         <View style={{ flex: 1 - split, minWidth: 0, gap: S.sm }} onLayout={(e) => setRightH(Math.round(e.nativeEvent.layout.height))}>
           <Seg label="Right side" options={['Cut sheet', 'ERG 147'] as const} value={pane === 'Map' ? 'Cut sheet' : pane} onChange={setPane} />
           <ScrollView contentContainerStyle={{ paddingBottom: 40, gap: S.block }}>{pane === 'ERG 147' ? erg : sheet}</ScrollView>
@@ -356,28 +363,33 @@ function Tile({ label, value, unit, on, mono, onPress }: { label: string; value:
   );
 }
 
-/** The middle bar between map and cut sheet: drag left / right, the panes resize when you let go; double-tap = 50/50. */
-function Divider({ onCommit, onReset }: { onCommit: (dx: number) => void; onReset: () => void }) {
+/** The middle bar between map and cut sheet: drag left / right (panes follow live); double-tap = 50/50. */
+function Divider({ onDrag, onReset, active }: { onDrag: (dx: number, phase: 'start' | 'move' | 'end') => void; onReset: () => void; active: boolean }) {
   const lastTap = useRef(0);
-  const [dx, setDx] = useState(0);
+  const cb = useRef(onDrag);
+  cb.current = onDrag; // the responder is made once; always call the latest handler
+  const reset = useRef(onReset);
+  reset.current = onReset;
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false, // keep the drag even if the finger crosses the map
     onPanResponderGrant: () => {
       const now = Date.now();
-      if (now - lastTap.current < 300) onReset();
+      if (now - lastTap.current < 300) reset.current();
       lastTap.current = now;
+      cb.current(0, 'start');
     },
-    onPanResponderMove: (_e, g) => setDx(g.dx),
-    onPanResponderRelease: (_e, g) => { setDx(0); if (Math.abs(g.dx) > 4) onCommit(g.dx); },
-    onPanResponderTerminate: () => setDx(0),
+    onPanResponderMove: (_e, g) => cb.current(g.dx, 'move'),
+    onPanResponderRelease: (_e, g) => cb.current(g.dx, 'end'),
+    onPanResponderTerminate: (_e, g) => cb.current(g.dx, 'end'),
   })).current;
   return (
     <View {...pan.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Divider between map and cut sheet. Drag to resize, double-tap for half and half."
-      style={{ width: 32, alignItems: 'center', justifyContent: 'center', zIndex: 5, transform: [{ translateX: dx }] }}>
-      <View style={{ width: dx ? 6 : 4, flex: 1, borderRadius: 3, backgroundColor: dx ? C.hazmat : C.line }} />
-      <View style={{ position: 'absolute', width: 28, height: 64, borderRadius: 14, backgroundColor: dx ? C.hazmat : C.surface2, borderWidth: 2, borderColor: C.text, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        {[0, 1, 2].map((i) => <View key={i} style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: dx ? C.hazmatText : C.text }} />)}
+      style={{ width: 32, alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+      <View style={{ width: active ? 6 : 4, flex: 1, borderRadius: 3, backgroundColor: active ? C.hazmat : C.line }} />
+      <View style={{ position: 'absolute', width: 28, height: 64, borderRadius: 14, backgroundColor: active ? C.hazmat : C.surface2, borderWidth: 2, borderColor: C.text, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        {[0, 1, 2].map((i) => <View key={i} style={{ width: 12, height: 2, borderRadius: 1, backgroundColor: active ? C.hazmatText : C.text }} />)}
       </View>
     </View>
   );
