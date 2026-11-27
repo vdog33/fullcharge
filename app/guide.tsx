@@ -3,7 +3,6 @@ import { Linking, Text, View, useWindowDimensions } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { Btn, CardBtn, Disclose, H1, H2, Icon, Muted, Notice, Screen, Steps, TabBar, st } from '../src/components/ui';
-import { VerifyPicture } from '../src/components/VerifyPicture';
 import { SheetZoom } from '../src/components/SheetZoom';
 import { SheetItems } from '../src/components/SheetItems';
 import { ShareToZoneBtn } from '../src/components/ShareToZoneBtn';
@@ -85,7 +84,19 @@ export default function GuidePage() {
       {/* The sheet itself, right here: pinch to zoom — no need to open it first. No picture on the phone → tap-to-open card. */}
       {guides.length > 0 && (guides.some((g) => g.images)
         ? <SheetZoom guides={guides} height={Math.round(winH * 0.7)} />
-        : <VerifyPicture guides={guides} hero />)}
+        : (() => {
+          // No cut sheet pulled out yet: the cut info is inside the maker's full guide — one tap to it, never a blank page.
+          const full = guides.find((x) => x.docType !== 'rescue_sheet') ?? guides[0];
+          return (
+            <Notice tone="warn" title="Cut sheet is inside the manufacturer's guide"
+              action={<Btn tone="red" icon="book" label="Open the guide" onPress={() => r.push(`/erg-pdf?kind=guide&id=${full.key}`)} />}>
+              No separate cut sheet for this model. Look for the vehicle drawing with the high-voltage parts and cut zones.
+            </Notice>
+          );
+        })())}
+      {guides.some((g) => g.fromErg) && (
+        <Muted>{`Cut sheet taken from the manufacturer's full guide (page ${guides.find((g) => g.fromErg)!.fromErg!.pages.join(', ')}).`}</Muted>
+      )}
 
       {new Set(guides.map((x) => `${x.make}|${x.model}`)).size > 1 && (
         <Notice tone="info" icon="warn">More than one model matches — check the badge and pick the sheet for that exact model.</Notice>
@@ -111,7 +122,7 @@ export default function GuidePage() {
         const on = guideOnPhone(g);
         return (
           <CardBtn key={g.key} onPress={() => r.push(g.images ? `/sheet?key=${g.key}` : `/erg-pdf?kind=guide&id=${g.key}`)}>
-            <Text style={[st.label, { color: C.redText }]}>{g.docType === 'rescue_sheet' ? 'Rescue sheet' : 'Emergency response guide'}</Text>
+            <Text style={[st.label, { color: C.redText }]}>{g.fromErg ? `Cut sheet · from the full guide, p. ${g.fromErg.pages.join(', ')}` : g.docType === 'rescue_sheet' ? 'Rescue sheet' : 'Emergency response guide'}</Text>
             <Text style={[st.body, { fontWeight: '700', lineHeight: 23 }]}>{guideLabel(g)}</Text>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-start' }}>
               <View style={{ marginTop: 2 }}><Icon name={on ? 'check' : 'cloud'} size={18} color={on ? C.green : C.muted} /></View>

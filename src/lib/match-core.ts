@@ -25,6 +25,7 @@ export type Guide = {
   contacts?: Contact[];   // manufacturer phone lines read from this guide and approved on the PC (tools/nhtsa contacts)
   battery?: Battery;      // HV battery chemistry as printed on this sheet, approved on the PC (tools/nhtsa battery:scan)
   body?: Body;            // car / suv / truck / van / heavy (same pass)
+  fromErg?: { key: string; pages: number[] }; // cut sheet taken from these pages of a full guide (tools/nhtsa erg:cutsheets)
 };
 
 export type Body = 'car' | 'suv' | 'truck' | 'van' | 'heavy';
@@ -135,7 +136,11 @@ export function matchGuess(g: Guess, seed: SeedLite[], guides: Guide[]): MatchRe
     .find((v) => v.model.split('/').some((m) => modelMatches(g.model, m.trim(), g.powertrain)) &&
       (!v.type || v.type.includes('/') || ptCompatible(g.powertrain, v.type)) &&
       (() => { const y = parseYears(v.years); return yearsOverlap(g.yearFrom, g.yearTo, y.yearFrom, y.yearTo); })());
-  const sameModel = guides.filter((x) => normMake(x.make) === mk && modelMatches(g.model, x.model, g.powertrain) && ptCompatible(g.powertrain, x.powertrain));
+  const modelHits = guides.filter((x) => normMake(x.make) === mk && modelMatches(g.model, x.model, g.powertrain));
+  // Powertrain from a photo can be wrong (PHEV vs BEV look alike): if it rules out every sheet for this model,
+  // keep the model's sheets rather than showing nothing — the ERG note on the page still flags hybrids / hydrogen.
+  const ptHits = modelHits.filter((x) => ptCompatible(g.powertrain, x.powertrain));
+  const sameModel = ptHits.length ? ptHits : modelHits;
   // NHTSA often lists a sheet only under its newest model year (EQE "2026") though it covers earlier cars of the same
   // generation. No sheet for the exact years → show the closest years, and say so (yearsLoose) — never nothing.
   let gs = sameModel.filter((x) => yearsOverlap(g.yearFrom, g.yearTo, x.yearFrom, x.yearTo));

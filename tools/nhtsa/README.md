@@ -49,6 +49,17 @@ npm run guide:scan            # crops the car off page 1–2 of every guide, lis
 The cropped car pictures then appear FIRST (pre-selected) on the photos review page below. Ticked numbers show on the
 vehicle's **Contacts** tab after `npm run publish`.
 
+## Cut sheets inside full guides (E-ONE, Nissan Leaf, buses, work trucks…)
+About 88 models have no separate rescue sheet on NHTSA — their cut sheet is a page inside the full emergency response
+guide. This finds those pages and ships them as normal cut sheets (offline images, Cut tab), labelled with the page.
+```powershell
+$env:GEMINI_API_KEY = "..."
+npm run erg:cutsheets         # → out\erg-cut-review.html: green pages go in; click any wrong page to drop it,
+#   Save approvals, move erg-cut-approved.json into out\
+npm run publish
+```
+`npm run erg:cutsheets -- e-one` does one make only (quick test).
+
 ## Battery chemistry + body type (approved by you)
 Reads the traction-battery chemistry exactly as each manufacturer printed it (rescue sheet + the battery pages of
 the full guide), the HV voltage, and the body type (car / SUV / truck / van / heavy). Chemistry picks the ERG guide in
