@@ -8,6 +8,9 @@ on:
       note:
         description: What's in this build (optional)
         required: false
+      submit_build_id:
+        description: Only send this already-built EAS build to TestFlight (no new build)
+        required: false
 concurrency: { group: testflight, cancel-in-progress: false }
 jobs:
   build:
@@ -20,9 +23,25 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+      - name: Send an existing build to TestFlight
+        if: ${{ github.event.inputs.submit_build_id != '' }}
+        run: |
+          ID="${{ github.event.inputs.submit_build_id }}"
+          for i in $(seq 1 60); do
+            S=$(eas build:view "$ID" --json --non-interactive | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).status))")
+            echo "build $ID: $S"
+            [ "$S" = "FINISHED" ] && break
+            case "$S" in ERRORED|CANCELED) exit 1;; esac
+            sleep 30
+          done
+          eas submit -p ios --id "$ID" --non-interactive
       - run: npm ci
+        if: ${{ github.event.inputs.submit_build_id == '' }}
       - run: npx tsc --noEmit
+        if: ${{ github.event.inputs.submit_build_id == '' }}
         continue-on-error: true # report type problems, don't block a build over them
       - run: npm test
+        if: ${{ github.event.inputs.submit_build_id == '' }}
       # --no-wait: the build and the TestFlight upload carry on at Expo; this job just starts them.
-      - run: eas build -p ios --profile production --non-interactive --auto-submit --no-wait --message "${{ github.event.inputs.note || 'TestFlight build' }}"
+      - if: ${{ github.event.inputs.submit_build_id == '' }}
+        run: eas build -p ios --profile production --non-interactive --auto-submit --no-wait --message "${{ github.event.inputs.note || 'TestFlight build' }}"
