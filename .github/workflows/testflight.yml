@@ -29,7 +29,7 @@ jobs:
         run: |
           ID="${{ github.event.inputs.submit_build_id }}"
           for i in $(seq 1 60); do
-            S=$(eas build:view "$ID" --json --non-interactive | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).status))")
+            S=$(eas build:view "$ID" --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).status))")
             echo "build $ID: $S"
             [ "$S" = "FINISHED" ] && break
             case "$S" in ERRORED|CANCELED) exit 1;; esac
