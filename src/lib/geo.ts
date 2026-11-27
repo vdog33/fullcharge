@@ -76,6 +76,13 @@ export function plumePolygon(fire: LatLng, headingDeg: number, halfDeg: number, 
   return pts;
 }
 
+/** A circle as points (for drawing rings as polygons — Apple Maps redraws those cleanly when the fire moves). */
+export function ringPolygon(c: LatLng, radiusM: number, steps = 72): LatLng[] {
+  const pts: LatLng[] = [];
+  for (let i = 0; i < steps; i++) { const a = (2 * Math.PI * i) / steps; pts.push(offsetM(c, radiusM * Math.sin(a), radiusM * Math.cos(a))); }
+  return pts;
+}
+
 /** Map region (lat/lng deltas) that frames a circle of radiusM around a point, with a margin. */
 export function regionFor(p: LatLng, radiusM: number, margin = 1.25) {
   const dLat = deg((radiusM * margin) / R) * 2;

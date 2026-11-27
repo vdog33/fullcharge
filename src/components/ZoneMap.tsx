@@ -3,10 +3,10 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { Text, View } from 'react-native';
-import MapView, { Circle, LocalTile, Marker, Polygon } from 'react-native-maps';
+import MapView, { LocalTile, Marker, Polygon } from 'react-native-maps';
 import { hasOfflineTiles, loadAreas, TILE_PATH_TEMPLATE } from '../lib/tiles';
 import { ZONES } from '../data/catalog';
-import { LatLng, plumePolygon, regionFor } from '../lib/geo';
+import { LatLng, plumePolygon, regionFor, ringPolygon } from '../lib/geo';
 import { C, F } from '../theme';
 
 export type ZoneMapHandle = { frame: (radiusM: number) => void };
@@ -43,8 +43,8 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
   const local = offline && mapType === 'satellite' && hasOfflineTiles();
 
   const plume = plumePolygon(fire, plumeHeading, plumeHalfDeg, plumeLenM).map(ll);
-  // Apple Maps doesn't redraw a circle when its centre changes — a new key forces the rings to move with the fire.
-  const k = `${fire.lat.toFixed(6)},${fire.lng.toFixed(6)},${Math.round(plumeHeading)},${plumeLenM}`;
+  // Rings are polygons with fixed keys: moving the fire updates the same shapes (no leftover second set).
+  const ring = (m: number) => ringPolygon(fire, m).map(ll);
 
   return (
     <View style={{ height, borderRadius: 10, overflow: 'hidden' }}>
@@ -64,11 +64,11 @@ export const ZoneMap = forwardRef<ZoneMapHandle, Props>(function ZoneMap(
         onPress={tapToPlace ? (e) => { const c = e.nativeEvent.coordinate; if (c) onMoveFire({ lat: c.latitude, lng: c.longitude }); } : undefined}
       >
         {local && <LocalTile pathTemplate={TILE_PATH_TEMPLATE} tileSize={256} zIndex={-1} />}
-        <Polygon key={`p${k}`} coordinates={plume} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />
-        <Circle key={`cold-${k}`} center={ll(fire)} radius={ZONES.cold_m} strokeColor={C.cold} strokeWidth={2.5} fillColor="rgba(0,0,0,0)" />
-        <Circle key={`warm-${k}`} center={ll(fire)} radius={ZONES.warm_m} strokeColor={C.warm} strokeWidth={2.5} fillColor={rgba(C.warm, 0.08)} />
-        <Circle key={`hot-${k}`} center={ll(fire)} radius={ZONES.hot_m} strokeColor={C.hot} strokeWidth={3} fillColor={rgba(C.hot, 0.15)} />
-        <Circle key={`quarantine-${k}`} center={ll(fire)} radius={ZONES.quarantine_m} strokeColor={C.gold} strokeWidth={2} lineDashPattern={[6, 5]} fillColor="rgba(0,0,0,0)" />
+        <Polygon key="plume" coordinates={plume.length > 2 ? plume : ring(1)} fillColor={rgba(C.plume, 0.45)} strokeColor={C.hot} strokeWidth={1} />
+        <Polygon key="cold" coordinates={ring(ZONES.cold_m)} strokeColor={C.cold} strokeWidth={2.5} fillColor="rgba(0,0,0,0)" />
+        <Polygon key="warm" coordinates={ring(ZONES.warm_m)} strokeColor={C.warm} strokeWidth={2.5} fillColor={rgba(C.warm, 0.08)} />
+        <Polygon key="hot" coordinates={ring(ZONES.hot_m)} strokeColor={C.hot} strokeWidth={3} fillColor={rgba(C.hot, 0.15)} />
+        <Polygon key="quarantine" coordinates={ring(ZONES.quarantine_m)} strokeColor={C.gold} strokeWidth={2} lineDashPattern={[6, 5]} fillColor="rgba(0,0,0,0)" />
 
         <Marker
           coordinate={ll(fire)} draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}

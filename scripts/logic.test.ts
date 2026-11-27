@@ -330,3 +330,14 @@ test('Map tiles: slippy-map maths and counts', () => {
   assert.ok(n > 300 && n < 2000, String(n));
   const k = boxKm(b); assert.ok(k.w > 13 && k.w < 15 && k.h > 10 && k.h < 12);
 });
+
+import { ringPolygon } from '../src/lib/geo.ts';
+test('Zone rings: every point sits on the radius', () => {
+  const c = { lat: 33.2, lng: -117.3 };
+  const pts = ringPolygon(c, 100);
+  assert.equal(pts.length, 72);
+  for (const p of pts) {
+    const dy = (p.lat - c.lat) * 111_320, dx = (p.lng - c.lng) * 111_320 * Math.cos((c.lat * Math.PI) / 180);
+    assert.ok(Math.abs(Math.hypot(dx, dy) - 100) < 1.5);
+  }
+});
