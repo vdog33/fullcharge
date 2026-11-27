@@ -23,6 +23,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
       - name: Send an existing build to TestFlight
         if: ${{ github.event.inputs.submit_build_id != '' }}
         run: |
@@ -35,8 +36,6 @@ jobs:
             sleep 30
           done
           eas submit -p ios --id "$ID" --non-interactive
-      - run: npm ci
-        if: ${{ github.event.inputs.submit_build_id == '' }}
       - run: npx tsc --noEmit
         if: ${{ github.event.inputs.submit_build_id == '' }}
         continue-on-error: true # report type problems, don't block a build over them
