@@ -25,7 +25,7 @@ export default function GuidePage() {
   const [, force] = useReducer((x) => x + 1, 0);
   const [dl, setDl] = useState<{ done: number; total: number } | null>(null);
   const [dlMsg, setDlMsg] = useState('');
-  const [tab, setTab] = useState<TabKey>('Disable'); // on-scene order: disable first
+  const [tab, setTab] = useState<TabKey>('Cut'); // opens on the rescue sheet; tabs stay in on-scene order
   useEffect(() => { loadPacks().then(force); return subscribe(force); }, []);
   const guides = keys.split(',').filter(Boolean).map(getGuide).filter((g): g is NonNullable<typeof g> => !!g)
     .sort((a, b) => Number(b.docType === 'rescue_sheet') - Number(a.docType === 'rescue_sheet') || (b.yearFrom ?? 0) - (a.yearFrom ?? 0));

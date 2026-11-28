@@ -19,7 +19,7 @@ export default function VehicleScreen() {
   const { id, idAt } = useLocalSearchParams<{ id: string; idAt?: string }>();
   const r = useRouter();
   const v = getVehicle(id);
-  const [tab, setTab] = useState<TabKey>('Disable'); // on-scene order: disable first
+  const [tab, setTab] = useState<TabKey>('Cut'); // opens on the rescue sheet; tabs stay in on-scene order
   const { height: winH } = useWindowDimensions();
   const pageH = Math.round(winH * 0.62);
   useEffect(() => { if (v) logView('vehicle', v.id); }, [v?.id]);
