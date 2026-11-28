@@ -59,7 +59,10 @@ for (const gs_ of groups.values()) {
     todo.push(g);
   }
 }
-console.log(`${todo.length} guides for models with no separate rescue sheet.`);
+console.log(`${todo.length} guides for models with no separate rescue sheet${ONLY ? ` matching "${ONLY}"` : ''}.`);
+if (!todo.length) console.log(LOCAL ? '  (none found: check out\\downloaded.json lists it and its PDF is in out\\pdfs)' : '  (using the published list)');
+// A re-run redoes models that found nothing last time (the search got wider), not ones already found.
+for (const k of Object.keys(done)) if (!done[k].pages?.length) delete done[k];
 
 // Words on a cut-sheet / rescue-diagram page.
 const CUT_RE = /\bcut\b|do not cut|cut zone|cut loop|cutting|rescue sheet|high[- ]voltage (component|cable|battery|wiring)|HV (component|cable|battery)|component location|disconnect|service plug|airbag|inflator|reinforce|ultra[- ]high[- ]strength|12 ?v battery/gi;
@@ -73,19 +76,24 @@ async function pdfOf(g, tmp) {
   return p;
 }
 
-/** Pages most likely to be the cut sheet, by their words (picture-heavy pages with few words also count). */
+/** Pages to look at. Up to 60 pages: all of them (drawings are often pictures with no searchable words).
+ *  Longer guides: pages with cut words + picture-heavy pages (few words), max 36. */
 function candidatePages(pdf, tmp) {
   const dir = `${tmp}/txt`; mkdirSync(dir, { recursive: true });
   gs(['-sDEVICE=txtwrite', `-sOutputFile=${dir}/t%d.txt`, pdf]);
-  const pages = readdirSync(dir).map((f) => {
+  let pages = readdirSync(dir).map((f) => {
     const t = readFileSync(join(dir, f), 'utf8');
     const words = (t.match(/[A-Za-z]{3,}/g) ?? []).length;
     return { page: Number(f.match(/\d+/)[0]), hits: (t.match(CUT_RE) ?? []).length, words };
   });
-  if (pages.length <= 12) return pages.map((p) => p.page).sort((a, b) => a - b);
-  // Diagram pages: several cut words but not a wall of text.
-  const score = (p) => p.hits * 3 - Math.max(0, p.words - 250) / 60;
-  return pages.filter((p) => p.hits > 0).sort((a, b) => score(b) - score(a)).slice(0, 12).map((p) => p.page).sort((a, b) => a - b);
+  if (!pages.length) { // no text layer at all: count pages instead
+    const r = spawnSync(GS, ['-q', '-dNODISPLAY', '-dNOSAFER', '-c', `(${pdf.replace(/\\/g, '/')}) (r) file runpdfbegin pdfpagecount = quit`], { encoding: 'utf8', timeout: 60_000 });
+    const n = parseInt(String(r.stdout).trim(), 10) || 0;
+    pages = Array.from({ length: n }, (_, i) => ({ page: i + 1, hits: 0, words: 0 }));
+  }
+  if (pages.length <= 60) return { total: pages.length, pages: pages.map((p) => p.page).sort((a, b) => a - b) };
+  const score = (p) => p.hits * 3 + (p.words < 120 ? 4 : 0) - Math.max(0, p.words - 250) / 60;
+  return { total: pages.length, pages: pages.filter((p) => p.hits > 0 || p.words < 120).sort((a, b) => score(b) - score(a)).slice(0, 36).map((p) => p.page).sort((a, b) => a - b) };
 }
 
 async function pick(g, imgs, pages) {
@@ -144,17 +152,24 @@ for (const g of todo) {
   const label = `${g.make} ${g.model} ${g.years ?? ''}`.trim();
   try {
     const pdf = await pdfOf(g, tmp);
-    const cands = candidatePages(pdf, tmp);
-    if (!cands.length) { done[g.key] = { src: g.sha256, label, pages: [], why: 'no cut-sheet words in this guide' }; continue; }
-    const imgs = [];
-    for (const p of cands) {
-      const out = `${tmp}/lo${p}.png`;
-      gs(['-sDEVICE=png16m', '-r80', `-dFirstPage=${p}`, `-dLastPage=${p}`, '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${out}`, pdf]);
-      imgs.push(existsSync(out) ? await sharp(out).resize({ width: 1000, withoutEnlargement: true }).png().toBuffer() : Buffer.alloc(0));
+    const { total, pages: cands } = candidatePages(pdf, tmp);
+    console.log(`  ${label}: ${total} pages, looking at ${cands.length}`);
+    if (!cands.length) { done[g.key] = { src: g.sha256, label, pages: [], why: `could not read the guide (${total} pages)` }; continue; }
+    // Look in batches of 12 pages; keep every page Gemini calls a cut sheet (max 4).
+    const found = [], whys = [];
+    for (let b = 0; b < cands.length; b += 12) {
+      const batch = cands.slice(b, b + 12), imgs = [], ok = [];
+      for (const p of batch) {
+        const out = `${tmp}/lo${p}.png`;
+        gs(['-sDEVICE=png16m', '-r100', `-dFirstPage=${p}`, `-dLastPage=${p}`, '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${out}`, pdf]);
+        if (existsSync(out)) { imgs.push(await sharp(out).resize({ width: 1100, withoutEnlargement: true }).png().toBuffer()); ok.push(p); }
+      }
+      if (!imgs.length) continue;
+      const a = await pick(g, imgs, ok);
+      found.push(...a.pages); if (a.why) whys.push(a.why);
     }
-    const ok = cands.filter((_, i) => imgs[i].length);
-    const a = await pick(g, imgs.filter((b) => b.length), ok);
-    if (!a.pages.length) { done[g.key] = { src: g.sha256, label, pages: [], why: a.why || 'no diagram page found' }; continue; }
+    const a = { pages: [...new Set(found)].sort((x, y) => x - y).slice(0, 4), why: whys.join(' / ').slice(0, 200) };
+    if (!a.pages.length) { console.log(`    none found — ${a.why || 'no diagram page'}`); done[g.key] = { src: g.sha256, label, pages: [], why: a.why || 'no diagram page found' }; continue; }
     const id = `cut-${g.sha256.slice(0, 32)}`;
     rmSync(`out/img/${id}`, { recursive: true, force: true });
     const sets = await renderSets(pdf, a.pages, id, tmp);
