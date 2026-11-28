@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 import sharp from 'sharp';
 import { photoKey } from '../../src/lib/match-core.ts';
 import { loadGuides, PUBLIC_BASE } from './guides-source.mjs';
+import { geminiJSON, QuotaError } from './gemini.mjs';
 
 const KEY = process.env.GEMINI_API_KEY;
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
@@ -128,16 +129,7 @@ async function ask(gr, pngs) {
       },
     },
   };
-  for (let i = 0; i < 4; i++) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body), signal: AbortSignal.timeout(120000),
-    });
-    if (r.status === 429 || r.status >= 500) { await new Promise((res) => setTimeout(res, 4000 * (i + 1))); continue; }
-    if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 160)}`);
-    const out = await r.json();
-    return JSON.parse((out?.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? '').join(''));
-  }
-  throw new Error('Gemini busy — re-run later');
+  return geminiJSON({ key: KEY, model: MODEL, parts: body.contents[0].parts, schema: body.generationConfig.responseSchema });
 }
 
 let n = 0;
@@ -157,7 +149,10 @@ for (const [k, gr] of groups) {
       chem: a.chemistry, text: String(a.chemistry_text ?? '').slice(0, 100), page: a.chemistry_page ?? null,
       cell: String(a.cell_type ?? '').slice(0, 20), voltage: String(a.voltage_text ?? '').slice(0, 30), body: a.body,
     };
-  } catch (e) { failed.push(`${gr.label}: ${String(e.message).slice(0, 100)}`); }
+  } catch (e) {
+    if (e instanceof QuotaError) { console.log(`\n⚠ ${e.message}`); rmSync(tmp, { recursive: true, force: true }); break; }
+    failed.push(`${gr.label}: ${String(e.message).slice(0, 100)}`);
+  }
   rmSync(tmp, { recursive: true, force: true });
   if (n % 20 === 0) { console.log(`${n}/${groups.size}`); writeFileSync(CAND, JSON.stringify(cand, null, 1)); }
 }

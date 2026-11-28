@@ -17,6 +17,8 @@
     "pictures": "npm run logos:find && npm run guide:scan && npm run photos:find",
     "guide:scan": "node --experimental-strip-types guide-scan.mjs",
     "battery:scan": "node --experimental-strip-types battery-scan.mjs",
+    "erg:cutsheets": "node --experimental-strip-types erg-cutsheets.mjs",
+    "sections:scan": "node --experimental-strip-types sections-scan.mjs",
     "publish:extras": "node --experimental-strip-types publish-extras.mjs",
     "callouts:propose": "node --experimental-strip-types callouts.mjs propose",
     "callouts:review": "node --experimental-strip-types callouts.mjs review",

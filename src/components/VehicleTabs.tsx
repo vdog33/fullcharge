@@ -7,12 +7,17 @@ import { Btn, Card, Field, Muted, Notice, st } from './ui';
 import { IconName } from './Icon';
 import { SHARED_CONTACTS } from '../data/catalog';
 import { ergFor, ERG_GUIDE_PDF } from '../lib/chem-guide';
-import { Battery, CHEM_LABEL, Contact, Guide } from '../lib/match-core';
+import { Battery, CHEM_LABEL, Contact, Guide, SECTION_ISO, SectionKey } from '../lib/match-core';
+import { SheetZoom } from './SheetZoom';
 import { getGuide, loadPacks } from '../lib/packs';
 import { C, S } from '../theme';
 
-export type TabKey = 'Cut' | 'Chemistry' | 'Tow' | 'Contacts' | 'Notes' | 'Sheets';
-const TAB_ICON: Record<TabKey, IconName> = { Cut: 'cut', Chemistry: 'flask', Tow: 'truck', Contacts: 'phone', Notes: 'doc', Sheets: 'book' };
+/** Same tabs on every vehicle, in on-scene order (ISO 17840-3 sections behind them). Notes / Sheets aren't in the bar. */
+export type TabKey = 'Disable' | 'Cut' | 'Fire' | 'Water' | 'Contacts' | 'Battery' | 'Tow' | 'Notes' | 'Sheets';
+export const SCENE_TABS = ['Disable', 'Cut', 'Fire', 'Water', 'Contacts', 'Battery', 'Tow'] as const;
+const TAB_ICON: Record<TabKey, IconName> = {
+  Disable: 'power', Cut: 'cut', Fire: 'fire', Water: 'water', Contacts: 'phone', Battery: 'batt', Tow: 'truck', Notes: 'doc', Sheets: 'book',
+};
 
 /** Must be a direct child of <Screen> so it stays pinned (Screen looks for TabBar). */
 export const vehicleTabs = (keys: readonly TabKey[]) => keys.map((k) => ({ key: k, label: k, icon: TAB_ICON[k] }));
@@ -88,5 +93,31 @@ export function TowPanel({ tow, release, verified, onSheet }: { tow?: string; re
       </> : <Notice tone="info" icon="truck">No tow notes for this vehicle yet — use the towing section of the manufacturer guide.</Notice>}
       {onSheet && <Btn tone="neutral" icon="book" label="Manufacturer guide — towing section" onPress={onSheet} />}
     </View>
+  );
+}
+
+/** One ISO section of the maker's full guide — its key page, zoomable, offline. Nothing found → `empty`. */
+export function SectionPanel({ guides, sec, height, empty }: { guides: Guide[]; sec: SectionKey; height: number; empty?: React.ReactNode }) {
+  const g = guides.find((x) => x.sections?.[sec]);
+  if (!g) return <>{empty ?? null}</>;
+  const s = g.sections![sec]!;
+  // Show the section pages through the same viewer as a cut sheet (offline images from the rescue-sheet pack).
+  const view: Guide = { ...g, key: `${g.key}#${sec}`, docType: 'rescue_sheet', file: '', images: s.images, sections: undefined };
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={st.label}>{`Manufacturer guide · ${SECTION_ISO[sec]} · p. ${s.pages.join(', ')}`}</Text>
+      <SheetZoom guides={[view]} height={height} />
+    </View>
+  );
+}
+
+/** When a vehicle's guide has no page for a section: say so, and one tap to the whole guide. */
+export function NoSection({ guides, what }: { guides: Guide[]; what: string }) {
+  const full = guides.find((g) => g.docType !== 'rescue_sheet' && !g.fromErg);
+  return (
+    <Notice tone="info" title={`No ${what} page picked out for this vehicle yet`}
+      action={full ? <Btn size="sm" tone="outline" icon="book" label="Open the full guide" onPress={() => router.push(`/erg-pdf?kind=guide&id=${full.key}`)} /> : undefined}>
+      {full ? "It's in the manufacturer's full guide." : 'Check the cut sheet.'}
+    </Notice>
   );
 }

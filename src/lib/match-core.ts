@@ -25,7 +25,23 @@ export type Guide = {
   contacts?: Contact[];   // manufacturer phone lines read from this guide and approved on the PC (tools/nhtsa contacts)
   battery?: Battery;      // HV battery chemistry as printed on this sheet, approved on the PC (tools/nhtsa battery:scan)
   body?: Body;            // car / suv / truck / van / heavy (same pass)
+  fromErg?: { key: string; pages: number[] }; // cut sheet taken from these pages of a full guide (tools/nhtsa erg:cutsheets)
+  sections?: Partial<Record<SectionKey, GuideSection>>; // ISO 17840-3 sections of this full guide (tools/nhtsa sections:scan)
 };
+
+/** ISO 17840-3 emergency response guide sections, as FULLCHARGE uses them (tabs in on-scene order + the ID check).
+ *  disable = Immobilisation + Disable direct hazards · cut = Access to occupants · battery = Stored energy ·
+ *  fire = In case of fire · water = In case of submersion · tow = Towing / transport / storage · identify = Identification. */
+export type SectionKey = 'disable' | 'cut' | 'fire' | 'water' | 'battery' | 'tow' | 'identify';
+export const SECTION_ISO: Record<SectionKey, string> = {
+  disable: 'Immobilisation / disable direct hazards', cut: 'Access to occupants', fire: 'In case of fire',
+  water: 'In case of submersion', battery: 'Stored energy', tow: 'Towing / transport / storage', identify: 'Identification',
+};
+/** Key page(s) of one section, as images (offline, in the rescue-sheet pack). pages = page numbers in the guide. */
+export type GuideSection = { pages: number[]; images: Record<'200' | '300', { bytes: number; pages: PageImage[] }> };
+/** Every section image file a guide carries. */
+export const sectionFiles = (g: Pick<Guide, 'sections'>, set: '200' | '300'): PageImage[] =>
+  Object.values(g.sections ?? {}).flatMap((s) => s?.images[set].pages ?? []);
 
 export type Body = 'car' | 'suv' | 'truck' | 'van' | 'heavy';
 export const BODIES: { key: Body; label: string }[] = [
@@ -135,7 +151,11 @@ export function matchGuess(g: Guess, seed: SeedLite[], guides: Guide[]): MatchRe
     .find((v) => v.model.split('/').some((m) => modelMatches(g.model, m.trim(), g.powertrain)) &&
       (!v.type || v.type.includes('/') || ptCompatible(g.powertrain, v.type)) &&
       (() => { const y = parseYears(v.years); return yearsOverlap(g.yearFrom, g.yearTo, y.yearFrom, y.yearTo); })());
-  const sameModel = guides.filter((x) => normMake(x.make) === mk && modelMatches(g.model, x.model, g.powertrain) && ptCompatible(g.powertrain, x.powertrain));
+  const modelHits = guides.filter((x) => normMake(x.make) === mk && modelMatches(g.model, x.model, g.powertrain));
+  // Powertrain from a photo can be wrong (PHEV vs BEV look alike): if it rules out every sheet for this model,
+  // keep the model's sheets rather than showing nothing — the ERG note on the page still flags hybrids / hydrogen.
+  const ptHits = modelHits.filter((x) => ptCompatible(g.powertrain, x.powertrain));
+  const sameModel = ptHits.length ? ptHits : modelHits;
   // NHTSA often lists a sheet only under its newest model year (EQE "2026") though it covers earlier cars of the same
   // generation. No sheet for the exact years → show the closest years, and say so (yearsLoose) — never nothing.
   let gs = sameModel.filter((x) => yearsOverlap(g.yearFrom, g.yearTo, x.yearFrom, x.yearTo));

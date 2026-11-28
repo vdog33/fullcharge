@@ -55,6 +55,43 @@ for (const g of guides) {
   const y = yearsOk[g._pk];
   if (y?.from) { g.yearFrom = y.from; g.yearTo = y.to ?? null; g.years = y.to ? (y.to === y.from ? `${y.from}` : `${y.from}–${y.to}`) : `${y.from}–present`; }
 }
+// Cut sheets found INSIDE full guides (npm run erg:cutsheets) — only the pages you approved. Each becomes a normal
+// rescue-sheet entry (page images, offline, cut tab) for models NHTSA lists with no separate rescue sheet.
+const ergCut = existsSync('out/erg-cut.json') ? JSON.parse(readFileSync('out/erg-cut.json', 'utf8')) : {};
+const ergCutOk = existsSync('out/erg-cut-approved.json') ? JSON.parse(readFileSync('out/erg-cut-approved.json', 'utf8')) : {};
+let ergCutCount = 0;
+for (const g of [...ready]) {
+  const d = ergCut[g.key], keep = ergCutOk[g.key];
+  if (!d?.sets || d.src !== g.sha256 || !keep?.length) continue;
+  const idx = d.pages.map((p, i) => (keep.includes(p) ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) continue;
+  const sha = `${d.id}-p${idx.map((i) => d.pages[i]).join('-')}`;
+  const sets = {};
+  for (const dpi of ['200', '300']) { const pages = idx.map((i) => d.sets[dpi].pages[i]); sets[dpi] = { pages, bytes: pages.reduce((a, x) => a + x.bytes, 0) }; }
+  comp[sha] = { kind: 'images', pages: idx.length, sets };
+  ready.push({ ...g, key: `${g.key}~cut`, docType: 'rescue_sheet', sha256: sha, fromErg: { key: g.key, pages: idx.map((i) => d.pages[i]) } });
+  ergCutCount++;
+}
+// ISO 17840-3 sections you approved (npm run sections:scan): page images ride with the rescue sheets.
+const secs = existsSync('out/sections.json') ? JSON.parse(readFileSync('out/sections.json', 'utf8')) : {};
+const secsOk = existsSync('out/sections-approved.json') ? JSON.parse(readFileSync('out/sections-approved.json', 'utf8')) : {};
+const sectionsOf = (g) => {
+  const d = secs[g.key], keep = secsOk[g.key];
+  if (!d?.sections || d.src !== g.sha256 || !keep || g.fromErg) return {};
+  const out = {};
+  for (const [s, sec] of Object.entries(d.sections)) {
+    const idx = sec.pages.map((p, i) => ((keep[s] ?? []).includes(p) ? i : -1)).filter((i) => i >= 0);
+    if (!idx.length) continue;
+    const images = {};
+    for (const dpi of ['200', '300']) {
+      const pages = idx.map((i) => sec.sets[dpi].pages[i]);
+      images[dpi] = { bytes: pages.reduce((a, x) => a + x.bytes, 0), pages };
+      pages.forEach((x) => localFile.set(x.file, `out/${x.file}`));
+    }
+    out[s] = { pages: idx.map((i) => sec.pages[i]), images };
+  }
+  return Object.keys(out).length ? { sections: out } : {};
+};
 const photoOf = (g) => { const p = photos[pk(g)]; if (p) localFile.set(p.file, `out/${p.file}`); return p; };
 const items = ready.map((g) => {
   const r = comp[g.sha256];
@@ -65,6 +102,8 @@ const items = ready.map((g) => {
     contacts: contactsOf(g),
     battery: batteryOf(g),
     body: bodyOf(g),
+    ...(g.fromErg ? { fromErg: g.fromErg } : {}),
+    ...sectionsOf(g),
     vehicleId: matchGuess({ make: g.make, model: g.model, yearFrom: g.yearFrom, yearTo: g.yearTo, powertrain: g.powertrain }, seed, []).vehicleId,
   };
   if (r?.kind === 'images') {
@@ -114,6 +153,7 @@ const withPhoto = (pick) => (g) => [...pick(g), ...(g.photo ? [{ file: g.photo.f
 const orphans = rescueItems.filter((g) => g.docType !== 'rescue_sheet');
 console.log(`  ${orphans.length} vehicle entries have no rescue sheet — their full ERG goes in the rescue pack too.`);
 console.log(`  ${items.filter((g) => g.photo).length} entries have an approved photo.`);
+console.log(`  ${ergCutCount} cut sheets taken from inside full guides.`);
 console.log(`  ${items.filter((g) => g.battery).length} entries have approved battery chemistry, ${items.filter((g) => g.body).length} a body type.`);
 const bundles = {
   'rescue_sheet:200': buildBundles('rescue_sheet:200', setFiles(items.filter((g) => g.photo || rescueItems.includes(g)), (g) => (rescueItems.includes(g) ? withPhoto(pickFiles('200'))(g) : [g.photo]))),

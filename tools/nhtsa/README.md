@@ -49,6 +49,30 @@ npm run guide:scan            # crops the car off page 1–2 of every guide, lis
 The cropped car pictures then appear FIRST (pre-selected) on the photos review page below. Ticked numbers show on the
 vehicle's **Contacts** tab after `npm run publish`.
 
+## ISO 17840 sections → the app's tabs (Disable · Cut · Fire · Water · Contacts · Battery · Tow)
+Full guides follow ISO 17840-3: the same sections in the same order. This finds each section's key page in every full
+guide (by the standard headings; Gemini sorts the older non-standard ones) and ships it as an offline image:
+Disable = Immobilisation + Disable direct hazards · Cut = Access to occupants · Battery = Stored energy · Fire · Water =
+Submersion · Tow. Identification goes on the "Is this the right car?" check.
+```powershell
+$env:GEMINI_API_KEY = "..."   # only used for guides without the standard headings
+npm run sections:scan          # → out\sections-review.html: click any wrong page to drop it, Save approvals,
+#   move sections-approved.json into out\
+npm run publish:extras         # (or npm run publish on the PC with the scraped out\ folder)
+```
+`npm run sections:scan -- tesla` does one make (quick test).
+
+## Cut sheets inside full guides (E-ONE, Nissan Leaf, buses, work trucks…)
+About 88 models have no separate rescue sheet on NHTSA — their cut sheet is a page inside the full emergency response
+guide. This finds those pages and ships them as normal cut sheets (offline images, Cut tab), labelled with the page.
+```powershell
+$env:GEMINI_API_KEY = "..."
+npm run erg:cutsheets         # → out\erg-cut-review.html: green pages go in; click any wrong page to drop it,
+#   Save approvals, move erg-cut-approved.json into out\
+npm run publish               # or, on a PC without the scraped out\ folder: npm run publish:extras
+```
+`npm run erg:cutsheets -- e-one` does one make only (quick test).
+
 ## Battery chemistry + body type (approved by you)
 Reads the traction-battery chemistry exactly as each manufacturer printed it (rescue sheet + the battery pages of
 the full guide), the HV voltage, and the body type (car / SUV / truck / van / heavy). Chemistry picks the ERG guide in
