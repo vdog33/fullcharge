@@ -56,7 +56,7 @@ guide. This finds those pages and ships them as normal cut sheets (offline image
 $env:GEMINI_API_KEY = "..."
 npm run erg:cutsheets         # → out\erg-cut-review.html: green pages go in; click any wrong page to drop it,
 #   Save approvals, move erg-cut-approved.json into out\
-npm run publish
+npm run publish               # or, on a PC without the scraped out\ folder: npm run publish:extras
 ```
 `npm run erg:cutsheets -- e-one` does one make only (quick test).
 

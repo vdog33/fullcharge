@@ -1,4 +1,5 @@
-// Add approved photos, years and phone numbers to the cut-sheet list that's ALREADY on Supabase —
+// Add approved photos, years, phone numbers, battery chemistry / body type and cut sheets found inside full guides
+// to the cut-sheet list that's ALREADY on Supabase —
 // for a PC that doesn't have the original out\ folder (no re-scrape, no 4 GB download).
 //   $env:SUPABASE_URL=...; $env:SUPABASE_SERVICE_ROLE_KEY=...; npm run publish:extras
 import { existsSync, readFileSync } from 'node:fs';
@@ -28,10 +29,46 @@ for (const g of m.guides) {
   const y = years[k];
   if (y?.from) { g.yearFrom = y.from; g.yearTo = y.to ?? null; g.years = y.to ? (y.to === y.from ? `${y.from}` : `${y.from}–${y.to}`) : `${y.from}–present`; nY++; }
 }
+// Battery chemistry + body type (npm run battery:scan → battery-approved.json).
+const bat = existsSync('out/battery-approved.json') ? JSON.parse(readFileSync('out/battery-approved.json', 'utf8')) : {};
+const bodyByModel = new Map();
+for (const [k, b] of Object.entries(bat)) if (b?.body) bodyByModel.set(k.split('|').slice(0, 2).join('|'), b.body);
+let nB = 0, nBody = 0;
+for (const g of m.guides) {
+  const b = bat[g._pk];
+  if (b?.chem && b.chem !== 'not-stated') { g.battery = { chem: b.chem, ...(b.text ? { text: b.text } : {}), ...(b.cell ? { cell: b.cell } : {}), ...(b.voltage ? { voltage: b.voltage } : {}) }; nB++; }
+  const body = b?.body ?? bodyByModel.get(g._pk.split('|').slice(0, 2).join('|'));
+  if (body) { g.body = body; nBody++; }
+}
+// Cut sheets found INSIDE full guides (npm run erg:cutsheets → erg-cut-approved.json): each becomes a normal
+// rescue-sheet entry with page images. Re-running replaces the earlier ones.
+const ergCut = existsSync('out/erg-cut.json') ? JSON.parse(readFileSync('out/erg-cut.json', 'utf8')) : {};
+const ergCutOk = existsSync('out/erg-cut-approved.json') ? JSON.parse(readFileSync('out/erg-cut-approved.json', 'utf8')) : {};
+m.guides = m.guides.filter((g) => !g.fromErg);
+let nCut = 0;
+for (const g of [...m.guides]) {
+  if (g.docType === 'rescue_sheet') continue;
+  const d = ergCut[g.key], keep = ergCutOk[g.key];
+  if (!d?.sets || d.src !== g.sha256 || !keep?.length) continue;
+  const idx = d.pages.map((p, i) => (keep.includes(p) ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) continue;
+  const images = {};
+  for (const dpi of ['200', '300']) {
+    const pages = idx.map((i) => d.sets[dpi].pages[i]);
+    images[dpi] = { bytes: pages.reduce((a, x) => a + x.bytes, 0), pages };
+    pages.forEach((x) => uploads.set(x.file, `out/${x.file}`));
+  }
+  const pagesUsed = idx.map((i) => d.pages[i]);
+  m.guides.push({ ...g, key: `${g.key}~cut`, docType: 'rescue_sheet', file: '', sha256: `${d.id}-p${pagesUsed.join('-')}`,
+    bytes: images['200'].bytes, pages: idx.length, images, fromErg: { key: g.key, pages: pagesUsed } });
+  nCut++;
+}
+m.count = m.guides.length;
+console.log(`Battery chemistry on ${nB} entries · body type on ${nBody} · ${nCut} cut sheets from inside full guides.`);
 const now = new Date();
 m.version = now.toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{4})$/, '$1-$2');
 m.generatedAt = now.toISOString();
-console.log(`Photos on ${nP} entries · contacts on ${nC} · years fixed on ${nY}. ${uploads.size} photo files to upload.`);
+console.log(`Photos on ${nP} entries · contacts on ${nC} · years fixed on ${nY}. ${uploads.size} image files to upload.`);
 
 async function upload(path, body, type, upsert) {
   for (let i = 1; ; i++) {
