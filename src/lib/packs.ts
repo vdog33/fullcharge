@@ -12,7 +12,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { BACKEND_READY, SUPABASE_URL, USE_MOCKS } from '../config';
 import { DATA_VERSION, pdfUrl, VEHICLES } from '../data/catalog';
 import { getSettings } from './history';
-import { filesFor, Guide, PageImage, parseYears, rescuePackGuides, resolveLocal } from './match-core';
+import { filesFor, Guide, PageImage, parseYears, rescuePackGuides, resolveLocal, sectionFiles } from './match-core';
 import { Bundle, bundleKey, planDownload } from './bundle-core';
 
 export type PackId = 'core' | 'nhtsa-rescue' | 'nhtsa-erg' | 'maps';
@@ -262,7 +262,11 @@ function packFiles(id: NhtsaPack, m: Manifest): { file: string; bytes: number }[
     if (g.images) g.images[IMAGE_SET].pages.forEach((p) => u.set(p.file, p.bytes));
     else if (g.file) u.set(g.file, g.bytes || 0);
   }
-  if (id === 'nhtsa-rescue') for (const g of m.guides) if (g.photo) u.set(g.photo.file, g.photo.bytes);
+  if (id === 'nhtsa-rescue') for (const g of m.guides) {
+    if (g.photo) u.set(g.photo.file, g.photo.bytes);
+    // ISO section pages (Disable, Fire, Water, Battery, Tow…) ride with the rescue sheets: offline for every vehicle.
+    for (const p of sectionFiles(g, IMAGE_SET)) u.set(p.file, p.bytes);
+  }
   return [...u.entries()].map(([file, bytes]) => ({ file, bytes }));
 }
 
@@ -541,6 +545,7 @@ export async function downloadGuides(gs: Guide[], onProgress?: (done: number, to
     const id = packForDoc(g.docType);
     for (const f of guideFiles(g)) if (!hasAny(f) && !jobs.some((j) => j.file === f)) jobs.push({ id, file: f });
     if (g.photo && !hasAny(g.photo.file) && !jobs.some((j) => j.file === g.photo!.file)) jobs.push({ id: 'nhtsa-rescue', file: g.photo.file });
+    for (const p of sectionFiles(g, IMAGE_SET)) if (!hasAny(p.file) && !jobs.some((j) => j.file === p.file)) jobs.push({ id: 'nhtsa-rescue', file: p.file });
   }
   let done = 0, failed = 0;
   onProgress?.(0, jobs.length);

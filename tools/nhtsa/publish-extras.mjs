@@ -63,6 +63,30 @@ for (const g of [...m.guides]) {
     bytes: images['200'].bytes, pages: idx.length, images, fromErg: { key: g.key, pages: pagesUsed } });
   nCut++;
 }
+// ISO 17840-3 sections of each full guide (npm run sections:scan → sections-approved.json): Disable / Cut / Fire /
+// Water / Battery / Tow tabs + the ID check, as page images in the rescue-sheet pack.
+const secs = existsSync('out/sections.json') ? JSON.parse(readFileSync('out/sections.json', 'utf8')) : {};
+const secsOk = existsSync('out/sections-approved.json') ? JSON.parse(readFileSync('out/sections-approved.json', 'utf8')) : {};
+let nSec = 0;
+for (const g of m.guides) {
+  delete g.sections;
+  const d = secs[g.key], keep = secsOk[g.key];
+  if (!d?.sections || d.src !== g.sha256 || !keep) continue;
+  const out = {};
+  for (const [s, sec] of Object.entries(d.sections)) {
+    const idx = sec.pages.map((p, i) => ((keep[s] ?? []).includes(p) ? i : -1)).filter((i) => i >= 0);
+    if (!idx.length) continue;
+    const images = {};
+    for (const dpi of ['200', '300']) {
+      const pages = idx.map((i) => sec.sets[dpi].pages[i]);
+      images[dpi] = { bytes: pages.reduce((a, x) => a + x.bytes, 0), pages };
+      pages.forEach((x) => uploads.set(x.file, `out/${x.file}`));
+    }
+    out[s] = { pages: idx.map((i) => sec.pages[i]), images };
+  }
+  if (Object.keys(out).length) { g.sections = out; nSec++; }
+}
+console.log(`ISO sections on ${nSec} full guides.`);
 m.count = m.guides.length;
 console.log(`Battery chemistry on ${nB} entries · body type on ${nBody} · ${nCut} cut sheets from inside full guides.`);
 const now = new Date();

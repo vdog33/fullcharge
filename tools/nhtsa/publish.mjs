@@ -72,6 +72,26 @@ for (const g of [...ready]) {
   ready.push({ ...g, key: `${g.key}~cut`, docType: 'rescue_sheet', sha256: sha, fromErg: { key: g.key, pages: idx.map((i) => d.pages[i]) } });
   ergCutCount++;
 }
+// ISO 17840-3 sections you approved (npm run sections:scan): page images ride with the rescue sheets.
+const secs = existsSync('out/sections.json') ? JSON.parse(readFileSync('out/sections.json', 'utf8')) : {};
+const secsOk = existsSync('out/sections-approved.json') ? JSON.parse(readFileSync('out/sections-approved.json', 'utf8')) : {};
+const sectionsOf = (g) => {
+  const d = secs[g.key], keep = secsOk[g.key];
+  if (!d?.sections || d.src !== g.sha256 || !keep || g.fromErg) return {};
+  const out = {};
+  for (const [s, sec] of Object.entries(d.sections)) {
+    const idx = sec.pages.map((p, i) => ((keep[s] ?? []).includes(p) ? i : -1)).filter((i) => i >= 0);
+    if (!idx.length) continue;
+    const images = {};
+    for (const dpi of ['200', '300']) {
+      const pages = idx.map((i) => sec.sets[dpi].pages[i]);
+      images[dpi] = { bytes: pages.reduce((a, x) => a + x.bytes, 0), pages };
+      pages.forEach((x) => localFile.set(x.file, `out/${x.file}`));
+    }
+    out[s] = { pages: idx.map((i) => sec.pages[i]), images };
+  }
+  return Object.keys(out).length ? { sections: out } : {};
+};
 const photoOf = (g) => { const p = photos[pk(g)]; if (p) localFile.set(p.file, `out/${p.file}`); return p; };
 const items = ready.map((g) => {
   const r = comp[g.sha256];
@@ -83,6 +103,7 @@ const items = ready.map((g) => {
     battery: batteryOf(g),
     body: bodyOf(g),
     ...(g.fromErg ? { fromErg: g.fromErg } : {}),
+    ...sectionsOf(g),
     vehicleId: matchGuess({ make: g.make, model: g.model, yearFrom: g.yearFrom, yearTo: g.yearTo, powertrain: g.powertrain }, seed, []).vehicleId,
   };
   if (r?.kind === 'images') {

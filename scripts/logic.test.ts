@@ -352,3 +352,15 @@ test('ERG: chemistry printed on the maker sheet beats the powertrain guess', () 
   assert.deepEqual(ergFor('BEV', 'sodium-ion').guides, ['147']);
   assert.deepEqual(ergFor('BEV', 'lithium-metal').guides, ['138']);
 });
+
+import { sectionFiles } from '../src/lib/match-core.ts';
+test('ISO section images: every page of every section, per image set', () => {
+  const img = (f: string) => ({ file: f, w: 10, h: 10, bytes: 1 });
+  const g = { sections: {
+    disable: { pages: [4, 5], images: { '200': { bytes: 2, pages: [img('d4'), img('d5')] }, '300': { bytes: 2, pages: [img('D4'), img('D5')] } } },
+    fire: { pages: [9], images: { '200': { bytes: 1, pages: [img('f9')] }, '300': { bytes: 1, pages: [img('F9')] } } },
+  } };
+  assert.deepEqual(sectionFiles(g, '200').map((p) => p.file), ['d4', 'd5', 'f9']);
+  assert.deepEqual(sectionFiles(g, '300').map((p) => p.file), ['D4', 'D5', 'F9']);
+  assert.deepEqual(sectionFiles({}, '200'), []);
+});

@@ -10,6 +10,7 @@ import { ergFor } from '../lib/chem-guide';
 import { allReady, CarPhotoSrc, guideIndex, photoFor } from '../lib/packs';
 import { C, F, S } from '../theme';
 import { SheetThumb } from './SheetThumb';
+import { SectionPanel } from './VehicleTabs';
 
 export function MatchPicker({ candidates, accepted, onAccept, onNone, noneLabel = 'None of these — search', extra, note, title = 'Which car is it?' }: {
   candidates: Candidate[]; accepted?: string | null; onAccept: (c: Candidate) => void; onNone: () => void;
@@ -39,6 +40,8 @@ export function MatchPicker({ candidates, accepted, onAccept, onNone, noneLabel 
             <Bullets items={cur.checks.length ? cur.checks : cur.cues} />
           </Card>
         )}
+        {/* ISO "Identification" page of the maker's guide: badges, shapes, how to tell this model apart. */}
+        <SectionPanel guides={cur.guides} sec="identify" height={300} />
         <OnFile c={cur} />
         {dest
           ? <Btn big tone="red" icon="check" label="Accept — open rescue sheet" onPress={() => onAccept(cur)} />

@@ -26,7 +26,22 @@ export type Guide = {
   battery?: Battery;      // HV battery chemistry as printed on this sheet, approved on the PC (tools/nhtsa battery:scan)
   body?: Body;            // car / suv / truck / van / heavy (same pass)
   fromErg?: { key: string; pages: number[] }; // cut sheet taken from these pages of a full guide (tools/nhtsa erg:cutsheets)
+  sections?: Partial<Record<SectionKey, GuideSection>>; // ISO 17840-3 sections of this full guide (tools/nhtsa sections:scan)
 };
+
+/** ISO 17840-3 emergency response guide sections, as FULLCHARGE uses them (tabs in on-scene order + the ID check).
+ *  disable = Immobilisation + Disable direct hazards · cut = Access to occupants · battery = Stored energy ·
+ *  fire = In case of fire · water = In case of submersion · tow = Towing / transport / storage · identify = Identification. */
+export type SectionKey = 'disable' | 'cut' | 'fire' | 'water' | 'battery' | 'tow' | 'identify';
+export const SECTION_ISO: Record<SectionKey, string> = {
+  disable: 'Immobilisation / disable direct hazards', cut: 'Access to occupants', fire: 'In case of fire',
+  water: 'In case of submersion', battery: 'Stored energy', tow: 'Towing / transport / storage', identify: 'Identification',
+};
+/** Key page(s) of one section, as images (offline, in the rescue-sheet pack). pages = page numbers in the guide. */
+export type GuideSection = { pages: number[]; images: Record<'200' | '300', { bytes: number; pages: PageImage[] }> };
+/** Every section image file a guide carries. */
+export const sectionFiles = (g: Pick<Guide, 'sections'>, set: '200' | '300'): PageImage[] =>
+  Object.values(g.sections ?? {}).flatMap((s) => s?.images[set].pages ?? []);
 
 export type Body = 'car' | 'suv' | 'truck' | 'van' | 'heavy';
 export const BODIES: { key: Body; label: string }[] = [
