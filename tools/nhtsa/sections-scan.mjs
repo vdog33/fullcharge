@@ -19,6 +19,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import sharp from 'sharp';
 import { loadGuides, PUBLIC_BASE } from './guides-source.mjs';
+import { geminiJSON, QuotaError } from './gemini.mjs';
 
 const KEY = process.env.GEMINI_API_KEY;
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
@@ -101,44 +102,28 @@ function byHeadings(pages) {
   return out;
 }
 
-async function gemini(parts, schema) {
-  const body = { contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', responseSchema: schema } };
-  for (let i = 0; i < 4; i++) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body), signal: AbortSignal.timeout(180000),
-    });
-    if (r.status === 429 || r.status >= 500) { await new Promise((res) => setTimeout(res, 5000 * (i + 1))); continue; }
-    if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 160)}`);
-    const out = await r.json();
-    return JSON.parse((out?.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? '').join(''));
-  }
-  throw new Error('Gemini busy — re-run later');
-}
-
 /** No standard headings: Gemini sorts every page (guides up to 60 pages; longer ones: first 60). */
 async function byGemini(g, pdf, total, tmp) {
   if (!KEY) throw new Error('no standard headings and no GEMINI_API_KEY set');
   const pages = Array.from({ length: Math.min(total, 60) }, (_, i) => i + 1);
-  const label = {};
-  for (let b = 0; b < pages.length; b += 12) {
-    const batch = pages.slice(b, b + 12), parts = [], ok = [];
-    for (const p of batch) {
-      const out = `${tmp}/lo${p}.png`;
-      gs(['-sDEVICE=png16m', '-r80', `-dFirstPage=${p}`, `-dLastPage=${p}`, '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${out}`, pdf]);
-      if (!existsSync(out)) continue;
-      parts.push({ text: `Image = page ${p}` });
-      parts.push({ inline_data: { mime_type: 'image/png', data: (await sharp(out).resize({ width: 900, withoutEnlargement: true }).png().toBuffer()).toString('base64') } });
-      ok.push(p);
-    }
-    if (!ok.length) continue;
-    parts.push({ text: `These are pages of the ${g.make} ${g.model} manufacturer emergency response guide. Sort each page into the ISO 17840-3
+  // ONE request per guide (free-tier keys allow only a few a minute): every page, small.
+  const label = {}, parts = [], ok = [];
+  for (const p of pages) {
+    const out = `${tmp}/lo${p}.png`;
+    gs(['-sDEVICE=png16m', '-r72', `-dFirstPage=${p}`, `-dLastPage=${p}`, '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${out}`, pdf]);
+    if (!existsSync(out)) continue;
+    parts.push({ text: `Image = page ${p}` });
+    parts.push({ inline_data: { mime_type: 'image/jpeg', data: (await sharp(out).resize({ width: 640, withoutEnlargement: true }).jpeg({ quality: 70 }).toBuffer()).toString('base64') } });
+    ok.push(p);
+  }
+  if (!ok.length) throw new Error('could not render any page');
+  parts.push({ text: `These are pages of the ${g.make} ${g.model} manufacturer emergency response guide. Sort each page into the ISO 17840-3
 section it belongs to: identify (identification / recognising the vehicle), disable (immobilise, stabilise, lift, disable
 direct hazards, shut down the high-voltage system), cut (access to occupants, cut zones, extrication), battery (stored energy:
 high-voltage battery, fluids, gases), fire (in case of fire), water (in case of submersion), tow (towing, transport, storage),
 or none (cover, contents, legal, glossary, anything else). Use the page labels.` });
-    const a = await gemini(parts, { type: 'OBJECT', required: ['pages'], properties: { pages: { type: 'ARRAY', items: { type: 'OBJECT', required: ['page', 'section'], properties: { page: { type: 'INTEGER' }, section: { type: 'STRING', enum: [...SECTIONS, 'none'] } } } } } });
-    for (const x of a.pages ?? []) if (ok.includes(x.page) && x.section !== 'none') label[x.page] = x.section;
-  }
+  const a = await geminiJSON({ key: KEY, model: MODEL, parts, schema: { type: 'OBJECT', required: ['pages'], properties: { pages: { type: 'ARRAY', items: { type: 'OBJECT', required: ['page', 'section'], properties: { page: { type: 'INTEGER' }, section: { type: 'STRING', enum: [...SECTIONS, 'none'] } } } } } } });
+  for (const x of a.pages ?? []) if (ok.includes(x.page) && x.section !== 'none') label[x.page] = x.section;
   const out = {};
   for (const s of SECTIONS) {
     const ps = Object.entries(label).filter(([, v]) => v === s).map(([p]) => Number(p)).sort((a, b) => a - b).slice(0, KEEP[s]);
@@ -174,6 +159,8 @@ for (const g of todo) {
   n++;
   if (done[g.key]?.src === g.sha256) continue;
   const label = `${g.make} ${g.model} ${g.years ?? ''}`.trim();
+  const twin = Object.values(done).find((d) => d.src === g.sha256); // same PDF under another listing: reuse
+  if (twin) { done[g.key] = { ...twin, label }; continue; }
   const tmp = `out/tmp-sec/${n}`;
   rmSync(tmp, { recursive: true, force: true }); mkdirSync(tmp, { recursive: true });
   try {
@@ -187,7 +174,10 @@ for (const g of todo) {
     for (const [s, ps] of Object.entries(found)) { const sets = await render(pdf, id, s, ps, tmp); if (sets['200'].pages.length) sections[s] = { pages: ps, sets }; }
     done[g.key] = { src: g.sha256, label, method, total: pages.length, sections };
     console.log(`  ${label}: ${method} · ${SECTIONS.filter((s) => sections[s]).map((s) => `${s} p.${sections[s].pages.join('-')}`).join(' · ') || 'nothing found'}`);
-  } catch (e) { failed.push(`${label}: ${String(e.message).slice(0, 100)}`); }
+  } catch (e) {
+    if (e instanceof QuotaError) { console.log(`\n⚠ ${e.message}`); rmSync(tmp, { recursive: true, force: true }); break; }
+    failed.push(`${label}: ${String(e.message).slice(0, 100)}`);
+  }
   finally { rmSync(tmp, { recursive: true, force: true }); }
   if (n % 10 === 0) { console.log(`${n}/${todo.length}`); writeFileSync(OUT, JSON.stringify(done, null, 1)); }
 }

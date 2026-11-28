@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import sharp from 'sharp';
 import { photoKey } from '../../src/lib/match-core.ts';
 import { loadGuides, PUBLIC_BASE } from './guides-source.mjs';
+import { geminiJSON, QuotaError } from './gemini.mjs';
 
 const KEY = process.env.GEMINI_API_KEY;
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
@@ -98,27 +99,15 @@ function candidatePages(pdf, tmp) {
 
 async function pick(g, imgs, pages) {
   const parts = [];
-  imgs.forEach((b, i) => { parts.push({ text: `Image ${i + 1} = page ${pages[i]}` }); parts.push({ inline_data: { mime_type: 'image/png', data: b.toString('base64') } }); });
+  imgs.forEach((b, i) => { parts.push({ text: `Image ${i + 1} = page ${pages[i]}` }); parts.push({ inline_data: { mime_type: 'image/jpeg', data: b.toString('base64') } }); });
   parts.push({ text: `These pages are from the ${g.make} ${g.model} manufacturer's emergency response guide.
 Which pages are the vehicle's CUT SHEET / RESCUE DIAGRAM: a drawing or photo of THIS vehicle showing WHERE things are —
 high-voltage battery, orange HV cables, HV components, disconnects / service plugs / cut loops, 12 V battery, airbags or
 inflators, reinforced or no-cut zones? Not a page of text instructions, not a cover page, not a generic symbol legend alone.
-Return up to 3 page numbers (the "page N" labels), best first. Return an empty list if none of these pages is such a diagram.` });
-  const body = {
-    contents: [{ role: 'user', parts }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', required: ['pages'], properties: { pages: { type: 'ARRAY', items: { type: 'INTEGER' } }, why: { type: 'STRING' } } } },
-  };
-  for (let i = 0; i < 4; i++) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body), signal: AbortSignal.timeout(180000),
-    });
-    if (r.status === 429 || r.status >= 500) { await new Promise((res) => setTimeout(res, 5000 * (i + 1))); continue; }
-    if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 160)}`);
-    const out = await r.json();
-    const a = JSON.parse((out?.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? '').join(''));
-    return { pages: (a.pages ?? []).filter((p) => pages.includes(p)).slice(0, 3), why: String(a.why ?? '').slice(0, 160) };
-  }
-  throw new Error('Gemini busy — re-run later');
+Return up to 4 page numbers (the "page N" labels), best first. Return an empty list if none of these pages is such a diagram.` });
+  const a = await geminiJSON({ key: KEY, model: MODEL, parts,
+    schema: { type: 'OBJECT', required: ['pages'], properties: { pages: { type: 'ARRAY', items: { type: 'INTEGER' } }, why: { type: 'STRING' } } } });
+  return { pages: (a.pages ?? []).filter((p) => pages.includes(p)).slice(0, 4), why: String(a.why ?? '').slice(0, 160) };
 }
 
 /** Same output as compress.mjs makes for a rescue sheet: WebP per page, 300 dpi (iPad) + 200 dpi (iPhone). */
@@ -142,11 +131,14 @@ async function renderSets(pdf, pages, id, tmp) {
   return sets;
 }
 
-let n = 0;
+let n = 0, stopped = false;
 const failed = [];
 for (const g of todo) {
   n++;
   if (done[g.key]?.src === g.sha256) continue;
+  // Same PDF already read for another listing (e.g. one Audi guide covers 13 models): reuse it, no new request.
+  const twin = Object.values(done).find((d) => d.src === g.sha256);
+  if (twin) { done[g.key] = { ...twin, label: `${g.make} ${g.model} ${g.years ?? ''}`.trim(), make: g.make, model: g.model }; continue; }
   const tmp = `out/tmp-cut/${n}`;
   rmSync(tmp, { recursive: true, force: true }); mkdirSync(tmp, { recursive: true });
   const label = `${g.make} ${g.model} ${g.years ?? ''}`.trim();
@@ -155,27 +147,26 @@ for (const g of todo) {
     const { total, pages: cands } = candidatePages(pdf, tmp);
     console.log(`  ${label}: ${total} pages, looking at ${cands.length}`);
     if (!cands.length) { done[g.key] = { src: g.sha256, label, pages: [], why: `could not read the guide (${total} pages)` }; continue; }
-    // Look in batches of 12 pages; keep every page Gemini calls a cut sheet (max 4).
-    const found = [], whys = [];
-    for (let b = 0; b < cands.length; b += 12) {
-      const batch = cands.slice(b, b + 12), imgs = [], ok = [];
-      for (const p of batch) {
-        const out = `${tmp}/lo${p}.png`;
-        gs(['-sDEVICE=png16m', '-r100', `-dFirstPage=${p}`, `-dLastPage=${p}`, '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${out}`, pdf]);
-        if (existsSync(out)) { imgs.push(await sharp(out).resize({ width: 1100, withoutEnlargement: true }).png().toBuffer()); ok.push(p); }
-      }
-      if (!imgs.length) continue;
-      const a = await pick(g, imgs, ok);
-      found.push(...a.pages); if (a.why) whys.push(a.why);
+    // ONE request per guide: every candidate page, small (free-tier keys allow only a few requests a minute).
+    const imgs = [], ok = [];
+    for (const p of cands) {
+      const out = `${tmp}/lo${p}.png`;
+      gs(['-sDEVICE=png16m', '-r72', `-dFirstPage=${p}`, `-dLastPage=${p}`, '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', `-sOutputFile=${out}`, pdf]);
+      if (existsSync(out)) { imgs.push(await sharp(out).resize({ width: 640, withoutEnlargement: true }).jpeg({ quality: 70 }).toBuffer()); ok.push(p); }
     }
-    const a = { pages: [...new Set(found)].sort((x, y) => x - y).slice(0, 4), why: whys.join(' / ').slice(0, 200) };
+    if (!imgs.length) throw new Error('could not render any page');
+    const a = await pick(g, imgs, ok);
+    a.pages = [...new Set(a.pages)].sort((x, y) => x - y).slice(0, 4);
     if (!a.pages.length) { console.log(`    none found — ${a.why || 'no diagram page'}`); done[g.key] = { src: g.sha256, label, pages: [], why: a.why || 'no diagram page found' }; continue; }
     const id = `cut-${g.sha256.slice(0, 32)}`;
     rmSync(`out/img/${id}`, { recursive: true, force: true });
     const sets = await renderSets(pdf, a.pages, id, tmp);
     done[g.key] = { src: g.sha256, label, make: g.make, model: g.model, pages: a.pages, why: a.why, id, sets };
     console.log(`  ${label}: page ${a.pages.join(', ')}`);
-  } catch (e) { failed.push(`${label}: ${String(e.message).slice(0, 100)}`); }
+  } catch (e) {
+    if (e instanceof QuotaError) { console.log(`\n⚠ ${e.message}`); stopped = true; rmSync(tmp, { recursive: true, force: true }); break; }
+    failed.push(`${label}: ${String(e.message).slice(0, 100)}`);
+  }
   finally { rmSync(tmp, { recursive: true, force: true }); }
   if (n % 10 === 0) { console.log(`${n}/${todo.length}`); writeFileSync(OUT, JSON.stringify(done, null, 1)); }
 }
@@ -197,6 +188,6 @@ d.pages.forEach((p,i)=>{const e=document.createElement('div');e.className='pg'+(
 e.onclick=()=>{const s=new Set(A[k]||[]);s.has(p)?s.delete(p):s.add(p);A[k]=d.pages.filter(x=>s.has(x));e.className='pg'+(s.has(p)?'':' off');};l.appendChild(e);});}
 function save(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(A,null,1)]));a.download='erg-cut-approved.json';a.click();}</script>`);
 
-console.log(`\nFound cut-sheet pages for ${rows.length} guides; none for ${none.length}.`);
+console.log(`\nFound cut-sheet pages for ${rows.length} guides; none for ${none.length}.${stopped ? ` Stopped early — ${todo.length - Object.keys(done).length} still to do: run the same command again.` : ''}`);
 console.log('Next: open out\\erg-cut-review.html, drop any wrong page, Save approvals, move erg-cut-approved.json into out\\, npm run publish.');
 if (failed.length) console.log(`Failed (${failed.length}):\n  ${failed.slice(0, 30).join('\n  ')}`);
